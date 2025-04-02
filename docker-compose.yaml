@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:5173"
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+      VITE_DISCORD_CLIENT_ID: ${VITE_DISCORD_CLIENT_ID}
+      VITE_DISCORD_CLIENT_SECRET: ${VITE_DISCORD_CLIENT_SECRET}
+      VITE_DISCORD_OAUTH2_URL: ${VITE_DISCORD_OAUTH2_URL}
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: mysql+aiomysql://${DB_ROOT}:${DB_ROOT_PASSWORD}@db:3306/${DB_DATABASE}
+    ports:
+      - "8000:8000"
+    command: >
+      /bin/sh -c "
+        alembic upgrade head;
+        python app/start.py
+      "
+
+  db:
+    image: mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -u ${DB_USER} -p${DB_PASSWORD} -e 'SHOW DATABASES LIKE \"${DB_DATABASE}\";'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql-data:
