@@ -10,6 +10,7 @@ import SignUpForm from "./modules/Header/SignUpForm.tsx";
 import Board from "./modules/Community/index.tsx";
 import BoardView from "./modules/Community/BoardView.tsx";
 import BingoQR from "./modules/Bingo/BingoQR.tsx";
+import BingoGame from "./modules/Bingo/BingoGame.tsx";
 import { Container, CssBaseline } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 
@@ -28,6 +29,7 @@ function App() {
             <Route path="/runner" element={<Test />} />
             <Route path="/community/*" element={<Board />} />
             <Route path="/bingo" element={<Bingo />} />
+            <Route path="/bingo-test" element={<BingoGame />} />
             <Route path="/signup" element={<SignUpForm />} />
             <Route path="/bingo_qr/:id" element={<BingoQR />} />
             {/* <Route path="/posts" component={Posts} />
