@@ -14,7 +14,13 @@ async def lifespan(app: FastAPI):
     # Clean up the ML models and release the resources
 
 
-app = FastAPI(lifespan=lifespan)
+# Swagger UI와 OpenAPI 경로를 Nginx 설정에 맞게 수정
+app = FastAPI(
+    lifespan=lifespan,
+    docs_url="/docs",          # Swagger UI 경로
+    openapi_url="/openapi.json" # OpenAPI 스펙 경로
+)
+
 app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
