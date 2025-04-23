@@ -70,10 +70,24 @@ const BingoGame = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [historyFilter, setHistoryFilter] = useState('all');
   const [lastSelectedCell, setLastSelectedCell] = useState<number | null>(null);
+  // 빙고 라인 애니메이션을 위한 상태
   const [animateLines, setAnimateLines] = useState(false);
+  // 새로운 빙고 라인이 발견되었는지 확인하기 위한 상태
+  const [newBingoFound, setNewBingoFound] = useState(false);
   const [initialSetupOpen, setInitialSetupOpen] = useState(true);
   const [tempUsername, setTempUsername] = useState('사용자 이름');
   const [selectedInitialKeywords, setSelectedInitialKeywords] = useState<string[]>([]);
+  // 빙고 라인의 셀들을 추적하기 위한 상태
+  const [bingoLineCells, setBingoLineCells] = useState<number[]>([]);
+  // 현재 애니메이션 효과가 적용되는 셀들
+  const [animatedCells, setAnimatedCells] = useState<number[]>([]);
+  // 컨페티 상태
+  const [showConfetti, setShowConfetti] = useState(false);
+  // 새로운 빙고 라인에 추가된 셀을 추적하기 위한 상태
+  const [newBingoCells, setNewBingoCells] = useState<number[]>([]);
+  // 애니메이션 적용 상태를 관리
+  const [cellsToAnimate, setCellsToAnimate] = useState<{[key: number]: boolean}>({});
+  const [hasShownConfetti, setHasShownConfetti] = useState(false);
 
   // 기본 셀 값 생성 함수
   function getDefaultCellValue(index: number): string {
@@ -100,14 +114,6 @@ const BingoGame = () => {
     
     setInitialSetupOpen(false);
     showAlert('키워드가 설정되었습니다!');
-
-    // 내 빙고 업데이트 -> 내 키워드는 빙고에 포함 안되는 것으로 해서 주석 처리
-    // selectedInitialKeywords.map((keyword) => {
-    //   const boardItemIndex = bingoBoard.findIndex(item => item.value === keyword);
-    //   const newBoard = [...bingoBoard];
-    //   newBoard[boardItemIndex].marked = true;
-    //   setBingoBoard(newBoard);
-    // })
   };
 
   // 초기 키워드 선택 토글
@@ -130,30 +136,99 @@ const BingoGame = () => {
     setOpponentKeyword('');
   };
 
+  // 빙고 라인에 해당하는 모든 셀의 인덱스 배열을 반환하는 함수
+  const getCellsInLine = (type: string, index: number): number[] => {
+    const cells: number[] = [];
+    
+    if (type === 'row') {
+      for (let col = 0; col < 5; col++) {
+        cells.push(index * 5 + col);
+      }
+    } else if (type === 'col') {
+      for (let row = 0; row < 5; row++) {
+        cells.push(row * 5 + index);
+      }
+    } else if (type === 'diagonal' && index === 1) {
+      for (let i = 0; i < 5; i++) {
+        cells.push(i * 5 + i);
+      }
+    } else if (type === 'diagonal' && index === 2) {
+      for (let i = 0; i < 5; i++) {
+        cells.push(i * 5 + (4 - i));
+      }
+    }
+    
+    return cells;
+  };
+
   // 빙고 라인 체크
   useEffect(() => {
-    const previousBingoCount = bingoCount;
-    checkBingoLines();
+    // Calculate new bingo lines (not previously completed)
+    const newLines = completedLines.filter(
+      newLine =>
+        !bingoLineCells.some(cell =>
+          getCellsInLine(newLine.type, newLine.index).every(lineCell => bingoLineCells.includes(lineCell))
+        )
+    );
+  
+    // Collect cells from the new lines only
+    const newCells: number[] = [];
+    newLines.forEach(line => {
+      newCells.push(...getCellsInLine(line.type, line.index));
+    });
+  
+    const uniqueNewCells = [...new Set(newCells)];
     
-    // If we detect a new bingo, trigger animation
-    if (bingoCount > previousBingoCount && lastSelectedCell !== null) {
-      setAnimateLines(true);
-      setTimeout(() => setAnimateLines(false), 1500);
+    if (uniqueNewCells.length > 0) {
+      setNewBingoCells(uniqueNewCells);
+      setAnimatedCells(uniqueNewCells);
+      setNewBingoFound(true);
+      showAlert('빙고 한 줄을 완성했습니다! 🎉');
+      if (!hasShownConfetti && bingoCount >= bingoMissionCount) {
+        setShowConfetti(true);
+        setHasShownConfetti(true);
+      }
+  
+      // Clear animation after some time
+      setTimeout(() => {
+        setAnimatedCells([]);
+        setNewBingoCells([]);
+        setNewBingoFound(false);
+        setShowConfetti(false);
+        setShowConfetti(false);
+      }, 3000);
     }
+  
+    // Update all cells in bingo lines
+    const allCellsFromLines: number[] = [];
+    completedLines.forEach(line => {
+      allCellsFromLines.push(...getCellsInLine(line.type, line.index));
+    });
+  
+    const uniqueAllCells = [...new Set(allCellsFromLines)];
+    setBingoLineCells(uniqueAllCells);
+  }, [completedLines, bingoCount]);
+  
+  useEffect(() => {
+    checkBingoLines();
   }, [bingoBoard]);
 
   // 빙고 라인 체크 함수
   const checkBingoLines = () => {
     const newCompletedLines: CompletedLine[] = [];
     let newBingoCount = 0;
-    
+
     // 가로 줄 체크
     for (let row = 0; row < 5; row++) {
-      const isRowComplete = Array(5).fill(null).every((_, col) => 
-        bingoBoard[row * 5 + col].marked
-      );
+      let rowComplete = true;
+      for (let col = 0; col < 5; col++) {
+        if (!bingoBoard[row * 5 + col].marked) {
+          rowComplete = false;
+          break;
+        }
+      }
       
-      if (isRowComplete) {
+      if (rowComplete) {
         newCompletedLines.push({ type: 'row', index: row });
         newBingoCount++;
       }
@@ -161,32 +236,44 @@ const BingoGame = () => {
     
     // 세로 줄 체크
     for (let col = 0; col < 5; col++) {
-      const isColComplete = Array(5).fill(null).every((_, row) => 
-        bingoBoard[row * 5 + col].marked
-      );
+      let colComplete = true;
+      for (let row = 0; row < 5; row++) {
+        if (!bingoBoard[row * 5 + col].marked) {
+          colComplete = false;
+          break;
+        }
+      }
       
-      if (isColComplete) {
+      if (colComplete) {
         newCompletedLines.push({ type: 'col', index: col });
         newBingoCount++;
       }
     }
     
     // 대각선 체크 (좌상단 -> 우하단)
-    const isDiagonal1Complete = Array(5).fill(null).every((_, i) => 
-      bingoBoard[i * 5 + i].marked
-    );
+    let diagonal1Complete = true;
+    for (let i = 0; i < 5; i++) {
+      if (!bingoBoard[i * 5 + i].marked) {
+        diagonal1Complete = false;
+        break;
+      }
+    }
     
-    if (isDiagonal1Complete) {
+    if (diagonal1Complete) {
       newCompletedLines.push({ type: 'diagonal', index: 1 });
       newBingoCount++;
     }
     
     // 대각선 체크 (우상단 -> 좌하단)
-    const isDiagonal2Complete = Array(5).fill(null).every((_, i) => 
-      bingoBoard[i * 5 + (4 - i)].marked
-    );
+    let diagonal2Complete = true;
+    for (let i = 0; i < 5; i++) {
+      if (!bingoBoard[i * 5 + (4 - i)].marked) {
+        diagonal2Complete = false;
+        break;
+      }
+    }
     
-    if (isDiagonal2Complete) {
+    if (diagonal2Complete) {
       newCompletedLines.push({ type: 'diagonal', index: 2 });
       newBingoCount++;
     }
@@ -296,9 +383,10 @@ const BingoGame = () => {
     const isMarked = bingoBoard[index].marked;
     const isInCompletedLine = isCellInCompletedLine(index);
     const isLastSelected = index === lastSelectedCell;
+    const isNewBingoCell = newBingoCells.includes(index);
     
     // Base styles
-    const baseStyle = {
+    const baseStyle: any = {
       position: 'relative',
       aspectRatio: '1/1',
       display: 'flex',
@@ -314,18 +402,35 @@ const BingoGame = () => {
       }
     };
     
-    // Selection styles
-    if (isMarked) {
+    // Animation styles - only apply to new bingo cells
+    if (isNewBingoCell) {
+      baseStyle.animation = 'pulse 1.5s infinite';
+      baseStyle['@keyframes pulse'] = {
+        '0%': { boxShadow: '0 0 0 0 rgba(76, 175, 80, 0.7)', transform: 'scale(1)', bgcolor: 'rgba(76, 175, 80, 0.6)' },
+        '50%': { boxShadow: '0 0 0 8px rgba(76, 175, 80, 0)', transform: 'scale(1.05)', bgcolor: 'rgba(76, 175, 80, 0.9)' },
+        '100%': { boxShadow: '0 0 0 0 rgba(76, 175, 80, 0)', transform: 'scale(1)', bgcolor: 'rgba(76, 175, 80, 0.6)' }
+      };
+      baseStyle.bgcolor = '#4CAF50';
+      baseStyle.border = '2px solid #2E7D32';
+      baseStyle.boxShadow = '0 0 8px rgba(76, 175, 80, 0.8)';
+      baseStyle.fontWeight = 'bold';
+      baseStyle.color = 'white';
+      baseStyle.zIndex = 2;
+    }
+    // Normal styles for cells that are not part of new bingo lines
+    else if (isMarked) {
       if (isInCompletedLine) {
-        // Bingo line complete style
+        // Already completed bingo line cells - no animation
         return {
           ...baseStyle,
-          bgcolor: 'rgba(33, 112, 154, 0.4)',
-          border: '2px #21709A solid',
-          boxShadow: isLastSelected ? 3 : 1,  
+          bgcolor: '#4CAF50',
+          border: '2px solid #2E7D32',
+          color: 'white',
+          fontWeight: 'bold',
+          boxShadow: isLastSelected ? 3 : 1,
         };
       } else {
-        // Just marked style
+        // Regular marked cells
         return {
           ...baseStyle,
           bgcolor: '#FFF8E0',
@@ -334,13 +439,13 @@ const BingoGame = () => {
         };
       }
     } else {
-      // Unmarked style
+      // Unmarked cells
       return {
         ...baseStyle,
         bgcolor: 'white',
-        // borderColor: 'black',
       };
     }
+    return baseStyle;
   };
 
   // 기록 필터 변경 핸들러
@@ -470,7 +575,8 @@ const BingoGame = () => {
             height: 8,
             bgcolor: 'grey.200',
             '& .MuiLinearProgress-bar': {
-              bgcolor: bingoCount >= bingoMissionCount ? 'success.main' : 'warning.main'
+              bgcolor: bingoCount >= bingoMissionCount ? 'success.main' : 'warning.main',
+              transition: newBingoFound ? 'width 1s ease-in-out' : undefined
             }
           }}
         />
@@ -480,7 +586,7 @@ const BingoGame = () => {
       </Paper>
       
       {/* 빙고 보드 */}
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ mb: 2, position: 'relative' }}>
         <Grid container spacing={1}>
           {bingoBoard.map((cell, index) => (
             <Grid item xs={2.4} key={cell.id}>
@@ -490,15 +596,22 @@ const BingoGame = () => {
                 sx={getCellStyle(index)}
               >
                 <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="caption" fontWeight="medium" sx={{ 
-                    display: 'block', 
-                    mb: 0.5, 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis', 
-                    whiteSpace: 'nowrap', 
-                    width: '100%',
-                    color: cell.marked ? (isCellInCompletedLine(index) ? 'amber.800' : 'primary.800') : 'text.primary'
-                  }}>
+                  <Typography 
+                    variant="caption" 
+                    fontWeight={animatedCells.includes(index) ? "bold" : "medium"} 
+                    sx={{ 
+                      display: 'block', 
+                      mb: 0.5, 
+                      overflow: 'hidden', 
+                      textOverflow: 'ellipsis', 
+                      whiteSpace: 'nowrap', 
+                      width: '100%',
+                      color: cell.marked ? 
+                        (animatedCells.includes(index) ? 'white' : 
+                        (isCellInCompletedLine(index) ? 'amber.800' : 'primary.800')) 
+                        : 'text.primary'
+                    }}
+                  >
                     {cell.value}
                   </Typography>
                 </Box>
@@ -522,7 +635,105 @@ const BingoGame = () => {
             </Grid>
           ))}
         </Grid>
+        
+        {/* 빙고 라인 애니메이션 - 실선 */}
+        {newBingoFound && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: 'none',
+              zIndex: 10
+            }}
+          >
+            {completedLines.map((line, lineIndex) => {
+              // 라인의 시작점과 끝점 계산 - 박스의 중앙에서 시작하고 끝나도록 수정
+              let startX, startY, endX, endY;
+              const cellsInLine = getCellsInLine(line.type, line.index);
+
+              // Only draw line if *all* cells in this line are part of new bingo cells
+              const isNewLine = cellsInLine.every(cell => newBingoCells.includes(cell));
+              
+              if (!isNewLine) return null;
+              
+              if (line.type === 'row') {
+                // 열 라인: 왼쪽 중앙에서 오른쪽 중앙으로
+                startX = '2%';  // 첫 번째 셀의 중앙 x좌표
+                startY = `${line.index * 20 + 10}%`;  // 행의 중앙 y좌표
+                endX = '98%';    // 마지막 셀의 중앙 x좌표
+                endY = `${line.index * 20 + 10}%`;  // 행의 중앙 y좌표
+              } else if (line.type === 'col') {
+                // 행 라인: 상단 중앙에서 하단 중앙으로
+                startX = `${line.index * 20 + 10}%`;  // 열의 중앙 x좌표
+                startY = '3%';  // 첫 번째 셀의 중앙 y좌표
+                endX = `${line.index * 20 + 10}%`;  // 열의 중앙 x좌표
+                endY = '98%';    // 마지막 셀의 중앙 y좌표
+              } else if (line.type === 'diagonal' && line.index === 1) {
+                // 주 대각선: 좌상단 셀 중앙에서 우하단 셀 중앙으로
+                startX = '2%';
+                startY = '3%';
+                endX = '97%';
+                endY = '97%';
+              } else if (line.type === 'diagonal' && line.index === 2) {
+                // 부 대각선: 우상단 셀 중앙에서 좌하단 셀 중앙으로
+                startX = '97%';
+                startY = '3%';
+                endX = '2%';
+                endY = '98%';
+              }
+              
+              // 애니메이션 중인 라인만 표시
+              if (animatedCells.length > 0 && getCellsInLine(line.type, line.index).some(cell => animatedCells.includes(cell))) {
+                return (
+                  <svg
+                    key={`line-${lineIndex}`}
+                    width="100%"
+                    height="100%"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      zIndex: 5
+                    }}
+                  >
+                    <line
+                      x1={startX}
+                      y1={startY}
+                      x2={endX}
+                      y2={endY}
+                      stroke="red"
+                      strokeWidth="5"
+                      strokeLinecap="round"
+                      style={{
+                        strokeDasharray: '1000',
+                        strokeDashoffset: '1000',
+                        animation: 'drawLine 1s forwards'
+                      }}
+                    />
+                  </svg>
+                );
+              }
+              return null;
+            })}
+          </Box>
+        )}
       </Box>
+
+      {/* 애니메이션 스타일 추가 */}
+      <style>{`
+        @keyframes drawLine {
+          to {
+            stroke-dashoffset: 0;
+          }
+        }
+        @keyframes fall {
+          0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+      `}</style>
       
       {/* 키워드 교환 입력 섹션 */}
       <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
@@ -548,17 +759,6 @@ const BingoGame = () => {
           </Button>
         </Box>
       </Paper>
-      {/* 키워드 교환 버튼 */}
-      {/* <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-        <Button 
-          variant="contained" 
-          color="warning"
-          onClick={handleOpenModal}
-          sx={{ px: 3, width: '150px'  }}
-        >
-          내 키워드 보내기
-        </Button>
-      </Box> */}
       
       {/* 기록 보기 버튼 */}
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
@@ -672,6 +872,56 @@ const BingoGame = () => {
           </Button>
         </DialogActions>
       </Dialog> */}
+
+      {showConfetti && (
+        <Box sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          zIndex: 9999
+        }}>
+          {Array.from({ length: 50 }).map((_, i) => {
+            const size = Math.random() * 10 + 5;
+            const left = Math.random() * 100;
+            const duration = Math.random() * 3 + 2;
+            const delay = Math.random() * 0.5;
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8000', '#8000ff'];
+            return (
+              <Box
+                key={i}
+                sx={{
+                  position: 'absolute',
+                  top: '-20px',
+                  left: `${left}%`,
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  bgcolor: colors[Math.floor(Math.random() * colors.length)],
+                  borderRadius: '50%',
+                  animation: `fall ${duration}s linear ${delay}s forwards`
+                }}
+              />
+            );
+          })}
+          <style>{`
+            @keyframes fall {
+              0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+              100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+            }
+            .animate-dash {
+              stroke-dashoffset: 100;
+              animation: dash 1s linear infinite;
+            }
+            @keyframes dash {
+              to {
+                stroke-dashoffset: 0;
+              }
+            }
+          `}</style>
+        </Box>
+      )}
       
       {/* 알림 */}
       <Snackbar 
