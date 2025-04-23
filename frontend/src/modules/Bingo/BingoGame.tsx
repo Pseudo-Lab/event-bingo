@@ -822,56 +822,6 @@ const BingoGame = () => {
           </Box>
         </Paper>
       )}
-      
-      {/* 키워드 교환 모달 */}
-      {/* <Dialog open={modalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
-        <DialogTitle>키워드 교환</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mb: 2, mt: 1 }}>
-            <Typography color="text.secondary" mb={1}>공유할 내 키워드</Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {myKeywords.map((keyword, index) => (
-                <Chip
-                  key={index}
-                  label={keyword}
-                  color="primary"
-                  variant="filled"
-                />
-              ))}
-            </Box>
-          </Box>   
-          <Box sx={{ mb: 2 }}>
-            <Typography color="text.secondary" mb={1}>상대방 키워드:</Typography>
-            <TextField
-              fullWidth
-              value={opponentKeyword}
-              onChange={(e) => setOpponentKeyword(e.target.value)}
-              placeholder="상대방의 키워드를 입력하세요"
-              size="small"
-            />
-          </Box>
-          <Box sx={{ mb: 2 }}>
-            <Typography color="text.secondary" mb={1}>상대방 아이디:</Typography>
-            <TextField
-              fullWidth
-              value={opponentId}
-              onChange={(e) => setOpponentId(e.target.value)}
-              placeholder="상대방의 아이디를 입력하세요"
-              size="small"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseModal}>취소</Button>
-          <Button 
-            onClick={handleExchange}
-            disabled={!opponentKeyword}
-            variant="contained"
-          >
-            교환하기
-          </Button>
-        </DialogActions>
-      </Dialog> */}
 
       {showConfetti && (
         <Box sx={{
