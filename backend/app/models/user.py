@@ -11,29 +11,33 @@ from zoneinfo import ZoneInfo
 class BingoUser(Base):
     __tablename__ = "bingo_user"
     user_id = mapped_column(Integer, primary_key=True, nullable=False)
-    username = mapped_column(String(100), nullable=False)
-    password = mapped_column(String(100), nullable=False)
+    user_email = mapped_column(String(100), nullable=False)
     created_at = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )
 
     @classmethod
-    async def create(cls, session: AsyncSession, username: str, password: str):
-        is_user = await session.execute(select(cls).where(cls.username == username))
+    async def create(cls, session: AsyncSession, email: str):
+        is_user = await session.execute(select(cls).where(cls.user_email == email))
         is_user = is_user.one_or_none()
         if is_user:
-            raise ValueError(f"{username}은 이미 존재하는 유저입니다. 다른 이름을 사용해주세요.")
-        new_user = BingoUser(username=username, password=password)
+            raise ValueError(f"{email}은 이미 존재하는 유저입니다. 다른 email을 사용해주세요.")
+        new_user = BingoUser(user_email=email)
         session.add(new_user)
         await session.commit()
         await session.refresh(new_user)
         return new_user
 
     @classmethod
-    async def get_user_by_name(cls, session: AsyncSession, username: str):
-        res = await session.execute(select(cls).where(cls.username == username))
-        user = res.scalars().first()
-        return user
+    async def get_user_by_email(cls, session, email: str):
+        res = await session.execute(select(cls).where(cls.user_email == email))
+        return res.scalar_one_or_none()
+
+    # @classmethod
+    # async def get_user_by_name(cls, session: AsyncSession, username: str):
+    #     res = await session.execute(select(cls).where(cls.username == username))
+    #     user = res.scalars().first()
+    #     return user
 
     @classmethod
     async def get_user_by_id(cls, session: AsyncSession, user_id: int):
@@ -49,8 +53,7 @@ class BingoUser(Base):
         if not res:
             raise ValueError(f"{user_id} 의 빙고 유저가 존재하지 않습니다.")
         return res
-
-
+    
 class User(Base):
     __tablename__ = "user"
 
