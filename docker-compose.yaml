@@ -7,7 +7,7 @@ services:
     ports:
       - "${FRONTEND_PORT}:80"
     environment:
-      - VITE_API_URL=/api
+      - VITE_API_URL=http://backend:${BACKEND_PORT}
     depends_on:
       - backend
 
@@ -21,7 +21,7 @@ services:
     environment:
       DB_URL: mysql+aiomysql://${DB_ROOT}:${DB_ROOT_PASSWORD}@db:${DB_PORT}/${DB_DATABASE}
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT}:8000"
     command: >
       /bin/sh -c "
         alembic upgrade head;
