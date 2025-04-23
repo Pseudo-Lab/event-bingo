@@ -1,70 +1,145 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Container, 
-  Box, 
-  Typography, 
-  Paper, 
-  Grid, 
-  Chip, 
-  Button, 
-  Modal, 
-  TextField,
-  LinearProgress,
-  IconButton,
-  Divider,
-  Card,
-  CardContent,
-  Alert,
-  Snackbar,
+import {
+  Box, Typography, Button, Grid, Paper, Chip, LinearProgress,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField,
+  Snackbar, Alert, Divider, Card, CardContent, ToggleButton, ToggleButtonGroup
 } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
-import StarIcon from '@mui/icons-material/Star';
+import logo from '../../assets/pseudo_lab_logo.png';
 
-// 빙고 셀 인터페이스
+// Define proper interfaces
 interface BingoCell {
   id: number;
   value: string;
   marked: boolean;
+  note?: string;
 }
 
-// 빙고 라인 인터페이스
 interface CompletedLine {
   type: string;
   index: number;
 }
 
-const BingoGame: React.FC = () => {
-  // 상태 관리
-  const [username, setUsername] = useState<string>('사용자 이름');
-  const [myKeywords, setMyKeywords] = useState<string[]>(['AI', 'Data Science', 'Data Engineering']);
-  const [bingoBoard, setBingoBoard] = useState<BingoCell[]>(
-    Array(25).fill(null).map((_, i) => ({
+interface ExchangeRecord {
+  id: number;
+  date: string;
+  person: string;
+  given: string[];
+  received: string;
+}
+
+const cellValues = [
+  '머신러닝 모델', '딥러닝 프레임워크', '자연어 처리', '컴퓨터 비전', '강화학습',
+  '데이터 시각화', '빅데이터 분석', '클라우드 컴퓨팅', '데이터베이스', '분산 시스템',
+  '파이썬과 최적화', '모델 배포', '알고리즘 개선', 'DevOps', '마이크로서비스',
+  '테스트 자동화', 'CI/CD', '코드 품질', '기술 스택 전환', '성능 최적화',
+  '인공지능 구축', '데이터 파이프라인', '보안 최적화', 'API 설계', '프로젝트 관리'
+];
+
+const BingoGame = () => {
+  const [username, setUsername] = useState('사용자 이름');
+  const [myKeywords, setMyKeywords] = useState<string[]>([]);
+  const shuffleArray = (array: string[]) => {
+    return [...array].sort(() => Math.random() - 0.5);
+  };
+  
+  const [bingoBoard, setBingoBoard] = useState<BingoCell[]>(() => {
+    const shuffledValues = shuffleArray(cellValues);
+    return Array(25).fill(null).map((_, i) => ({
       id: i,
-      value: `항목 ${i + 1}`,
-      marked: false
-    }))
-  );
-  const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState<boolean>(false);
-  const [opponentKeyword, setOpponentKeyword] = useState<string>('');
+      value: shuffledValues[i],
+      marked: false,
+      note: getCellNote(i)
+    }));
+  });
+  const [modalOpen, setModalOpen] = useState(false);
+  const [opponentKeyword, setOpponentKeyword] = useState('');
+  const [opponentId, setOpponentId] = useState('');
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
-  const [bingoCount, setBingoCount] = useState<number>(0);
-  const bingoMissionCount: number = 3;
-  const [alertOpen, setAlertOpen] = useState<boolean>(false);
-  const [alertMessage, setAlertMessage] = useState<string>('');
+  const [bingoCount, setBingoCount] = useState(0);
+  const bingoMissionCount = 3;
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [collectedKeywords, setCollectedKeywords] = useState(0);
+  const [metExperts, setMetExperts] = useState(0);
+  const [exchangeHistory, setExchangeHistory] = useState<ExchangeRecord[]>([
+    { id: 1, date: '2023.04.10', person: '김데이터 연구원', given: ['머신러닝 모델'], received: '데이터파이프라인 활용' },
+    { id: 2, date: '2023.04.05', person: '이백사 교수', given: ['빅데이터 분석'], received: '데이터 마이닝' },
+    { id: 3, date: '2023.03.28', person: '정분석가 이사', given: ['알고리즘 개선'], received: '인식 최적화' },
+    { id: 4, date: '2023.04.02', person: '박빅데이터 책임', given: ['빅데이터 분석'], received: '데이터 흐름 최적화' }
+  ]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState('all');
+  const [lastSelectedCell, setLastSelectedCell] = useState<number | null>(null);
+  const [animateLines, setAnimateLines] = useState(false);
+  const [initialSetupOpen, setInitialSetupOpen] = useState(true);
+  const [tempUsername, setTempUsername] = useState('사용자 이름');
+  const [selectedInitialKeywords, setSelectedInitialKeywords] = useState<string[]>([]);
+
+  // 기본 셀 값 생성 함수
+  function getDefaultCellValue(index: number): string {
+    return cellValues[index];
+  }
+
+  // 셀 노트 가져오기
+  function getCellNote(index: number): string | undefined {
+    return undefined;
+  }
+
+  // 첫 화면에서 키워드 선택 후 저장
+  const handleInitialSetup = () => {
+    if (tempUsername.trim() !== '') {
+      setUsername(tempUsername);
+    }
+    
+    if (selectedInitialKeywords.length > 0) {
+      setMyKeywords(selectedInitialKeywords);
+    } else {
+      // 선택된 키워드가 없는 경우 기본 키워드 설정
+      setMyKeywords(['AI', 'Data Science', 'Data Engineering', '개발', '커리어']);
+    }
+    
+    setInitialSetupOpen(false);
+    showAlert('키워드가 설정되었습니다!');
+
+    // 내 빙고 업데이트 -> 내 키워드는 빙고에 포함 안되는 것으로 해서 주석 처리
+    // selectedInitialKeywords.map((keyword) => {
+    //   const boardItemIndex = bingoBoard.findIndex(item => item.value === keyword);
+    //   const newBoard = [...bingoBoard];
+    //   newBoard[boardItemIndex].marked = true;
+    //   setBingoBoard(newBoard);
+    // })
+  };
+
+  // 초기 키워드 선택 토글
+  const toggleInitialKeyword = (keyword: string) => {
+    if (selectedInitialKeywords.includes(keyword)) {
+      setSelectedInitialKeywords(selectedInitialKeywords.filter(k => k !== keyword));
+    } else {
+      if (selectedInitialKeywords.length < 3) {
+        setSelectedInitialKeywords([...selectedInitialKeywords, keyword]);
+      } else {
+        showAlert('최대 3개 키워드만 선택할 수 있습니다.');
+      }
+    }
+  };
 
   // 모달 상태 관리
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => {
     setModalOpen(false);
-    setSelectedKeyword(null);
     setOpponentKeyword('');
   };
 
   // 빙고 라인 체크
   useEffect(() => {
+    const previousBingoCount = bingoCount;
     checkBingoLines();
+    
+    // If we detect a new bingo, trigger animation
+    if (bingoCount > previousBingoCount && lastSelectedCell !== null) {
+      setAnimateLines(true);
+      setTimeout(() => setAnimateLines(false), 1500);
+    }
   }, [bingoBoard]);
 
   // 빙고 라인 체크 함수
@@ -129,11 +204,16 @@ const BingoGame: React.FC = () => {
   const showAlert = (message: string) => {
     setAlertMessage(message);
     setAlertOpen(true);
+    
+    // 3초 후 자동으로 닫기
+    setTimeout(() => {
+      setAlertOpen(false);
+    }, 3000);
   };
 
   // 키워드 교환 처리
   const handleExchange = () => {
-    if (!selectedKeyword || !opponentKeyword) return;
+    if (!opponentKeyword) return;
   
     // 상대방 키워드가 내 빙고판에 있는지 확인
     const boardItemIndex = bingoBoard.findIndex(item => item.value === opponentKeyword);
@@ -143,6 +223,25 @@ const BingoGame: React.FC = () => {
       const newBoard = [...bingoBoard];
       newBoard[boardItemIndex].marked = true;
       setBingoBoard(newBoard);
+      setLastSelectedCell(boardItemIndex);
+      
+      // 키워드 교환 기록 추가
+      const newExchangeHistory: ExchangeRecord[] = [
+        {
+          id: exchangeHistory.length + 1,
+          date: new Date().toLocaleDateString('ko-KR').replace(/\. /g, '.'),
+          person: '새로운 교환자',
+          given: myKeywords,
+          received: opponentKeyword
+        },
+        ...exchangeHistory
+      ];
+      setExchangeHistory(newExchangeHistory);
+      
+      // 수집 키워드 수 증가
+      setCollectedKeywords(collectedKeywords + 1);
+      // 만난 사람 수 증가
+      setMetExperts(collectedKeywords + 1);
       
       // 알림 표시
       showAlert(`"${opponentKeyword}" 키워드를 찾았습니다!`);
@@ -159,9 +258,22 @@ const BingoGame: React.FC = () => {
     const newBoard = [...bingoBoard];
     newBoard[index].marked = !newBoard[index].marked;
     setBingoBoard(newBoard);
+    setLastSelectedCell(index);
+
+    if (newBoard[index].marked) {
+      // 수집 키워드 수 증가
+      setCollectedKeywords(collectedKeywords + 1);
+      // 만난 사람 수 증가
+      setMetExperts(collectedKeywords + 1);
+    } else {
+      // 수집 키워드 수 감소
+      setCollectedKeywords(collectedKeywords - 1);
+      // 만난 사람 수 감소
+      setMetExperts(collectedKeywords - 1);
+    }
     
     if (newBoard[index].marked) {
-      showAlert(`"${newBoard[index].value}" 항목이 선택되었습니다.`);
+      showAlert(`Anonymous User에게 "${newBoard[index].value}" 키워드를 공유 받았습니다.`);
     }
   };
 
@@ -179,228 +291,400 @@ const BingoGame: React.FC = () => {
     });
   };
 
-  // 빙고 상태 표시 함수
-  const getBingoStatus = () => {
-    if (bingoCount >= bingoMissionCount) return "빙고 완성! 🎉";
-    if (bingoCount > 0) return `${bingoCount}줄 빙고 달성 중`;
-    return "아직 빙고 없음";
+  // 셀 스타일 관리
+  const getCellStyle = (index: number) => {
+    const isMarked = bingoBoard[index].marked;
+    const isInCompletedLine = isCellInCompletedLine(index);
+    const isLastSelected = index === lastSelectedCell;
+    
+    // Base styles
+    const baseStyle = {
+      position: 'relative',
+      aspectRatio: '1/1',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      p: 1,
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      border: '0.5px solid grey',
+      '&:hover': {
+        bgcolor: isMarked ? undefined : 'grey.100'
+      }
+    };
+    
+    // Selection styles
+    if (isMarked) {
+      if (isInCompletedLine) {
+        // Bingo line complete style
+        return {
+          ...baseStyle,
+          bgcolor: 'rgba(33, 112, 154, 0.4)',
+          border: '2px #21709A solid',
+          boxShadow: isLastSelected ? 3 : 1,  
+        };
+      } else {
+        // Just marked style
+        return {
+          ...baseStyle,
+          bgcolor: '#FFF8E0',
+          border: '2px #FF9E21 solid',
+          boxShadow: isLastSelected ? 2 : 0,
+        };
+      }
+    } else {
+      // Unmarked style
+      return {
+        ...baseStyle,
+        bgcolor: 'white',
+        // borderColor: 'black',
+      };
+    }
+  };
+
+  // 기록 필터 변경 핸들러
+  const handleHistoryFilterChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newFilter: string,
+  ) => {
+    if (newFilter !== null) {
+      setHistoryFilter(newFilter);
+    }
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: 2 }}>
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h4" component="h1" fontWeight="bold">
-            Bingo
-          </Typography>
-          <Typography variant="subtitle1" color="primary" fontWeight="medium">
-            {username}
-          </Typography>
-        </Box>
-
-        <Divider sx={{ mb: 2 }} />
-        
-        {/* 나의 키워드 */}
-        <Box sx={{ mb: 2 }}>
-          <Typography sx={{ mb: 2 }} variant="body2" color="text.secondary" gutterBottom>
-            나의 키워드
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {myKeywords.map((keyword, index) => (
-              <Chip 
-                key={index} 
-                label={keyword} 
-                color="primary" 
-                variant="outlined" 
-                size="small"
-              />
-            ))}
-          </Box>
-        </Box>
-
-        {/* 빙고 상태 */}
-        <Box sx={{ mb: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              빙고 상태:
-            </Typography>
-            <Typography 
-              variant="body2"
-              fontWeight="medium"
-              color={bingoCount > 0 ? 'success.main' : 'text.secondary'}
-            >
-              {getBingoStatus()}
-            </Typography>
-          </Box>
-          <LinearProgress 
-            variant="determinate" 
-            value={Math.min(bingoCount * (100/bingoMissionCount), 100)} 
-            color="success" 
-            sx={{ height: 8, borderRadius: 4 }}
-          />
-        </Box>
-      </Paper>
-
-      {/* 빙고판 */}
-      <Card elevation={3}>
-        <CardContent>
-          <Grid container spacing={1}>
-            {bingoBoard.map((cell, index) => (
-              <Grid item xs={12/5} key={cell.id}>
-                <Paper
-                  elevation={1}
-                  onClick={() => toggleCell(index)}
-                  sx={{
-                    height: 0,
-                    paddingTop: '100%', // 정사각형 유지
-                    position: 'relative',
-                    cursor: 'pointer',
-                    bgcolor: cell.marked ? 'primary.50' : 'background.default',
-                    border: isCellInCompletedLine(index) 
-                      ? '2px solid' 
-                      : '1px solid',
-                    borderColor: isCellInCompletedLine(index)
-                      ? 'success.main'
-                      : 'divider',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      bgcolor: cell.marked ? 'primary.100' : 'action.hover',
-                    },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Typography variant="caption" align="center" sx={{ fontSize: '0.7rem', mb: 0.5 }}>
-                      {cell.value}
-                    </Typography>
-                    {cell.marked && (
-                      <Box sx={{ color: isCellInCompletedLine(index) ? 'success.main' : 'primary.main' }}>
-                        {isCellInCompletedLine(index) ? (
-                          <StarIcon color="inherit" fontSize="small" />
-                        ) : (
-                          <CheckCircleOutlineIcon color="inherit" fontSize="small" />
-                        )}
-                      </Box>
-                    )}
-                  </Box>
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
-        </CardContent>
-      </Card>
-
-      {/* 키워드 교환 버튼 */}
-      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          onClick={handleOpenModal}
-          sx={{ px: 4, py: 1 }}
-        >
-          키워드 교환하기
-        </Button>
-      </Box>
-
-      {/* 키워드 교환 모달 */}
-      <Modal
-        open={modalOpen}
-        onClose={handleCloseModal}
-        aria-labelledby="키워드-교환"
+    <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
+      {/* 초기 키워드 설정 모달 */}
+      <Dialog 
+        open={initialSetupOpen} 
+        fullWidth 
+        maxWidth="sm"
+        disableEscapeKeyDown
+        onClose={(event, reason) => {
+          if (reason !== 'backdropClick') {
+            setInitialSetupOpen(false);
+          }
+        }}
       >
-        <Box sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 'calc(100% - 32px)',
-          maxWidth: 400,
-          bgcolor: 'background.paper',
-          borderRadius: 2,
-          boxShadow: 24,
-          p: 4,
-        }}>
-          <Typography id="키워드-교환" variant="h6" component="h2" sx={{ mb: 3 }}>
-            키워드 교환
-          </Typography>
+        <DialogTitle>빙고 게임 시작하기</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 3, mt: 1 }}>
+            <Typography variant="body1" mb={1}>사용자 이름:</Typography>
+            <TextField
+              fullWidth
+              value={tempUsername}
+              onChange={(e) => setTempUsername(e.target.value)}
+              placeholder="이름을 입력하세요"
+              size="small"
+            />
+          </Box>
           
-          {/* 내 키워드 선택 */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              공유할 키워드 선택:
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-              {myKeywords.map((keyword, index) => (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body1" mb={1}>나의 키워드를 선택하세요 (최대 3개):</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {cellValues.map((keyword, index) => (
                 <Chip
                   key={index}
                   label={keyword}
-                  color={selectedKeyword === keyword ? 'primary' : 'default'}
-                  variant={selectedKeyword === keyword ? 'filled' : 'outlined'}
-                  onClick={() => setSelectedKeyword(keyword)}
                   clickable
+                  color={selectedInitialKeywords.includes(keyword) ? "primary" : "default"}
+                  onClick={() => toggleInitialKeyword(keyword)}
+                  variant={selectedInitialKeywords.includes(keyword) ? "filled" : "outlined"}
                 />
               ))}
             </Box>
           </Box>
           
-          {/* 상대방 키워드 입력 */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              상대방 키워드:
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              {selectedInitialKeywords.length}/3 선택됨
             </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={handleInitialSetup}
+            variant="contained"
+            color="primary"
+            disabled={selectedInitialKeywords.length === 0}
+          >
+            게임 시작하기
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* 헤더 섹션 */}
+      <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box component="img" src={logo} alt="Logo" sx={{ width: 24, height: 24, mr: 1 }} />
+            <Typography variant="h6" fontWeight="bold">키워드 교환 빙고</Typography>
+          </Box>
+          <Button size="small" sx={{ color: 'primary.main' }}>{username}</Button>
+        </Box>
+        
+        <Divider sx={{ my: 1.5 }} />
+        
+        {/* 키워드 태그 */}
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" color="text.secondary" mb={1}>나의 키워드</Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {myKeywords.map((keyword, index) => (
+              <Chip
+                key={index}
+                label={keyword}
+                size="small"
+                sx={{ bgcolor: 'primary.50', color: 'primary.main' }}
+              />
+            ))}
+          </Box>
+        </Box>
+        
+        {/* 수집 현황 */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={6}>
+            <Paper elevation={0} sx={{ bgcolor: 'grey.200', p: 1.5, borderRadius: 1 }}>
+              <Typography variant="caption" color="text.secondary">수집한 키워드</Typography>
+              <Typography variant="h6" fontWeight="medium">{collectedKeywords}/25</Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={6}>
+            <Paper elevation={0} sx={{ bgcolor: 'grey.200', p: 1.5, borderRadius: 1 }}>
+              <Typography variant="caption" color="text.secondary">만난 전문가</Typography>
+              <Typography variant="h6" fontWeight="medium">{metExperts}명</Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+        
+        {/* 빙고 진행 상태 */}
+        <Box sx={{ mb: 0.5 }}>
+          <Typography variant="body2" color="text.secondary">빙고 상태</Typography>
+        </Box>
+        <LinearProgress 
+          variant="determinate" 
+          value={Math.min(bingoCount * (100/bingoMissionCount), 100)}
+          sx={{ 
+            mb: 1, 
+            borderRadius: 1, 
+            height: 8,
+            bgcolor: 'grey.200',
+            '& .MuiLinearProgress-bar': {
+              bgcolor: bingoCount >= bingoMissionCount ? 'success.main' : 'warning.main'
+            }
+          }}
+        />
+        <Typography variant="body2" color="text.secondary" align="right">
+          {bingoCount >= bingoMissionCount ? "빙고 완성! 🎉" : `${bingoCount}줄 빙고 달성 중`}
+        </Typography>
+      </Paper>
+      
+      {/* 빙고 보드 */}
+      <Box sx={{ mb: 2 }}>
+        <Grid container spacing={1}>
+          {bingoBoard.map((cell, index) => (
+            <Grid item xs={2.4} key={cell.id}>
+              <Paper
+                elevation={cell.marked ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
+                onClick={() => toggleCell(index)}
+                sx={getCellStyle(index)}
+              >
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" fontWeight="medium" sx={{ 
+                    display: 'block', 
+                    mb: 0.5, 
+                    overflow: 'hidden', 
+                    textOverflow: 'ellipsis', 
+                    whiteSpace: 'nowrap', 
+                    width: '100%',
+                    color: cell.marked ? (isCellInCompletedLine(index) ? 'amber.800' : 'primary.800') : 'text.primary'
+                  }}>
+                    {cell.value}
+                  </Typography>
+                </Box>
+                
+                {/* 노트 표시 */}
+                {cell.note && (
+                  <Typography 
+                    variant="caption" 
+                    color="text.secondary" 
+                    sx={{ 
+                      position: 'absolute',
+                      bottom: 4,
+                      left: 4,
+                      fontSize: '0.6rem'
+                    }}
+                  >
+                    {cell.note}
+                  </Typography>
+                )}
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
+      
+      {/* 키워드 교환 입력 섹션 */}
+      <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
+          키워드 교환 (ID 입력으로 변경 예정)
+        </Typography>
+
+        <Box sx={{ mb: 2, display: 'flex',  justifyContent: 'center', alignItems: 'center', gap: 1 }}>
+          <Typography color="text.secondary">상대방 키워드</Typography>
+          <TextField
+            value={opponentKeyword}
+            onChange={(e) => setOpponentKeyword(e.target.value)}
+            placeholder="상대방의 키워드를 입력하세요"
+            size="small"
+          />
+          <Button 
+            variant="contained" 
+            color="warning"
+            onClick={handleExchange}
+            sx={{ px: 3, width: '150px' }}
+          >
+            내 키워드 보내기
+          </Button>
+        </Box>
+      </Paper>
+      {/* 키워드 교환 버튼 */}
+      {/* <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        <Button 
+          variant="contained" 
+          color="warning"
+          onClick={handleOpenModal}
+          sx={{ px: 3, width: '150px'  }}
+        >
+          내 키워드 보내기
+        </Button>
+      </Box> */}
+      
+      {/* 기록 보기 버튼 */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        <Button 
+          variant="contained" 
+          color="primary"
+          onClick={() => setShowHistory(!showHistory)}
+          sx={{ px: 3, width: '150px' }}
+        >
+          교환 기록 {showHistory ? '가리기' : '보기'}
+        </Button>
+      </Box>
+      
+      {/* 교환 기록 */}
+      {showHistory && (
+        <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+            <Typography variant="h6" fontWeight="bold">키워드 교환 기록</Typography>
+            <ToggleButtonGroup
+              value={historyFilter}
+              exclusive
+              onChange={handleHistoryFilterChange}
+              size="small"
+            >
+              <ToggleButton value="all">
+                <Typography variant="caption">전체</Typography>
+              </ToggleButton>
+              <ToggleButton value="recent">
+                <Typography variant="caption">최근 추가</Typography>
+              </ToggleButton>
+              <ToggleButton value="person">
+                <Typography variant="caption">사람별</Typography>
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+          
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {exchangeHistory.map(history => (
+              <Box key={history.id} sx={{ borderBottom: 1, borderColor: 'divider', pb: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography color="warning.main" fontWeight="medium">{history.person}</Typography>
+                  <Typography variant="caption" color="text.secondary">{history.date}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Chip 
+                    label={history.given} 
+                    size="small" 
+                    variant="outlined"
+                    sx={{ mr: 1, bgcolor: 'grey.100' }} 
+                  />
+                  <Typography variant="body2" color="text.secondary" sx={{ mx: 0.5 }}>→</Typography>
+                  <Chip 
+                    label={history.received} 
+                    size="small" 
+                    variant="outlined"
+                    sx={{ bgcolor: 'grey.100' }} 
+                  />
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Paper>
+      )}
+      
+      {/* 키워드 교환 모달 */}
+      {/* <Dialog open={modalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+        <DialogTitle>키워드 교환</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 2, mt: 1 }}>
+            <Typography color="text.secondary" mb={1}>공유할 내 키워드</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {myKeywords.map((keyword, index) => (
+                <Chip
+                  key={index}
+                  label={keyword}
+                  color="primary"
+                  variant="filled"
+                />
+              ))}
+            </Box>
+          </Box>   
+          <Box sx={{ mb: 2 }}>
+            <Typography color="text.secondary" mb={1}>상대방 키워드:</Typography>
             <TextField
               fullWidth
-              size="small"
               value={opponentKeyword}
               onChange={(e) => setOpponentKeyword(e.target.value)}
               placeholder="상대방의 키워드를 입력하세요"
+              size="small"
             />
           </Box>
-          
-          {/* 액션 버튼 */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button variant="outlined" onClick={handleCloseModal}>
-              취소
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleExchange}
-              disabled={!selectedKeyword || !opponentKeyword}
-            >
-              교환하기
-            </Button>
+          <Box sx={{ mb: 2 }}>
+            <Typography color="text.secondary" mb={1}>상대방 아이디:</Typography>
+            <TextField
+              fullWidth
+              value={opponentId}
+              onChange={(e) => setOpponentId(e.target.value)}
+              placeholder="상대방의 아이디를 입력하세요"
+              size="small"
+            />
           </Box>
-        </Box>
-      </Modal>
-
-      {/* 알림 표시 */}
-      <Snackbar
-        open={alertOpen}
-        autoHideDuration={3000}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseModal}>취소</Button>
+          <Button 
+            onClick={handleExchange}
+            disabled={!opponentKeyword}
+            variant="contained"
+          >
+            교환하기
+          </Button>
+        </DialogActions>
+      </Dialog> */}
+      
+      {/* 알림 */}
+      <Snackbar 
+        open={alertOpen} 
+        autoHideDuration={3000} 
         onClose={handleCloseAlert}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert 
-          onClose={handleCloseAlert} 
-          severity="success" 
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
+        <Alert severity="success" variant="filled">
           {alertMessage}
         </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 };
 
