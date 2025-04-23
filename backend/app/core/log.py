@@ -20,5 +20,5 @@ file_handler = RotatingFileHandler(log_filename, maxBytes=max_log_size, backupCo
 file_handler.setFormatter(formatter)
 
 # 로거에 핸들러 추가
-log = logging.getLogger(__name__)
-log.addHandler(file_handler)
+logger = logging.getLogger(__name__)
+logger.addHandler(file_handler)
