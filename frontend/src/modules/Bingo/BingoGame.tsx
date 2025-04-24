@@ -404,17 +404,19 @@ const BingoGame = () => {
     
     // Animation styles - only apply to new bingo cells
     if (isNewBingoCell) {
-      baseStyle.animation = 'pulse 1.5s infinite';
+      baseStyle.animation = 'fadeBg 3s ease forwards, pulse 1.5s infinite';
       baseStyle['@keyframes pulse'] = {
-        '0%': { boxShadow: '0 0 0 0 rgba(76, 175, 80, 0.7)', transform: 'scale(1)', bgcolor: 'rgba(76, 175, 80, 0.6)' },
-        '50%': { boxShadow: '0 0 0 8px rgba(76, 175, 80, 0)', transform: 'scale(1.05)', bgcolor: 'rgba(76, 175, 80, 0.9)' },
-        '100%': { boxShadow: '0 0 0 0 rgba(76, 175, 80, 0)', transform: 'scale(1)', bgcolor: 'rgba(76, 175, 80, 0.6)' }
+        '0%': { boxShadow: '0 0 0 0 rgba(76, 175, 80, 0.7)', transform: 'scale(1)' },
+        '50%': { boxShadow: '0 0 0 8px rgba(76, 175, 80, 0)', transform: 'scale(1.05)' },
+        '100%': { boxShadow: '0 0 0 0 rgba(76, 175, 80, 0)', transform: 'scale(1)' }
       };
-      baseStyle.bgcolor = '#4CAF50';
+      baseStyle['@keyframes fadeBg'] = {
+        '0%': { backgroundColor: '#FFF59D' },
+        '100%': { backgroundColor: '#4CAF50' }
+      };
+      baseStyle.backgroundColor = '#FFF59D';
       baseStyle.border = '2px solid #2E7D32';
-      baseStyle.boxShadow = '0 0 8px rgba(76, 175, 80, 0.8)';
-      baseStyle.fontWeight = 'bold';
-      baseStyle.color = 'white';
+      baseStyle.color = 'white'; 
       baseStyle.zIndex = 2;
     }
     // Normal styles for cells that are not part of new bingo lines
@@ -556,7 +558,7 @@ const BingoGame = () => {
           </Grid>
           <Grid item xs={6}>
             <Paper elevation={0} sx={{ bgcolor: 'grey.200', p: 1.5, borderRadius: 1 }}>
-              <Typography variant="caption" color="text.secondary">만난 전문가</Typography>
+              <Typography variant="caption" color="text.secondary">만난 PseudoCon 참가자</Typography>
               <Typography variant="h6" fontWeight="medium">{metExperts}명</Typography>
             </Paper>
           </Grid>
@@ -598,7 +600,7 @@ const BingoGame = () => {
                 <Box sx={{ textAlign: 'center' }}>
                   <Typography 
                     variant="caption" 
-                    fontWeight={animatedCells.includes(index) ? "bold" : "medium"} 
+                    fontWeight="bold"
                     sx={{ 
                       display: 'block', 
                       mb: 0.5, 
@@ -710,7 +712,7 @@ const BingoGame = () => {
                       style={{
                         strokeDasharray: '1000',
                         strokeDashoffset: '1000',
-                        animation: 'drawLine 1s forwards'
+                        animation: 'drawLine 1.5s forwards'
                       }}
                     />
                   </svg>
