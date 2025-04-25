@@ -1,4 +1,6 @@
+import pandas as pd
 from core.db import AsyncSessionDepends
+from core.log import logger
 from models.user import BingoUser
 from api.auth.schema import BingoUser as BingoUserResponse
 
@@ -9,13 +11,20 @@ class BaseBingoUser:
 
 
 class LoginUser(BaseBingoUser):
-    async def execute(self, username: str, password: str) -> BingoUser:
+    async def execute(self, email: str) -> BingoUser:
         try:
-            user = await BingoUser.get_user_by_name(self.async_session, username)
+            # TODO: 기능구현하면서 함수 따로 빼기
+            attendacne_lst = pd.read_excel("../../guest_anonymized.xlsx")
+            logger.debug(f"Attendance list loaded: {attendacne_lst}")
+            
+            if email not in attendacne_lst["Email"].values:
+                raise ValueError(f"{email}은 참석자 명단에 없습니다.")
+            
+            # NOTE: name도 저장하면 좋겠음.
+            user = await BingoUser.get_user_by_email(self.async_session, email)
             if not user:
-                user = await BingoUser.create(self.async_session, username, password)
-            elif password != user.password:
-                raise ValueError("password가 잘못되었습니다.")
+                user = await BingoUser.create(self.async_session, email=email)
+            logger.debug(f"User created: {user}")
             return BingoUserResponse(**user.__dict__, ok=True, message="빙고 유저 생성에 성공하였습니다.")
         except ValueError as e:
             return BingoUserResponse(ok=False, message=str(e))
