@@ -1,6 +1,6 @@
 import os
 from asyncio import current_task
-from core.log import log
+from core.log import logger
 from typing import Annotated, AsyncIterator
 from fastapi import Depends
 from sqlalchemy.exc import SQLAlchemyError
@@ -50,7 +50,7 @@ class Database:
                 yield session
                 await session.commit()
             except SQLAlchemyError as e:
-                log.error(e)
+                logger.error(e)
                 await session.rollback()
             finally:
                 await session.close()
