@@ -17,3 +17,7 @@ class BingoInteractionResponse(BaseSchema):
     send_user_id: Optional[int] = Field(title="보낸 유저 ID", default=None)
     receive_user_id: Optional[int] = Field(title="받은 유저 ID", default=None)
     created_at: Optional[datetime] = Field(title="생성일", default=None)
+
+
+class BingoInteractionListResponse(BaseSchema):
+    interactions: list[BingoInteractionResponse]
