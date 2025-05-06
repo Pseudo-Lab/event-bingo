@@ -5,6 +5,7 @@ import {
   Snackbar, Alert, Divider, Card, CardContent, ToggleButton, ToggleButtonGroup
 } from '@mui/material';
 import { styled } from "@mui/system";
+import PersonIcon from '@mui/icons-material/Person';
 import {
   getBingoBoard,
   getSelectedWords,
@@ -582,9 +583,10 @@ const BingoGame = () => {
             <Box component="img" src={logo} alt="Logo" sx={{ width: 24, height: 24, mr: 1 }} />
             <Typography variant="h6" fontWeight="bold">키워드 교환 빙고</Typography>
           </Box>
-          <Box>
-            <Typography fontWeight="bold">User ID: {userId}</Typography>
-            <Button size="small" sx={{ color: 'primary.main' }}>{username}</Button>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Button sx={{ fontSize: 15, color: 'primary.main' }}>{username}</Button>
+            <PersonIcon sx={{ fontSize: 20, color: 'primary.100' }} />
+            <Typography fontWeight="bold">내 ID: {userId}</Typography>
           </Box>
         </Box>
         
