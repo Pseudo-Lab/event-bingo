@@ -86,9 +86,7 @@ const BingoGame = () => {
   // 새로운 빙고 라인에 추가된 셀을 추적하기 위한 상태
   const [newBingoCells, setNewBingoCells] = useState<number[]>([]);
   // 애니메이션 적용 상태를 관리
-  const [cellsToAnimate, setCellsToAnimate] = useState<{[key: number]: boolean}>({});
   const [hasShownConfetti, setHasShownConfetti] = useState(false);
-  const [drawnLines, setDrawnLines] = useState<CompletedLine[]>([]);
 
   // 기본 셀 값 생성 함수
   function getDefaultCellValue(index: number): string {
@@ -185,15 +183,6 @@ const BingoGame = () => {
       setAnimatedCells(uniqueNewCells);
       setNewBingoFound(true);
       showAlert('빙고 한 줄을 완성했습니다! 🎉');
-      // setDrawnLines(prev => [...prev, ...newLines]);
-      setDrawnLines(prev => [
-        ...prev,
-        ...newLines.filter(newLine =>
-          !prev.some(existing =>
-            existing.type === newLine.type && existing.index === newLine.index
-          )
-        )
-      ]);
       if (!hasShownConfetti && bingoCount >= bingoMissionCount) {
         setShowConfetti(true);
         setHasShownConfetti(true);
@@ -426,7 +415,7 @@ const BingoGame = () => {
         '100%': { backgroundColor: '#4CAF50' }
       };
       baseStyle.backgroundColor = '#FFF59D';
-      baseStyle.border = '2px solid #2E7D32';
+      baseStyle.border = '2px solid #4CAF50';
       baseStyle.color = 'white'; 
       baseStyle.zIndex = 2;
     }
@@ -723,8 +712,7 @@ const BingoGame = () => {
                       style={{
                         strokeDasharray: '1000',
                         strokeDashoffset: '1000',
-                        // animation: 'drawLine 1s forwards, fadeOutLine 0.5s 1s forwards'
-                        animation: 'drawLine 1s forwards',
+                        animation: 'drawLine 1s forwards'
                       }}
                     />
                   </svg>
@@ -746,11 +734,6 @@ const BingoGame = () => {
         @keyframes fall {
           0% { transform: translateY(0) rotate(0deg); opacity: 1; }
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-        }
-        @keyframes fadeOutLine {
-          to {
-            opacity: 0;
-          }
         }
       `}</style>
       
