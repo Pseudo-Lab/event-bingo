@@ -98,11 +98,6 @@ const BingoGame = () => {
   // 애니메이션 적용 상태를 관리
   const [hasShownConfetti, setHasShownConfetti] = useState(false);
 
-  // 기본 셀 값 생성 함수
-  function getDefaultCellValue(index: number): string {
-    return cellValues[index];
-  }
-
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
     return undefined;
@@ -153,7 +148,8 @@ const BingoGame = () => {
         });
       });
 
-      const result = await createBingoBoard(userId, boardData);
+      await createBingoBoard(userId, boardData);
+      setUserId(userId);
     } catch (error) {
       console.error("Failed to initialize bingo board:", error);
     }
@@ -190,7 +186,6 @@ const BingoGame = () => {
   };
 
   // 모달 상태 관리
-  const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => {
     setModalOpen(false);
     setOpponentKeyword('');
@@ -370,7 +365,6 @@ const BingoGame = () => {
     if (boardItemIndex !== -1) {
       // 빙고판 업데이트
       const newBoard = [...bingoBoard];
-      // newBoard[boardItemIndex].selected = true;
       newBoard[boardItemIndex].selected = 1;
       setBingoBoard(newBoard);
       setLastSelectedCell(boardItemIndex);
