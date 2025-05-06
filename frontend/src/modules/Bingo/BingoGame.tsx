@@ -4,13 +4,25 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   Snackbar, Alert, Divider, Card, CardContent, ToggleButton, ToggleButtonGroup
 } from '@mui/material';
+import {
+  getBingoBoard,
+  getSelectedWords,
+  updateBingoBoard,
+  createBingoBoard,
+  getUser,
+  singUpUser,
+  createUserBingoInteraction,
+  getUserLatestInteraction,
+  getUserName,
+} from "../../api/bingo_api.ts";
 import logo from '../../assets/pseudo_lab_logo.png';
 
 // Define proper interfaces
 interface BingoCell {
   id: number;
   value: string;
-  marked: boolean;
+  selected: number;
+  status: number;
   note?: string;
 }
 
@@ -37,23 +49,23 @@ const cellValues = [
 
 const BingoGame = () => {
   const [username, setUsername] = useState('사용자 이름');
+  const [userId, setUserId] = useState<string>();
   const [myKeywords, setMyKeywords] = useState<string[]>([]);
   const shuffleArray = (array: string[]) => {
     return [...array].sort(() => Math.random() - 0.5);
   };
-  
   const [bingoBoard, setBingoBoard] = useState<BingoCell[]>(() => {
     const shuffledValues = shuffleArray(cellValues);
     return Array(25).fill(null).map((_, i) => ({
       id: i,
       value: shuffledValues[i],
-      marked: false,
+      selected: 0,
+      status: 0,
       note: getCellNote(i)
     }));
   });
   const [modalOpen, setModalOpen] = useState(false);
   const [opponentKeyword, setOpponentKeyword] = useState('');
-  const [opponentId, setOpponentId] = useState('');
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
   const [bingoCount, setBingoCount] = useState(0);
   const bingoMissionCount = 3;
@@ -70,8 +82,6 @@ const BingoGame = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [historyFilter, setHistoryFilter] = useState('all');
   const [lastSelectedCell, setLastSelectedCell] = useState<number | null>(null);
-  // 빙고 라인 애니메이션을 위한 상태
-  const [animateLines, setAnimateLines] = useState(false);
   // 새로운 빙고 라인이 발견되었는지 확인하기 위한 상태
   const [newBingoFound, setNewBingoFound] = useState(false);
   const [initialSetupOpen, setInitialSetupOpen] = useState(true);
@@ -98,21 +108,72 @@ const BingoGame = () => {
     return undefined;
   }
 
+  useEffect(() => {
+    const init = async () => {
+      const storedId = localStorage.getItem("myID");
+      if (storedId) {
+        try {
+          const userId = storedId;
+          setUserId(userId);
+          const boardData = await getBingoBoard(userId);
+          if (boardData && boardData.length > 0) {
+            setBingoBoard(boardData);
+            setInitialSetupOpen(false);
+            const selectedKeywords = boardData
+              .filter(cell => cell.status === 1)
+              .map(cell => cell.value);
+
+            setMyKeywords(selectedKeywords);
+          }
+          else {
+            setInitialSetupOpen(true);
+          }
+        } catch (error) {
+          console.error("Error loading user board:", error);
+        }
+      }
+    };
+  
+    init();
+  }, []);
+
+  const initializeBoard = async (userId: string, selectedInitialKeywords: string[]) => {
+    try {
+      const boardData: {
+        [key: string]: { value: string; status: number; selected: number };
+      } = {};
+
+      bingoBoard.forEach((item, index) => {
+        return (boardData[index] = {
+          value: item.value,
+          status: selectedInitialKeywords.includes(item.value)
+            ? 1
+            : 0,
+          selected: 0
+        });
+      });
+
+      const result = await createBingoBoard(userId, boardData);
+    } catch (error) {
+      console.error("Failed to initialize bingo board:", error);
+    }
+  };
+
   // 첫 화면에서 키워드 선택 후 저장
-  const handleInitialSetup = () => {
-    if (tempUsername.trim() !== '') {
+  const handleInitialSetup = async () => {
+    try {
+      const testUserId = '1';
+      localStorage.setItem("myID", testUserId);
+      if (selectedInitialKeywords.length > 0) {
+        setMyKeywords(selectedInitialKeywords);
+      }
       setUsername(tempUsername);
+      setInitialSetupOpen(false);
+      showAlert('키워드가 설정되었습니다!');
+      await initializeBoard(testUserId, selectedInitialKeywords);
+    } catch (err) {
+      console.error("Failed initial setup:", err);
     }
-    
-    if (selectedInitialKeywords.length > 0) {
-      setMyKeywords(selectedInitialKeywords);
-    } else {
-      // 선택된 키워드가 없는 경우 기본 키워드 설정
-      setMyKeywords(['AI', 'Data Science', 'Data Engineering', '개발', '커리어']);
-    }
-    
-    setInitialSetupOpen(false);
-    showAlert('키워드가 설정되었습니다!');
   };
 
   // 초기 키워드 선택 토글
@@ -209,7 +270,9 @@ const BingoGame = () => {
   }, [completedLines, bingoCount]);
   
   useEffect(() => {
-    checkBingoLines();
+    if (bingoBoard.length === 25) {
+      checkBingoLines();
+    }
   }, [bingoBoard]);
 
   // 빙고 라인 체크 함수
@@ -221,7 +284,7 @@ const BingoGame = () => {
     for (let row = 0; row < 5; row++) {
       let rowComplete = true;
       for (let col = 0; col < 5; col++) {
-        if (!bingoBoard[row * 5 + col].marked) {
+        if (!bingoBoard[row * 5 + col].selected) {
           rowComplete = false;
           break;
         }
@@ -237,7 +300,7 @@ const BingoGame = () => {
     for (let col = 0; col < 5; col++) {
       let colComplete = true;
       for (let row = 0; row < 5; row++) {
-        if (!bingoBoard[row * 5 + col].marked) {
+        if (!bingoBoard[row * 5 + col].selected) {
           colComplete = false;
           break;
         }
@@ -252,7 +315,7 @@ const BingoGame = () => {
     // 대각선 체크 (좌상단 -> 우하단)
     let diagonal1Complete = true;
     for (let i = 0; i < 5; i++) {
-      if (!bingoBoard[i * 5 + i].marked) {
+      if (!bingoBoard[i * 5 + i].selected) {
         diagonal1Complete = false;
         break;
       }
@@ -266,7 +329,7 @@ const BingoGame = () => {
     // 대각선 체크 (우상단 -> 좌하단)
     let diagonal2Complete = true;
     for (let i = 0; i < 5; i++) {
-      if (!bingoBoard[i * 5 + (4 - i)].marked) {
+      if (!bingoBoard[i * 5 + (4 - i)].selected) {
         diagonal2Complete = false;
         break;
       }
@@ -307,7 +370,8 @@ const BingoGame = () => {
     if (boardItemIndex !== -1) {
       // 빙고판 업데이트
       const newBoard = [...bingoBoard];
-      newBoard[boardItemIndex].marked = true;
+      // newBoard[boardItemIndex].selected = true;
+      newBoard[boardItemIndex].selected = 1;
       setBingoBoard(newBoard);
       setLastSelectedCell(boardItemIndex);
       
@@ -342,11 +406,12 @@ const BingoGame = () => {
   // 데모 목적으로 칸 토글
   const toggleCell = (index: number) => {
     const newBoard = [...bingoBoard];
-    newBoard[index].marked = !newBoard[index].marked;
+    // newBoard[index].selected = !newBoard[index].selected;
+    newBoard[index].selected = newBoard[index].selected === 1 ? 0 : 1;
     setBingoBoard(newBoard);
     setLastSelectedCell(index);
 
-    if (newBoard[index].marked) {
+    if (newBoard[index].selected) {
       // 수집 키워드 수 증가
       setCollectedKeywords(collectedKeywords + 1);
       // 만난 사람 수 증가
@@ -358,7 +423,7 @@ const BingoGame = () => {
       setMetExperts(collectedKeywords - 1);
     }
     
-    if (newBoard[index].marked) {
+    if (newBoard[index].selected) {
       showAlert(`Anonymous User에게 "${newBoard[index].value}" 키워드를 공유 받았습니다.`);
     }
   };
@@ -379,7 +444,7 @@ const BingoGame = () => {
 
   // 셀 스타일 관리
   const getCellStyle = (index: number) => {
-    const isMarked = bingoBoard[index].marked;
+    const isMarked = bingoBoard[index].selected;
     const isInCompletedLine = isCellInCompletedLine(index);
     const isLastSelected = index === lastSelectedCell;
     const isNewBingoCell = newBingoCells.includes(index);
@@ -432,7 +497,7 @@ const BingoGame = () => {
           boxShadow: isLastSelected ? 3 : 1,
         };
       } else {
-        // Regular marked cells
+        // Regular selected cells
         return {
           ...baseStyle,
           bgcolor: '#FFF8E0',
@@ -528,7 +593,10 @@ const BingoGame = () => {
             <Box component="img" src={logo} alt="Logo" sx={{ width: 24, height: 24, mr: 1 }} />
             <Typography variant="h6" fontWeight="bold">키워드 교환 빙고</Typography>
           </Box>
-          <Button size="small" sx={{ color: 'primary.main' }}>{username}</Button>
+          <Box>
+            <Typography fontWeight="bold">User ID: {userId}</Typography>
+            <Button size="small" sx={{ color: 'primary.main' }}>{username}</Button>
+          </Box>
         </Box>
         
         <Divider sx={{ my: 1.5 }} />
@@ -593,7 +661,7 @@ const BingoGame = () => {
           {bingoBoard.map((cell, index) => (
             <Grid item xs={2.4} key={cell.id}>
               <Paper
-                elevation={cell.marked ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
+                elevation={cell.selected ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
                 onClick={() => toggleCell(index)}
                 sx={getCellStyle(index)}
               >
@@ -608,7 +676,7 @@ const BingoGame = () => {
                       textOverflow: 'ellipsis', 
                       whiteSpace: 'nowrap', 
                       width: '100%',
-                      color: cell.marked ? 
+                      color: cell.selected ? 
                         (animatedCells.includes(index) ? 'white' : 
                         (isCellInCompletedLine(index) ? 'amber.800' : 'primary.800')) 
                         : 'text.primary'
