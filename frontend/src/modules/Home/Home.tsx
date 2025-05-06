@@ -69,7 +69,7 @@ const Home = () => {
         2025 PseudoCon
       </Typography>
       <Typography variant="h6" sx={{ marginBottom: "2rem", color: "#555" }}>
-        05.17 | 서울 마포 21창업허브
+        05월 17일 | 21서울창업허브(공덕) 10층
       </Typography>
       {!isLoggedIn ? (
         <>
