@@ -68,7 +68,7 @@ const BingoGame = () => {
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
   const [bingoCount, setBingoCount] = useState(0);
   const bingoMissionCount = 3;
-  const keywordMaxCount = 10;
+  const keywordCount = 3;
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [collectedKeywords, setCollectedKeywords] = useState(0);
@@ -159,7 +159,7 @@ const BingoGame = () => {
       } catch (err) {
         console.error("Error refreshing bingo board:", err);
       }
-    }, 7000);
+    }, 10000);
   
     return () => clearInterval(interval);
   }, [userId, bingoBoard]);
@@ -216,10 +216,8 @@ const BingoGame = () => {
     if (selectedInitialKeywords.includes(keyword)) {
       setSelectedInitialKeywords(selectedInitialKeywords.filter(k => k !== keyword));
     } else {
-      if (selectedInitialKeywords.length < keywordMaxCount) {
+      if (selectedInitialKeywords.length < keywordCount) {
         setSelectedInitialKeywords([...selectedInitialKeywords, keyword]);
-      } else {
-        showAlert(`최대 ${keywordMaxCount}개 키워드만 선택할 수 있습니다.`);
       }
     }
   };
@@ -539,7 +537,7 @@ const BingoGame = () => {
           </Box>
           
           <Box sx={{ mb: 2 }}>
-            <Typography variant="body1" mb={1}>나의 키워드를 선택하세요 (최대 3개):</Typography>
+            <Typography variant="body1" mb={1}>나의 키워드를 선택하세요 ({keywordCount}개):</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {cellValues.map((keyword, index) => (
                 <Chip
@@ -556,7 +554,7 @@ const BingoGame = () => {
           
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
             <Typography variant="body2" color="text.secondary">
-              {selectedInitialKeywords.length}/3 선택됨
+              {selectedInitialKeywords.length}/{keywordCount} 선택됨
             </Typography>
           </Box>
         </DialogContent>
@@ -565,7 +563,7 @@ const BingoGame = () => {
             onClick={handleInitialSetup}
             variant="contained"
             color="primary"
-            disabled={selectedInitialKeywords.length === 0}
+            disabled={selectedInitialKeywords.length !== keywordCount}
           >
             게임 시작하기
           </Button>
