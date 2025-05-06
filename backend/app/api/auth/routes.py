@@ -12,7 +12,12 @@ async def bingo_sign_up(email: str, bingo_user: LoginUser = Depends(LoginUser)):
     return res
 
 
-@auth_router.get("/bingo/get-user", response_model=BingoUser, description="빙고용 임시 유저 조회 API")
+@auth_router.get("/bingo/get-user", response_model=BingoUser, deprecated=True, description="/bingo/users/get-user-by-name을 사용해주세요.")
+async def bingo_get_user(username: str, bingo_user: GetBingoUserByName = Depends(GetBingoUserByName)):
+    return await bingo_user.execute(username)
+
+
+@auth_router.get("/bingo/get-user-by-name", response_model=BingoUser, description="유저 조회 API")
 async def bingo_get_user(username: str, bingo_user: GetBingoUserByName = Depends(GetBingoUserByName)):
     return await bingo_user.execute(username)
 
