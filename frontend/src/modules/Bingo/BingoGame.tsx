@@ -88,6 +88,7 @@ const BingoGame = () => {
   // 애니메이션 적용 상태를 관리
   const [cellsToAnimate, setCellsToAnimate] = useState<{[key: number]: boolean}>({});
   const [hasShownConfetti, setHasShownConfetti] = useState(false);
+  const [drawnLines, setDrawnLines] = useState<CompletedLine[]>([]);
 
   // 기본 셀 값 생성 함수
   function getDefaultCellValue(index: number): string {
@@ -184,6 +185,15 @@ const BingoGame = () => {
       setAnimatedCells(uniqueNewCells);
       setNewBingoFound(true);
       showAlert('빙고 한 줄을 완성했습니다! 🎉');
+      // setDrawnLines(prev => [...prev, ...newLines]);
+      setDrawnLines(prev => [
+        ...prev,
+        ...newLines.filter(newLine =>
+          !prev.some(existing =>
+            existing.type === newLine.type && existing.index === newLine.index
+          )
+        )
+      ]);
       if (!hasShownConfetti && bingoCount >= bingoMissionCount) {
         setShowConfetti(true);
         setHasShownConfetti(true);
@@ -405,6 +415,7 @@ const BingoGame = () => {
     // Animation styles - only apply to new bingo cells
     if (isNewBingoCell) {
       baseStyle.animation = 'fadeBg 3s ease forwards, pulse 1.5s infinite';
+      baseStyle.animationDelay = '1s, 0s';
       baseStyle['@keyframes pulse'] = {
         '0%': { boxShadow: '0 0 0 0 rgba(76, 175, 80, 0.7)', transform: 'scale(1)' },
         '50%': { boxShadow: '0 0 0 8px rgba(76, 175, 80, 0)', transform: 'scale(1.05)' },
@@ -712,7 +723,8 @@ const BingoGame = () => {
                       style={{
                         strokeDasharray: '1000',
                         strokeDashoffset: '1000',
-                        animation: 'drawLine 1.5s forwards'
+                        // animation: 'drawLine 1s forwards, fadeOutLine 0.5s 1s forwards'
+                        animation: 'drawLine 1s forwards',
                       }}
                     />
                   </svg>
@@ -734,6 +746,11 @@ const BingoGame = () => {
         @keyframes fall {
           0% { transform: translateY(0) rotate(0deg); opacity: 1; }
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        @keyframes fadeOutLine {
+          to {
+            opacity: 0;
+          }
         }
       `}</style>
       
