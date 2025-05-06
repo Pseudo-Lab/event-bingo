@@ -50,6 +50,7 @@ const Home = () => {
 
     localStorage.setItem("myID", result.user_id);
     localStorage.setItem("myEmail", result.user_email);
+    localStorage.setItem("myUserName", result.user_name);
     setIsLoggedIn(true);
     window.location.href = "/bingo";
   };
@@ -57,6 +58,7 @@ const Home = () => {
   const handleLogout = () => {
     localStorage.removeItem("myID");
     localStorage.removeItem("myEmail");
+    localStorage.removeItem("myUserName");
     setIsLoggedIn(false);
   };
 
@@ -74,7 +76,7 @@ const Home = () => {
       {!isLoggedIn ? (
         <>
           <StyledInput
-            placeholder="이메일을 입력하세요"
+            placeholder="우모 가입 이메일을 입력하세요"
             value={loginEmail}
             onChange={(e) => setLoginEmail(e.target.value)}
           />
