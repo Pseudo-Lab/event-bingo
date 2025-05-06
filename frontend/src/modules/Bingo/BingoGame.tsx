@@ -49,7 +49,7 @@ const cellValues = [
 
 const BingoGame = () => {
   const [username, setUsername] = useState('사용자 이름');
-  const [userId, setUserId] = useState<string>();
+  const [userId, setUserId] = useState<string>('');
   const [myKeywords, setMyKeywords] = useState<string[]>([]);
   const shuffleArray = (array: string[]) => {
     return [...array].sort(() => Math.random() - 0.5);
@@ -64,11 +64,11 @@ const BingoGame = () => {
       note: getCellNote(i)
     }));
   });
-  const [modalOpen, setModalOpen] = useState(false);
-  const [opponentKeyword, setOpponentKeyword] = useState('');
+  const [opponentId, setOpponentId] = useState('');
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
   const [bingoCount, setBingoCount] = useState(0);
   const bingoMissionCount = 3;
+  const keywordMaxCount = 10;
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [collectedKeywords, setCollectedKeywords] = useState(0);
@@ -106,18 +106,17 @@ const BingoGame = () => {
   useEffect(() => {
     const init = async () => {
       const storedId = localStorage.getItem("myID");
+      console.log('Current User ID', storedId);
       if (storedId) {
         try {
-          const userId = storedId;
-          setUserId(userId);
-          const boardData = await getBingoBoard(userId);
+          setUserId(storedId);
+          const boardData = await getBingoBoard(storedId);
           if (boardData && boardData.length > 0) {
             setBingoBoard(boardData);
             setInitialSetupOpen(false);
             const selectedKeywords = boardData
-              .filter(cell => cell.status === 1)
+              .filter(cell => cell.selected === 1)
               .map(cell => cell.value);
-
             setMyKeywords(selectedKeywords);
           }
           else {
@@ -132,6 +131,40 @@ const BingoGame = () => {
     init();
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (!userId) return;
+  
+      try {
+        const latestBoard = await getBingoBoard(userId);
+        if (!latestBoard || latestBoard.length === 0) return;
+  
+        const newlyUpdatedValues: string[] = [];
+  
+        const updatedBoard = latestBoard.map((newCell, i) => {
+          const prevCell = bingoBoard[i];
+          if (prevCell.status === 0 && newCell.status === 1) {
+            newlyUpdatedValues.push(newCell.value);
+          }
+          return newCell;
+        });
+  
+        if (newlyUpdatedValues.length > 0) {
+          setBingoBoard(updatedBoard);
+          setCollectedKeywords(prev => prev + newlyUpdatedValues.length);
+          setMetExperts(prev => prev + newlyUpdatedValues.length);
+          // TODO: 교환한 User ID 가져와서 보여주기
+          showAlert(`Anonymous User에게 "${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
+        }
+      } catch (err) {
+        console.error("Error refreshing bingo board:", err);
+      }
+    }, 7000);
+  
+    return () => clearInterval(interval);
+  }, [userId, bingoBoard]);
+
+  // TODO: userId 사용하도록 수정 필요
   const initializeBoard = async (userId: string, selectedInitialKeywords: string[]) => {
     try {
       const boardData: {
@@ -141,15 +174,23 @@ const BingoGame = () => {
       bingoBoard.forEach((item, index) => {
         return (boardData[index] = {
           value: item.value,
-          status: selectedInitialKeywords.includes(item.value)
+          status: 0,
+          selected: selectedInitialKeywords.includes(item.value)
             ? 1
             : 0,
-          selected: 0
         });
       });
-
-      await createBingoBoard(userId, boardData);
-      setUserId(userId);
+      
+      let storedId = localStorage.getItem("myID");
+      if (!storedId) {
+        storedId = "2"; // for test
+        localStorage.setItem("myID", storedId);
+      }
+      console.log('Current User ID', storedId);
+      if (storedId) {
+        await createBingoBoard(storedId, boardData);
+        setUserId(storedId);
+      }
     } catch (error) {
       console.error("Failed to initialize bingo board:", error);
     }
@@ -158,15 +199,13 @@ const BingoGame = () => {
   // 첫 화면에서 키워드 선택 후 저장
   const handleInitialSetup = async () => {
     try {
-      const testUserId = '1';
-      localStorage.setItem("myID", testUserId);
       if (selectedInitialKeywords.length > 0) {
         setMyKeywords(selectedInitialKeywords);
       }
       setUsername(tempUsername);
       setInitialSetupOpen(false);
       showAlert('키워드가 설정되었습니다!');
-      await initializeBoard(testUserId, selectedInitialKeywords);
+      await initializeBoard(userId, selectedInitialKeywords);
     } catch (err) {
       console.error("Failed initial setup:", err);
     }
@@ -177,18 +216,12 @@ const BingoGame = () => {
     if (selectedInitialKeywords.includes(keyword)) {
       setSelectedInitialKeywords(selectedInitialKeywords.filter(k => k !== keyword));
     } else {
-      if (selectedInitialKeywords.length < 3) {
+      if (selectedInitialKeywords.length < keywordMaxCount) {
         setSelectedInitialKeywords([...selectedInitialKeywords, keyword]);
       } else {
-        showAlert('최대 3개 키워드만 선택할 수 있습니다.');
+        showAlert(`최대 ${keywordMaxCount}개 키워드만 선택할 수 있습니다.`);
       }
     }
-  };
-
-  // 모달 상태 관리
-  const handleCloseModal = () => {
-    setModalOpen(false);
-    setOpponentKeyword('');
   };
 
   // 빙고 라인에 해당하는 모든 셀의 인덱스 배열을 반환하는 함수
@@ -279,7 +312,7 @@ const BingoGame = () => {
     for (let row = 0; row < 5; row++) {
       let rowComplete = true;
       for (let col = 0; col < 5; col++) {
-        if (!bingoBoard[row * 5 + col].selected) {
+        if (!bingoBoard[row * 5 + col].status) {
           rowComplete = false;
           break;
         }
@@ -295,7 +328,7 @@ const BingoGame = () => {
     for (let col = 0; col < 5; col++) {
       let colComplete = true;
       for (let row = 0; row < 5; row++) {
-        if (!bingoBoard[row * 5 + col].selected) {
+        if (!bingoBoard[row * 5 + col].status) {
           colComplete = false;
           break;
         }
@@ -310,7 +343,7 @@ const BingoGame = () => {
     // 대각선 체크 (좌상단 -> 우하단)
     let diagonal1Complete = true;
     for (let i = 0; i < 5; i++) {
-      if (!bingoBoard[i * 5 + i].selected) {
+      if (!bingoBoard[i * 5 + i].status) {
         diagonal1Complete = false;
         break;
       }
@@ -324,7 +357,7 @@ const BingoGame = () => {
     // 대각선 체크 (우상단 -> 좌하단)
     let diagonal2Complete = true;
     for (let i = 0; i < 5; i++) {
-      if (!bingoBoard[i * 5 + (4 - i)].selected) {
+      if (!bingoBoard[i * 5 + (4 - i)].status) {
         diagonal2Complete = false;
         break;
       }
@@ -356,69 +389,28 @@ const BingoGame = () => {
   };
 
   // 키워드 교환 처리
-  const handleExchange = () => {
-    if (!opponentKeyword) return;
+  const handleExchange = async () => {
+    if (!opponentId) {
+      showAlert("상대방 ID를 입력해주세요.");
+      return;
+    }
   
-    // 상대방 키워드가 내 빙고판에 있는지 확인
-    const boardItemIndex = bingoBoard.findIndex(item => item.value === opponentKeyword);
-    
-    if (boardItemIndex !== -1) {
-      // 빙고판 업데이트
-      const newBoard = [...bingoBoard];
-      newBoard[boardItemIndex].selected = 1;
-      setBingoBoard(newBoard);
-      setLastSelectedCell(boardItemIndex);
-      
-      // 키워드 교환 기록 추가
-      const newExchangeHistory: ExchangeRecord[] = [
-        {
-          id: exchangeHistory.length + 1,
-          date: new Date().toLocaleDateString('ko-KR').replace(/\. /g, '.'),
-          person: '새로운 교환자',
-          given: myKeywords,
-          received: opponentKeyword
-        },
-        ...exchangeHistory
-      ];
-      setExchangeHistory(newExchangeHistory);
-      
-      // 수집 키워드 수 증가
-      setCollectedKeywords(collectedKeywords + 1);
-      // 만난 사람 수 증가
-      setMetExperts(collectedKeywords + 1);
-      
-      // 알림 표시
-      showAlert(`"${opponentKeyword}" 키워드를 찾았습니다!`);
-    } else {
-      // 키워드가 없는 경우 알림
-      showAlert(`"${opponentKeyword}" 키워드를 빙고판에서 찾을 수 없습니다.`);
+    const myId = localStorage.getItem("myID");
+    if (!myId) {
+      showAlert("로그인 정보가 없습니다.");
+      return;
     }
-    
-    handleCloseModal();
-  };
-
-  // 데모 목적으로 칸 토글
-  const toggleCell = (index: number) => {
-    const newBoard = [...bingoBoard];
-    // newBoard[index].selected = !newBoard[index].selected;
-    newBoard[index].selected = newBoard[index].selected === 1 ? 0 : 1;
-    setBingoBoard(newBoard);
-    setLastSelectedCell(index);
-
-    if (newBoard[index].selected) {
-      // 수집 키워드 수 증가
-      setCollectedKeywords(collectedKeywords + 1);
-      // 만난 사람 수 증가
-      setMetExperts(collectedKeywords + 1);
-    } else {
-      // 수집 키워드 수 감소
-      setCollectedKeywords(collectedKeywords - 1);
-      // 만난 사람 수 감소
-      setMetExperts(collectedKeywords - 1);
-    }
-    
-    if (newBoard[index].selected) {
-      showAlert(`Anonymous User에게 "${newBoard[index].value}" 키워드를 공유 받았습니다.`);
+  
+    try {
+      const result = await updateBingoBoard(myId, opponentId);
+      if (result) {
+        showAlert(`"User ${opponentId}"에게 키워드를 성공적으로 전송했습니다!`);
+      } else {
+        showAlert("키워드 교환 요청에 실패했습니다. 다시 시도해주세요.");
+      }
+    } catch (err) {
+      console.error("Exchange failed:", err);
+      showAlert("에러가 발생했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
 
@@ -438,7 +430,7 @@ const BingoGame = () => {
 
   // 셀 스타일 관리
   const getCellStyle = (index: number) => {
-    const isMarked = bingoBoard[index].selected;
+    const isMarked = bingoBoard[index].status;
     const isInCompletedLine = isCellInCompletedLine(index);
     const isLastSelected = index === lastSelectedCell;
     const isNewBingoCell = newBingoCells.includes(index);
@@ -655,8 +647,7 @@ const BingoGame = () => {
           {bingoBoard.map((cell, index) => (
             <Grid item xs={2.4} key={cell.id}>
               <Paper
-                elevation={cell.selected ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
-                onClick={() => toggleCell(index)}
+                elevation={cell.status ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
                 sx={getCellStyle(index)}
               >
                 <Box sx={{ textAlign: 'center' }}>
@@ -670,7 +661,7 @@ const BingoGame = () => {
                       textOverflow: 'ellipsis', 
                       whiteSpace: 'nowrap', 
                       width: '100%',
-                      color: cell.selected ? 
+                      color: cell.status ? 
                         (animatedCells.includes(index) ? 'white' : 
                         (isCellInCompletedLine(index) ? 'amber.800' : 'primary.800')) 
                         : 'text.primary'
@@ -802,15 +793,15 @@ const BingoGame = () => {
       {/* 키워드 교환 입력 섹션 */}
       <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
-          키워드 교환 (ID 입력으로 변경 예정)
+          키워드 교환
         </Typography>
 
         <Box sx={{ mb: 2, display: 'flex',  justifyContent: 'center', alignItems: 'center', gap: 1 }}>
-          <Typography color="text.secondary">상대방 키워드</Typography>
+          <Typography color="text.secondary">상대방 ID</Typography>
           <TextField
-            value={opponentKeyword}
-            onChange={(e) => setOpponentKeyword(e.target.value)}
-            placeholder="상대방의 키워드를 입력하세요"
+            value={opponentId}
+            onChange={(e) => setOpponentId(e.target.value)}
+            placeholder="상대방의 ID를 입력하세요"
             size="small"
           />
           <Button 
