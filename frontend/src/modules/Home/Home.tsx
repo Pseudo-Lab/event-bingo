@@ -1,164 +1,108 @@
-import { Container, Typography, Theme, Input, Button } from "@mui/material";
-import { toast, ToastContainer } from "react-toastify";
+import {
+  Container,
+  Typography,
+  Input,
+  Button,
+  Theme,
+} from "@mui/material";
 import { styled } from "@mui/system";
-import { useState } from "react";
-import { SHA256 } from "crypto-js";
-import {
-  singUpUser,
-  createBingoBoard,
-  getBingoBoard,
-} from "../../api/bingo_api";
-import {
-  defafultBingoBoard,
-  shuffleArray,
-} from "../Bingo/components/DefaultBingoBoard";
+import { useState, useEffect } from "react";
+import { toast, ToastContainer } from "react-toastify";
+import { singUpUser, createBingoBoard, getBingoBoard } from "../../api/bingo_api";
 
-const StyledContainer = styled(Container)({
+const GradientContainer = styled(Container)(({ theme }) => ({
+  minHeight: "100vh",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  background: "linear-gradient(135deg, #FFE5EC, #E0F7FA)",
+  padding: theme.spacing(4),
   textAlign: "center",
-  padding: (theme: Theme) => theme.spacing(4),
-});
+}));
 
-const InputBox = styled(Input)({
+const StyledInput = styled(Input)({
   marginTop: "1rem",
+  padding: "0.5rem 1rem",
+  background: "white",
+  borderRadius: "8px",
+  width: "40%",
+  fontSize: "1rem",
 });
 
 const Home = () => {
-  const [loginId, setLoginId] = useState("");
-  const [password, setPassword] = useState("");
-  const handLogin = async () => {
-    console.log(loginId);
-    const hash_password = SHA256(password).toString();
+  const [loginEmail, setLoginEmail] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-    const result = await singUpUser(loginId, hash_password);
-    if (result.ok === false) {
+  useEffect(() => {
+    const storedId = localStorage.getItem("myID");
+    if (storedId) {
+      setIsLoggedIn(true);
+    }
+  }, []);
+
+  const handLogin = async () => {
+    const result = await singUpUser(loginEmail);
+    if (!result.ok) {
       toast.error(result.message);
-      localStorage.setItem("myWordList", "");
-      localStorage.setItem("recentWords", "");
-      localStorage.setItem("recentSendUser", "");
-      localStorage.setItem("myID", "");
       return;
     }
-    localStorage.setItem("myID", loginId);
 
-    const bingoData = await getBingoBoard(loginId);
-    if (bingoData.length == 0) {
-      const boardData: {
-        [key: string]: { value: string; status: number; selected: number };
-      } = {};
-      let bingoBoard = shuffleArray(defafultBingoBoard);
-      bingoBoard.forEach((item, index) => {
-        return (boardData[index] = {
-          value: item.value,
-          status: 0,
-          selected: 0,
-        });
-      });
-      await createBingoBoard(result.user_id, boardData);
-    }
-
+    localStorage.setItem("myID", result.user_id);
+    localStorage.setItem("myEmail", result.user_email);
+    setIsLoggedIn(true);
     window.location.href = "/bingo";
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("myID");
+    localStorage.removeItem("myEmail");
+    setIsLoggedIn(false);
+  };
+
   return (
-    <StyledContainer>
-      <Typography
-        sx={{
-          whiteSpace: "pre-wrap",
-          fontSize: "5vw",
-          textAlign: "left",
-          fontFamily: "Spoqa Han Sans Neo",
-          fontWeight: "bold",
-        }}
-      >
+    <GradientContainer>
+      <Typography variant="h2" sx={{ fontWeight: "bold", marginBottom: "1rem" }}>
         빙고 네트워킹
       </Typography>
-
-      <Typography
-        sx={{
-          whiteSpace: "pre-wrap",
-          fontSize: "4vw",
-          textAlign: "left",
-          fontFamily: "Spoqa Han Sans Neo",
-          fontWeight: "bold",
-        }}
-      >
-        Sudo Pseudo Explore
+      <Typography variant="h3" sx={{ fontWeight: "bold", marginBottom: "0.5rem" }}>
+        2025 PseudoCon
       </Typography>
-
-      <Typography
-        sx={{
-          whiteSpace: "pre-wrap",
-          fontSize: "3.5vw",
-          textAlign: "left",
-          fontFamily: "Spoqa Han Sans Neo",
-          fontWeight: "bold",
-        }}
-      >
-        1st Grand Gathering
+      <Typography variant="h6" sx={{ marginBottom: "2rem", color: "#555" }}>
+        05.17 | 서울 마포 21창업허브
       </Typography>
-
-      <Typography
-        sx={{
-          whiteSpace: "pre-wrap",
-          fontSize: "3vw",
-          textAlign: "left",
-          fontFamily: "Spoqa Han Sans Neo",
-          fontWeight: "bold",
-        }}
-      >
-        2024.11.23
-      </Typography>
-
-      <br />
-
-      <InputBox
-        placeholder="아이디 입력"
-        value={loginId}
-        onChange={async (event: React.ChangeEvent<HTMLInputElement>) => {
-          setLoginId(event.target.value);
-        }}
-      ></InputBox>
-
-      <br />
-
-      <InputBox
-        placeholder="비밀번호 입력"
-        value={password}
-        type="Password"
-        onChange={async (event: React.ChangeEvent<HTMLInputElement>) => {
-          setPassword(event.target.value);
-        }}
-      ></InputBox>
-      <br />
-      <br />
-      <Button
-        onClick={async () => {
-          if (loginId === "") {
-            toast.error("아이디를 입력해주세요.");
-            return;
-          } else if (password === "") {
-            toast.error("비밀번호를 입력해주세요.");
-            return;
-          } else {
+      {!isLoggedIn ? (
+        <>
+          <StyledInput
+            placeholder="이메일을 입력하세요"
+            value={loginEmail}
+            onChange={(e) => setLoginEmail(e.target.value)}
+          />
+          <Button
+            sx={{ marginTop: "5px" }}
+            onClick={async () => {
+            if (loginEmail === "") {
+              toast.error("이메일을 입력해주세요.");
+              return;
+            }
             await handLogin();
-          }
-        }}
-      >
-        계정 생성 or 로그인
-      </Button>
-      <ToastContainer
-        position="top-right" // 알람 위치 지정
-        autoClose={3000} // 자동 off 시간
-        hideProgressBar={false} // 진행시간바 숨김
-        closeOnClick // 클릭으로 알람 닫기
-        rtl={false} // 알림 좌우 반전
-        pauseOnFocusLoss // 화면을 벗어나면 알람 정지
-        draggable // 드래그 가능
-        pauseOnHover // 마우스를 올리면 알람 정지
-        theme="light"
-        // limit={1} // 알람 개수 제한
-      />
-    </StyledContainer>
+          }}>
+            계정 생성 또는 로그인
+          </Button>
+        </>
+      ) : (
+        <>
+          <Typography variant="h6" sx={{ fontWeight: "bold", marginTop: "1rem", color: "#333" }}>
+            {loginEmail || localStorage.getItem("myEmail")}
+          </Typography>
+          <Button onClick={handleLogout} sx={{ marginTop: "5px" }}>
+            로그아웃
+          </Button>
+        </>
+      )}
+
+      <ToastContainer position="top-right" autoClose={3000} />
+    </GradientContainer>
   );
 };
 
