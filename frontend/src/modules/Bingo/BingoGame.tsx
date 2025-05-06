@@ -5,6 +5,7 @@ import {
   Snackbar, Alert, Divider, Card, CardContent, ToggleButton, ToggleButtonGroup
 } from '@mui/material';
 import { styled } from "@mui/system";
+import PersonIcon from '@mui/icons-material/Person';
 import {
   getBingoBoard,
   getSelectedWords,
@@ -582,9 +583,10 @@ const BingoGame = () => {
             <Box component="img" src={logo} alt="Logo" sx={{ width: 24, height: 24, mr: 1 }} />
             <Typography variant="h6" fontWeight="bold">키워드 교환 빙고</Typography>
           </Box>
-          <Box>
-            <Typography fontWeight="bold">User ID: {userId}</Typography>
-            <Button size="small" sx={{ color: 'primary.main' }}>{username}</Button>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Button sx={{ fontSize: 15, color: 'primary.main' }}>{username}</Button>
+            <PersonIcon sx={{ fontSize: 20, color: 'primary.100' }} />
+            <Typography fontWeight="bold">내 ID: {userId}</Typography>
           </Box>
         </Box>
         
@@ -642,6 +644,39 @@ const BingoGame = () => {
         <Typography variant="body2" color="text.secondary" align="right">
           {bingoCount >= bingoMissionCount ? "빙고 완성! 🎉" : `${bingoCount}줄 빙고 달성 중`}
         </Typography>
+      </Paper>
+
+      {/* 키워드 교환 입력 섹션 */}
+      <Paper elevation={2} sx={{ p: 1.5, my: 2 }}>
+        <Box sx={{ display: 'flex',  justifyContent: 'center', alignItems: 'center', gap: 3 }}>
+          <Typography variant="h6" fontWeight="bold">
+            키워드 교환
+          </Typography>
+          <TextField
+            value={opponentId}
+            onChange={(e) => setOpponentId(e.target.value)}
+            placeholder="상대방 ID를 입력하세요"
+            size="small"
+          />
+          <Button 
+            variant="contained" 
+            color="warning"
+            onClick={handleExchange}
+            sx={{
+              px: 3,
+              width: '150px',
+              '&:focus': {
+                outline: 'none',
+              },
+              '&:focus-visible': {
+                outline: 'none',
+                boxShadow: 'none',
+              }
+            }}
+          >
+            내 키워드 보내기
+          </Button>
+        </Box>
       </Paper>
       
       {/* 빙고 보드 */}
@@ -792,41 +827,6 @@ const BingoGame = () => {
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
       `}</style>
-      
-      {/* 키워드 교환 입력 섹션 */}
-      <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
-          키워드 교환
-        </Typography>
-
-        <Box sx={{ mb: 2, display: 'flex',  justifyContent: 'center', alignItems: 'center', gap: 2 }}>
-          <Typography color="text.secondary" fontWeight="bold">상대방 ID</Typography>
-          <TextField
-            value={opponentId}
-            onChange={(e) => setOpponentId(e.target.value)}
-            placeholder="상대방 ID를 입력하세요"
-            size="small"
-          />
-          <Button 
-            variant="contained" 
-            color="warning"
-            onClick={handleExchange}
-            sx={{
-              px: 3,
-              width: '150px',
-              '&:focus': {
-                outline: 'none',
-              },
-              '&:focus-visible': {
-                outline: 'none',
-                boxShadow: 'none',
-              }
-            }}
-          >
-            내 키워드 보내기
-          </Button>
-        </Box>
-      </Paper>
       
       {/* 기록 보기 버튼 */}
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
