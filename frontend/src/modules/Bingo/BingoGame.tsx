@@ -72,7 +72,7 @@ const BingoGame = () => {
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [collectedKeywords, setCollectedKeywords] = useState(0);
-  const [metExperts, setMetExperts] = useState(0);
+  const [metPersonNum, setMetPersonNum] = useState(0);
   const [exchangeHistory, setExchangeHistory] = useState<ExchangeRecord[]>([
     { id: 1, date: '2023.04.10', person: '김데이터 연구원', given: ['머신러닝 모델'], received: '데이터파이프라인 활용' },
     { id: 2, date: '2023.04.05', person: '이백사 교수', given: ['빅데이터 분석'], received: '데이터 마이닝' },
@@ -152,7 +152,7 @@ const BingoGame = () => {
         if (newlyUpdatedValues.length > 0) {
           setBingoBoard(updatedBoard);
           setCollectedKeywords(prev => prev + newlyUpdatedValues.length);
-          setMetExperts(prev => prev + newlyUpdatedValues.length);
+          setMetPersonNum(prev => prev + 1);
           // TODO: 교환한 User ID 가져와서 보여주기
           showAlert(`Anonymous User에게 "${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
         }
@@ -613,7 +613,7 @@ const BingoGame = () => {
           <Grid item xs={6}>
             <Paper elevation={0} sx={{ bgcolor: 'grey.200', p: 1.5, borderRadius: 1 }}>
               <Typography variant="caption" color="text.secondary">만난 PseudoCon 참가자</Typography>
-              <Typography variant="h6" fontWeight="medium">{metExperts}명</Typography>
+              <Typography variant="h6" fontWeight="medium">{metPersonNum}명</Typography>
             </Paper>
           </Grid>
         </Grid>
