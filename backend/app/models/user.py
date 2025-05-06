@@ -1,16 +1,22 @@
-from models.base import Base
-from core.db import AsyncSession
-from sqlalchemy import Integer, String, select, DateTime, Boolean, Sequence
-from sqlalchemy.orm import mapped_column
-from typing import AsyncIterator
-
 from datetime import datetime
+from typing import AsyncIterator
 from zoneinfo import ZoneInfo
+
+import pandas as pd
+from core.db import AsyncSession
+from core.log import logger
+from sqlalchemy import Boolean, DateTime, Integer, Sequence, String, select
+from sqlalchemy.orm import mapped_column
+
+from models.base import Base
+from integrations.omoh.verification import verify_email_in_attendances
+
 
 
 class BingoUser(Base):
     __tablename__ = "bingo_user"
     user_id = mapped_column(Integer, primary_key=True, nullable=False)
+    user_name = mapped_column(String(100), nullable=False)
     user_email = mapped_column(String(100), nullable=False)
     created_at = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
@@ -18,11 +24,12 @@ class BingoUser(Base):
 
     @classmethod
     async def create(cls, session: AsyncSession, email: str):
+        user_name = verify_email_in_attendances(email)
         is_user = await session.execute(select(cls).where(cls.user_email == email))
         is_user = is_user.one_or_none()
         if is_user:
             raise ValueError(f"{email}은 이미 존재하는 유저입니다. 다른 email을 사용해주세요.")
-        new_user = BingoUser(user_email=email)
+        new_user = BingoUser(user_name=user_name, user_email=email)
         session.add(new_user)
         await session.commit()
         await session.refresh(new_user)
@@ -33,11 +40,11 @@ class BingoUser(Base):
         res = await session.execute(select(cls).where(cls.user_email == email))
         return res.scalar_one_or_none()
 
-    # @classmethod
-    # async def get_user_by_name(cls, session: AsyncSession, username: str):
-    #     res = await session.execute(select(cls).where(cls.username == username))
-    #     user = res.scalars().first()
-    #     return user
+    @classmethod
+    async def get_user_by_name(cls, session: AsyncSession, user_name: str):
+        res = await session.execute(select(cls).where(cls.user_name == user_name))
+        user = res.scalars().first()
+        return user
 
     @classmethod
     async def get_user_by_id(cls, session: AsyncSession, user_id: int):
