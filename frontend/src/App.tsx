@@ -28,10 +28,10 @@ function App() {
             <Route path="/builder" element={<IntroduceBuilder />} />
             <Route path="/runner" element={<Test />} />
             <Route path="/community/*" element={<Board />} />
-            <Route path="/bingo" element={<Bingo />} />
-            <Route path="/bingo-test" element={<BingoGame />} />
-            <Route path="/signup" element={<SignUpForm />} />
-            <Route path="/bingo_qr/:id" element={<BingoQR />} />
+            <Route path="/bingo" element={<BingoGame />} />
+            {/* <Route path="/bingo_qr/:id" element={<BingoQR />} /> */}
+            {/* <Route path="/signup" element={<SignUpForm />} /> */}
+            {/* <Route path="/bingo-test" element={<Bingo />} /> */}
             {/* <Route path="/posts" component={Posts} />
             <Route path="/posts/:id" component={Post} />
             <Route path="/posts/new" component={NewPost} />
