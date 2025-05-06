@@ -1,8 +1,8 @@
 const API_URL: string = import.meta.env.VITE_API_URL;
 
-export const singUpUser = async (username: string, password: string) => {
+export const singUpUser = async (userEmail: string) => {
   const response = await fetch(
-    `${API_URL}/api/auth/bingo/sign-up?username=${username}&password=${password}`,
+    `${API_URL}/api/auth/bingo/sign-up?email=${userEmail}`,
     {
       method: "POST",
       headers: {
