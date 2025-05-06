@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Button, Grid, Paper, Chip, LinearProgress,
+  Container, Box, Typography, Button, Grid, Paper, Chip, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   Snackbar, Alert, Divider, Card, CardContent, ToggleButton, ToggleButtonGroup
 } from '@mui/material';
+import { styled } from "@mui/system";
 import {
   getBingoBoard,
   getSelectedWords,
@@ -47,6 +48,17 @@ const cellValues = [
   '인공지능 구축', '데이터 파이프라인', '보안 최적화', 'API 설계', '프로젝트 관리'
 ];
 
+const GradientContainer = styled(Container)(({ theme }) => ({
+  minHeight: "100vh",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  background: "linear-gradient(135deg, #FFE5EC, #E0F7FA)",
+  padding: theme.spacing(4),
+  textAlign: "center",
+}));
+
 const BingoGame = () => {
   const [username, setUsername] = useState('사용자 이름');
   const [userId, setUserId] = useState<string>('');
@@ -85,7 +97,6 @@ const BingoGame = () => {
   // 새로운 빙고 라인이 발견되었는지 확인하기 위한 상태
   const [newBingoFound, setNewBingoFound] = useState(false);
   const [initialSetupOpen, setInitialSetupOpen] = useState(true);
-  const [tempUsername, setTempUsername] = useState('사용자 이름');
   const [selectedInitialKeywords, setSelectedInitialKeywords] = useState<string[]>([]);
   // 빙고 라인의 셀들을 추적하기 위한 상태
   const [bingoLineCells, setBingoLineCells] = useState<number[]>([]);
@@ -106,7 +117,11 @@ const BingoGame = () => {
   useEffect(() => {
     const init = async () => {
       const storedId = localStorage.getItem("myID");
-      console.log('Current User ID', storedId);
+      const userName = localStorage.getItem("myUserName");
+      if (!storedId) {
+        window.location.href = "/";
+        return;
+      }
       if (storedId) {
         try {
           setUserId(storedId);
@@ -126,6 +141,7 @@ const BingoGame = () => {
           console.error("Error loading user board:", error);
         }
       }
+      if (userName) setUsername(userName);
     };
   
     init();
@@ -202,7 +218,6 @@ const BingoGame = () => {
       if (selectedInitialKeywords.length > 0) {
         setMyKeywords(selectedInitialKeywords);
       }
-      setUsername(tempUsername);
       setInitialSetupOpen(false);
       showAlert('키워드가 설정되었습니다!');
       await initializeBoard(userId, selectedInitialKeywords);
@@ -510,6 +525,7 @@ const BingoGame = () => {
   };
 
   return (
+    <GradientContainer>
     <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
       {/* 초기 키워드 설정 모달 */}
       <Dialog 
@@ -525,17 +541,6 @@ const BingoGame = () => {
       >
         <DialogTitle>빙고 게임 시작하기</DialogTitle>
         <DialogContent>
-          <Box sx={{ mb: 3, mt: 1 }}>
-            <Typography variant="body1" mb={1}>사용자 이름:</Typography>
-            <TextField
-              fullWidth
-              value={tempUsername}
-              onChange={(e) => setTempUsername(e.target.value)}
-              placeholder="이름을 입력하세요"
-              size="small"
-            />
-          </Box>
-          
           <Box sx={{ mb: 2 }}>
             <Typography variant="body1" mb={1}>나의 키워드를 선택하세요 ({keywordCount}개):</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -794,19 +799,29 @@ const BingoGame = () => {
           키워드 교환
         </Typography>
 
-        <Box sx={{ mb: 2, display: 'flex',  justifyContent: 'center', alignItems: 'center', gap: 1 }}>
-          <Typography color="text.secondary">상대방 ID</Typography>
+        <Box sx={{ mb: 2, display: 'flex',  justifyContent: 'center', alignItems: 'center', gap: 2 }}>
+          <Typography color="text.secondary" fontWeight="bold">상대방 ID</Typography>
           <TextField
             value={opponentId}
             onChange={(e) => setOpponentId(e.target.value)}
-            placeholder="상대방의 ID를 입력하세요"
+            placeholder="상대방 ID를 입력하세요"
             size="small"
           />
           <Button 
             variant="contained" 
             color="warning"
             onClick={handleExchange}
-            sx={{ px: 3, width: '150px' }}
+            sx={{
+              px: 3,
+              width: '150px',
+              '&:focus': {
+                outline: 'none',
+              },
+              '&:focus-visible': {
+                outline: 'none',
+                boxShadow: 'none',
+              }
+            }}
           >
             내 키워드 보내기
           </Button>
@@ -938,6 +953,7 @@ const BingoGame = () => {
         </Alert>
       </Snackbar>
     </Box>
+    </GradientContainer>
   );
 };
 
