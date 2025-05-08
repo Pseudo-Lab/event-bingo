@@ -9,10 +9,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Snackbar,
+  Alert,
 } from "@mui/material";
 import { styled } from "@mui/system";
 import { useState, useEffect } from "react";
-import { toast, ToastContainer } from "react-toastify";
 import { singUpUser } from "../../api/bingo_api";
 
 const GradientContainer = styled(Container)(({ theme }) => ({
@@ -31,7 +32,7 @@ const StyledInput = styled(Input)({
   padding: "0.5rem 1rem",
   background: "white",
   borderRadius: "8px",
-  width: "40%",
+  width: "90%",
   fontSize: "1rem",
 });
 
@@ -40,6 +41,9 @@ const Home = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [agreeOpen, setAgreeOpen] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertSeverity, setAlertSeverity] = useState<'error' | 'success'>('error');
 
   useEffect(() => {
     const storedId = localStorage.getItem("myID");
@@ -50,13 +54,17 @@ const Home = () => {
 
   const handLogin = async () => {
     if (!isAgreed) {
-      toast.error("개인정보 처리 동의가 필요합니다.");
+      setAlertMessage("개인정보 처리 동의가 필요합니다.");
+      setAlertSeverity("error");
+      setAlertOpen(true);
       return;
     }
-
+    
     const result = await singUpUser(loginEmail);
     if (!result.ok) {
-      toast.error(result.message);
+      setAlertMessage(result.message);
+      setAlertSeverity("error");
+      setAlertOpen(true);
       return;
     }
 
@@ -76,14 +84,14 @@ const Home = () => {
 
   return (
     <GradientContainer>
-      <Typography variant="h2" sx={{ fontWeight: "bold", marginBottom: "1rem" }}>
-        빙고 네트워킹
+      <Typography variant="h3" sx={{ fontWeight: "bold", marginBottom: "1rem" }}>
+        빙고 네트워킹 
       </Typography>
-      <Typography variant="h3" sx={{ fontWeight: "bold", marginBottom: "0.5rem" }}>
+      <Typography variant="h4" sx={{ fontWeight: "bold", marginBottom: "0.5rem" }}>
         2025 PseudoCon
       </Typography>
       <Typography variant="h6" sx={{ marginBottom: "2rem", color: "#555" }}>
-        05월 17일 | 서울창업허브(공덕) 10층
+        05월 17일 | 서울창업허브(공덕)
       </Typography>
       {!isLoggedIn ? (
         <>
@@ -149,7 +157,7 @@ const Home = () => {
           </tr>
           <tr>
             <td style={{ border: '1px solid #ccc', padding: '8px' }}>수집 항목</td>
-            <td style={{ border: '1px solid #ccc', padding: '8px' }}>이름, 이메일, 빙고 키워드 선택 기록, 빙고 키워드 교환 이력</td>
+            <td style={{ border: '1px solid #ccc', padding: '8px' }}>이름, 이메일, 빙고 키워드 교환 이력</td>
           </tr>
           <tr>
             <td style={{ border: '1px solid #ccc', padding: '8px' }}>보유 기간</td>
@@ -182,7 +190,15 @@ const Home = () => {
         </DialogActions>
       </Dialog>
 
-      <ToastContainer position="top-right" autoClose={3000} />
+      <Snackbar
+        open={alertOpen}
+        autoHideDuration={3000}
+        onClose={() => setAlertOpen(false)}
+      >
+        <Alert onClose={() => setAlertOpen(false)} severity={alertSeverity} sx={{ width: '100%' }}>
+          {alertMessage}
+        </Alert>
+      </Snackbar>
     </GradientContainer>
   );
 };
