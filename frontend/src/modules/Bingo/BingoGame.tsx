@@ -463,7 +463,7 @@ const BingoGame = () => {
       baseStyle.animationDelay = '1s, 0s';
       baseStyle['@keyframes pulse'] = {
         '0%': { boxShadow: '0 0 0 0 rgba(76, 175, 80, 0.7)', transform: 'scale(1)' },
-        '50%': { boxShadow: '0 0 0 8px rgba(76, 175, 80, 0)', transform: 'scale(1.05)' },
+        '50%': { boxShadow: '0 0 0 8px rgba(76, 175, 80, 0)', transform: 'scale(1.025)' },
         '100%': { boxShadow: '0 0 0 0 rgba(76, 175, 80, 0)', transform: 'scale(1)' }
       };
       baseStyle['@keyframes fadeBg'] = {
@@ -572,43 +572,43 @@ const BingoGame = () => {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Box component="img" src={logo} alt="Logo" sx={{ width: 24, height: 24, mr: 1 }} />
-              <Typography variant="h6" fontWeight="bold">키워드 교환 빙고</Typography>
+              <Typography variant="body1" fontWeight="bold">키워드 교환 빙고</Typography>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Button sx={{ fontSize: 15, color: 'primary.main' }}>{username}</Button>
-              <PersonIcon sx={{ fontSize: 20, color: 'primary.100' }} />
-              <Typography fontWeight="bold">내 ID: {userId}</Typography>
-            </Box>
+            <Button sx={{ fontSize: 15, color: 'primary.main' }}>{username}</Button>
           </Box>
           
           <Divider sx={{ my: 1.5 }} />
           
           {/* 키워드 태그 */}
           <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" mb={1}>나의 키워드</Typography>
+            <Typography variant="body2" fontWeight="bold" color="text.secondary" mb={1}>나의 키워드</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
               {myKeywords.map((keyword, index) => (
                 <Chip
                   key={index}
                   label={keyword}
-                  size="small"
-                  sx={{ bgcolor: 'primary.50', color: 'primary.main' }}
+                  size="medium"
+                  sx={{ bgcolor: 'primary.50', color: 'primary.main', fontWeight: 'bold' }}
                 />
               ))}
             </Box>
           </Box>
           
           {/* 수집 현황 */}
-          <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid container spacing={1.5} sx={{ mb: 2 }}>
             <Grid item xs={6}>
-              <Paper elevation={0} sx={{ bgcolor: 'grey.200', p: 1.5, borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">수집한 키워드</Typography>
+              <Paper elevation={0} sx={{ bgcolor: 'grey.200', p: 1, borderRadius: 1, height: '100%' }}>
+                <Box sx={{ minHeight: 50 }}>
+                  <Typography variant="caption" color="text.secondary">수집한 키워드</Typography>
+                </Box>
                 <Typography variant="h6" fontWeight="medium">{collectedKeywords}/25</Typography>
-              </Paper>
+              </Paper>  
             </Grid>
             <Grid item xs={6}>
-              <Paper elevation={0} sx={{ bgcolor: 'grey.200', p: 1.5, borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">만난 PseudoCon 참가자</Typography>
+              <Paper elevation={0} sx={{ bgcolor: 'grey.200', p: 1, borderRadius: 1, height: '100%' }}>
+                <Box sx={{ minHeight: 50 }}>
+                  <Typography variant="caption" color="text.secondary">만난 PseudoCon<br></br>참가자</Typography>
+                </Box>
                 <Typography variant="h6" fontWeight="medium">{metPersonNum}명</Typography>
               </Paper>
             </Grid>
@@ -639,14 +639,17 @@ const BingoGame = () => {
 
         {/* 키워드 교환 입력 섹션 */}
         <Paper elevation={2} sx={{ p: 1.5, my: 2 }}>
-          <Box sx={{ display: 'flex',  justifyContent: 'center', alignItems: 'center', gap: 3 }}>
-            <Typography variant="h6" fontWeight="bold">
-              키워드 교환
-            </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 1 }}>
+            <Typography variant="body2" fontWeight="bold" sx={{ mr: 1 }}>키워드 교환</Typography>
+            <Typography variant="body2" fontWeight="bold">(</Typography>
+            <PersonIcon sx={{ fontSize: 15, color: 'primary.100' }} />
+            <Typography variant="body2" fontWeight="bold">내 ID: {userId})</Typography>
+          </Box>
+          <Box sx={{ display: 'flex',  justifyContent: 'center', alignItems: 'center', gap: 1 }}>
             <TextField
               value={opponentId}
               onChange={(e) => setOpponentId(e.target.value)}
-              placeholder="상대방 ID를 입력하세요"
+              placeholder="상대방 ID 입력"
               size="small"
             />
             <Button 
@@ -654,8 +657,8 @@ const BingoGame = () => {
               color="warning"
               onClick={handleExchange}
               sx={{
-                px: 3,
-                width: '150px',
+                px: 1,
+                width: '50%',
                 '&:focus': {
                   outline: 'none',
                 },
@@ -672,9 +675,9 @@ const BingoGame = () => {
         
         {/* 빙고 보드 */}
         <Box sx={{ mb: 2, position: 'relative' }}>
-          <Grid container spacing={1}>
+          <Grid container spacing={0.5}>
             {bingoBoard.map((cell, index) => (
-              <Grid item xs={4} sm={2.4} key={cell.id}>
+              <Grid item xs={2.4} sm={2.4} key={cell.id}>
                 <Paper
                   elevation={cell.status ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
                   sx={getCellStyle(index)}
@@ -682,13 +685,15 @@ const BingoGame = () => {
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography 
                       variant="caption" 
-                      fontWeight="bold"
                       sx={{ 
-                        display: 'block', 
-                        mb: 0.5, 
+                        fontSize: 'clamp(0.45rem, 2.7vw, 0.75rem)', 
+                        fontWeight: 'bold',
+                        textAlign: 'center',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
                         overflow: 'hidden', 
                         textOverflow: 'ellipsis', 
-                        whiteSpace: 'nowrap', 
                         width: '100%',
                         color: cell.status ? 
                           (animatedCells.includes(index) ? 'white' : 
