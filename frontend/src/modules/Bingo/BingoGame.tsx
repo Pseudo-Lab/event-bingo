@@ -104,6 +104,7 @@ const BingoGame = () => {
   const [newBingoCells, setNewBingoCells] = useState<number[]>([]);
   // 애니메이션 적용 상태를 관리
   const [hasShownConfetti, setHasShownConfetti] = useState(false);
+  const [alertSeverity, setAlertSeverity] = useState<'success' | 'warning' | 'error' | 'info'>('success');
 
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
@@ -166,7 +167,7 @@ const BingoGame = () => {
           setCollectedKeywords(prev => prev + newlyUpdatedValues.length);
           setMetPersonNum(prev => prev + 1);
           // TODO: 교환한 User ID 가져와서 보여주기
-          showAlert(`Anonymous User에게 "${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
+          showAlert(`"${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
         }
       } catch (err) {
         console.error("Error refreshing bingo board:", err);
@@ -383,11 +384,11 @@ const BingoGame = () => {
   };
 
   // 알림 표시 함수
-  const showAlert = (message: string) => {
+  const showAlert = (message: string, severity: 'success' | 'warning' | 'error' | 'info' = 'success') => {
     setAlertMessage(message);
+    setAlertSeverity(severity);
     setAlertOpen(true);
-    
-    // 3초 후 자동으로 닫기
+  
     setTimeout(() => {
       setAlertOpen(false);
     }, 3000);
@@ -396,13 +397,18 @@ const BingoGame = () => {
   // 키워드 교환 처리
   const handleExchange = async () => {
     if (!opponentId) {
-      showAlert("상대방 ID를 입력해주세요.");
+      showAlert("상대방 ID를 입력해주세요.", 'warning');
       return;
     }
   
     const myId = localStorage.getItem("myID");
     if (!myId) {
-      showAlert("로그인 정보가 없습니다.");
+      showAlert("로그인 정보가 없습니다.", 'error');
+      return;
+    }
+
+    if (myId === opponentId) {
+      showAlert("본인 ID가 아닌 상대방 ID를 입력해주세요.", 'warning');
       return;
     }
   
@@ -411,11 +417,11 @@ const BingoGame = () => {
       if (result) {
         showAlert(`"User ${opponentId}"에게 키워드를 성공적으로 전송했습니다!`);
       } else {
-        showAlert("키워드 교환 요청에 실패했습니다. 다시 시도해주세요.");
+        showAlert("키워드 교환 요청에 실패했습니다. 다시 시도해주세요.", 'error');
       }
     } catch (err) {
       console.error("Exchange failed:", err);
-      showAlert("에러가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      showAlert("에러가 발생했습니다. 잠시 후 다시 시도해주세요.", 'error');
     }
   };
 
@@ -944,7 +950,7 @@ const BingoGame = () => {
           onClose={handleCloseAlert}
           anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
-          <Alert severity="success" variant="filled">
+          <Alert severity={alertSeverity} variant="filled">
             {alertMessage}
           </Alert>
         </Snackbar>
