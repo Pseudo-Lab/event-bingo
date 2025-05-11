@@ -28,12 +28,14 @@ class BingoInteraction(Base):
         return new_interaction
 
     @classmethod
-    async def get_user_latest_interaction(cls, session: AsyncSession, user_id: int):
-        res = await session.execute(
-            select(cls).where(cls.receive_user_id == user_id).order_by(cls.created_at.desc()).limit(1)
-        )
-        data = res.scalars().first()
-        return data
+    async def get_user_latest_interaction(cls, session: AsyncSession, user_id: int, limit: int):
+        stmt = select(cls).where(cls.receive_user_id == user_id).order_by(cls.created_at.desc())
+
+        if limit:
+            stmt = stmt.limit(limit)
+
+        res = await session.execute(stmt)
+        return res.scalars().all()
 
     @classmethod
     async def get_user_all_interactions(cls, session: AsyncSession, user_id: int):

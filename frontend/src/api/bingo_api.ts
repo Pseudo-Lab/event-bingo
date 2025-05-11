@@ -116,8 +116,8 @@ export const createUserBingoInteraction = async (
   return response.ok;
 };
 
-export const getUserLatestInteraction = async (userId: string) => {
-  const response = await fetch(`${API_URL}/api/bingo/interactions/${userId}`);
+export const getUserLatestInteraction = async (userId: string, limit: number = 0) => {
+  const response = await fetch(`${API_URL}/api/bingo/interactions/${userId}?limit=${limit}`);
 
   if (response.ok === false) {
     return "";

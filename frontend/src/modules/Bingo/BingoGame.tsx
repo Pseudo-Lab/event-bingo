@@ -106,6 +106,7 @@ const BingoGame = () => {
   // 애니메이션 적용 상태를 관리
   const [hasShownConfetti, setHasShownConfetti] = useState(false);
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'warning' | 'error' | 'info'>('success');
+  const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
 
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
@@ -129,14 +130,28 @@ const BingoGame = () => {
           if (boardData && boardData.length > 0) {
             setBingoBoard(boardData);
             setInitialSetupOpen(false);
+
             const selectedKeywords = boardData
               .filter(cell => cell.selected === 1)
               .map(cell => cell.value);
             setMyKeywords(selectedKeywords);
+
             const getBingoKeywords = boardData
               .filter(cell => cell.status === 1)
               .map(cell => cell.value);
             setCollectedKeywords(getBingoKeywords.length);
+
+            const interactionData = await getUserLatestInteraction(storedId, 0);
+            if (Array.isArray(interactionData) && interactionData.length > 0) {
+              const latestSenderId = interactionData[0].send_user_id;
+              const latestInteractions = interactionData.filter(
+                item => item.send_user_id === latestSenderId
+              );
+              const receivedKeywords = latestInteractions.flatMap(
+                (item) => item.word_id_list ?? []
+              );
+              setLatestReceivedKeywords(receivedKeywords);
+            }
           }
           else {
             setInitialSetupOpen(true);
@@ -174,6 +189,7 @@ const BingoGame = () => {
         if (newlyUpdatedValues.length > 0) {
           setBingoBoard(updatedBoard);
           setCollectedKeywords(prev => prev + newlyUpdatedValues.length);
+          setLatestReceivedKeywords(newlyUpdatedValues);
           // TODO: 교환한 User ID 가져와서 보여주기
           showAlert(`"${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
         }
@@ -422,6 +438,11 @@ const BingoGame = () => {
   
     try {
       const result = await updateBingoBoard(myId, opponentId);
+      await Promise.all(
+        myKeywords.map((myKeyword) =>
+          createUserBingoInteraction(myKeyword, parseInt(myId), parseInt(opponentId))
+        )
+      );
       if (result) {
         showAlert(`"User ${opponentId}"에게 키워드를 성공적으로 전송했습니다!`);
       } else {
@@ -453,6 +474,10 @@ const BingoGame = () => {
     const isInCompletedLine = isCellInCompletedLine(index);
     const isLastSelected = index === lastSelectedCell;
     const isNewBingoCell = newBingoCells.includes(index);
+    const isLatestReceived = latestReceivedKeywords.includes(bingoBoard[index].value);
+    const orangeBorder = '2px solid #FF9E21 ';
+    const baseBorder = '0.5px solid grey';
+    const greenBorder = '2px solid #2E7D32';
     
     // Base styles
     const baseStyle: any = {
@@ -465,7 +490,7 @@ const BingoGame = () => {
       p: 1,
       cursor: 'pointer',
       transition: 'all 0.3s ease',
-      border: '0.5px solid grey',
+      border: baseBorder,
       '&:hover': {
         bgcolor: isMarked ? undefined : 'grey.100'
       }
@@ -485,7 +510,8 @@ const BingoGame = () => {
         '100%': { backgroundColor: '#4CAF50' }
       };
       baseStyle.backgroundColor = '#FFF59D';
-      baseStyle.border = '2px solid #4CAF50';
+      // baseStyle.border = '2px solid #4CAF50';
+      baseStyle.border = isLatestReceived? greenBorder : baseBorder,
       baseStyle.color = 'white'; 
       baseStyle.zIndex = 2;
     }
@@ -496,7 +522,8 @@ const BingoGame = () => {
         return {
           ...baseStyle,
           bgcolor: '#4CAF50',
-          border: '2px solid #2E7D32',
+          // border: '2px solid #2E7D32',
+          border: isLatestReceived? greenBorder : baseBorder,
           color: 'white',
           fontWeight: 'bold',
           boxShadow: isLastSelected ? 3 : 1,
@@ -506,7 +533,8 @@ const BingoGame = () => {
         return {
           ...baseStyle,
           bgcolor: '#FFF8E0',
-          border: '2px #FF9E21 solid',
+          // border: '2px #FF9E21 solid',
+          border: isLatestReceived? orangeBorder : baseBorder,
           boxShadow: isLastSelected ? 2 : 0,
         };
       }
