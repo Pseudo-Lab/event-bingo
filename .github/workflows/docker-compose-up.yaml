@@ -1,0 +1,24 @@
+name: Deploy Docker Compose
+
+on:
+  push:
+    branches:
+      - feat/alembic-fix
+  workflow_dispatch:  # 수동 실행도 가능
+
+jobs:
+  docker-compose-up:
+    runs-on: oracle
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v3
+        with:
+          ref: feat/alembic-fix
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Run with Docker Compose
+        run: |
+          docker compose up -d --build
