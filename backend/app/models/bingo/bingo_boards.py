@@ -59,7 +59,9 @@ class BingoBoards(Base):
     @classmethod
     async def update_board_interaction_count_by_userid(cls, session: AsyncSession, user_id: int, interaction_cnt: int):
         board = await cls.get_board_by_userid(session, user_id)
-        board.user_interaction_count.update(interaction_cnt)
+        board.user_interaction_count = interaction_cnt
+        session.add(board)
+        await session.commit()
 
     @classmethod
     async def update_bingo_count(cls, session: AsyncSession, user_id: int):
@@ -138,7 +140,7 @@ class BingoBoards(Base):
                 board_data[update_idx]["interaction_id"] = send_user.user_id
             interaction_cnt += 1
             await cls.update_board_by_userid(session, receive_user_id, board_data)
-            await cls.update_board_interaction_count_by_userid(session, receive_user_id, board_data)
+            await cls.update_board_interaction_count_by_userid(session, receive_user_id, interaction_cnt)
             board = await cls.update_bingo_count(session, receive_user_id)
 
         return BingoInteractionSchema(
