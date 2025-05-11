@@ -19,6 +19,20 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and Run with Docker Compose
+      - name: Create .env file
         run: |
-          docker compose up -d --build
+          cat <<EOF > .env
+          FRONTEND_PORT=${{ secrets.FRONTEND_PORT }}
+          BACKEND_PORT=${{ secrets.BACKEND_PORT }}
+          VITE_API_URL=${{ secrets.VITE_API_URL }}
+          DB_ROOT=${{ secrets.DB_ROOT }}
+          DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          GUEST_FILE_PATH=${{ secrets.GUEST_FILE_PATH }}
+          EOF
+    
+      - name: Build and Run with Docker Compose
+        run: docker compose up -d --build
