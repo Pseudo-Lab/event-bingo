@@ -1,4 +1,4 @@
-name: Deploy Docker Compose
+name: Deploy Docker Compose to Oracle Server
 
 on:
   push:
