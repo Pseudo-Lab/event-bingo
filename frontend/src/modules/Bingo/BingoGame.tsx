@@ -133,6 +133,7 @@ const BingoGame = () => {
               .filter(cell => cell.selected === 1)
               .map(cell => cell.value);
             setMyKeywords(selectedKeywords);
+            setCollectedKeywords(selectedKeywords.length);
           }
           else {
             setInitialSetupOpen(true);
@@ -170,7 +171,6 @@ const BingoGame = () => {
         if (newlyUpdatedValues.length > 0) {
           setBingoBoard(updatedBoard);
           setCollectedKeywords(prev => prev + newlyUpdatedValues.length);
-          setMetPersonNum(prev => prev + 1);
           // TODO: 교환한 User ID 가져와서 보여주기
           showAlert(`"${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
         }
