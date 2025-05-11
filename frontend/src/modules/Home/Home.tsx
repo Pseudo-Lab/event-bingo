@@ -11,6 +11,7 @@ import {
   DialogActions,
   Snackbar,
   Alert,
+  Link,
 } from "@mui/material";
 import { styled } from "@mui/system";
 import { useState, useEffect } from "react";
@@ -92,6 +93,13 @@ const Home = () => {
       </Typography>
       <Typography variant="h6" sx={{ marginBottom: "2rem", color: "#555" }}>
         05월 17일 | 서울창업허브(공덕)
+      </Typography>
+      <Typography>
+        <Link
+          href="https://umoh.io/en/pseudocon2025"
+          target="_blank" 
+          rel="noopener"
+        >우모 링크</Link>
       </Typography>
       {!isLoggedIn ? (
         <>
