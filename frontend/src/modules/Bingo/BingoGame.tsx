@@ -8,9 +8,10 @@ import { styled } from "@mui/system";
 import PersonIcon from '@mui/icons-material/Person';
 import {
   getBingoBoard,
-  getSelectedWords,
   updateBingoBoard,
   createBingoBoard,
+  getUserInteractionCount,
+  getSelectedWords,
   getUser,
   singUpUser,
   createUserBingoInteraction,
@@ -123,6 +124,8 @@ const BingoGame = () => {
         try {
           setUserId(storedId);
           const boardData = await getBingoBoard(storedId);
+          const boardInteractionData = await getUserInteractionCount(storedId);
+          setMetPersonNum(boardInteractionData)
           if (boardData && boardData.length > 0) {
             setBingoBoard(boardData);
             setInitialSetupOpen(false);
@@ -150,6 +153,8 @@ const BingoGame = () => {
   
       try {
         const latestBoard = await getBingoBoard(userId);
+        const boardInteractionData = await getUserInteractionCount(userId);
+        setMetPersonNum(boardInteractionData)
         if (!latestBoard || latestBoard.length === 0) return;
   
         const newlyUpdatedValues: string[] = [];
