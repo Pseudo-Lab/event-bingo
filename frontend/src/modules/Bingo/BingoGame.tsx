@@ -25,8 +25,8 @@ import bingoKeywords from '../../data/bingo-keywords.json';
 interface BingoCell {
   id: number;
   value: string;
-  selected: number;
-  status: number;
+  selected: number; // 유저가 고른 키워드
+  status: number; // 빙고 키워드 활성화 여부
   note?: string;
 }
 
@@ -133,7 +133,10 @@ const BingoGame = () => {
               .filter(cell => cell.selected === 1)
               .map(cell => cell.value);
             setMyKeywords(selectedKeywords);
-            setCollectedKeywords(selectedKeywords.length);
+            const getBingoKeywords = boardData
+              .filter(cell => cell.status === 1)
+              .map(cell => cell.value);
+            setCollectedKeywords(getBingoKeywords.length);
           }
           else {
             setInitialSetupOpen(true);
@@ -177,7 +180,7 @@ const BingoGame = () => {
       } catch (err) {
         console.error("Error refreshing bingo board:", err);
       }
-    }, 10000);
+    }, 5000);
   
     return () => clearInterval(interval);
   }, [userId, bingoBoard]);
