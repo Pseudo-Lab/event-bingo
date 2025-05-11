@@ -91,7 +91,7 @@ const Home = () => {
       <Typography variant="h4" sx={{ fontWeight: "bold", marginBottom: "0.5rem" }}>
         2025 PseudoCon
       </Typography>
-      <Typography variant="h6" sx={{ marginBottom: "2rem", color: "#555" }}>
+      <Typography variant="h6" sx={{ marginBottom: "1rem", color: "#555" }}>
         05월 17일 | 서울창업허브(공덕)
       </Typography>
       <Typography>
