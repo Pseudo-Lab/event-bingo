@@ -59,6 +59,20 @@ export const getBingoBoard = async (userId: string) => {
   return items;
 };
 
+export const getUserInteractionCount = async (userId: string) => {
+  const response = await fetch(`${API_URL}/api/bingo/boards/${userId}`);
+  if (response.ok === false) {
+    return 0;
+  }
+  const data = await response.json();
+  if (data.ok === false) {
+    return 0;
+  }
+
+  const user_interaction_count = data["user_interaction_count"];
+  return user_interaction_count;
+};
+
 export const getSelectedWords = async (userId: string) => {
   const response = await fetch(
     `${API_URL}/api/bingo/boards/selected_words/${userId}`
