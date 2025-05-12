@@ -1033,16 +1033,14 @@ const BingoGame = () => {
           <DialogActions>
             <Button
               variant="text"
-              color="secondary"
               onClick={() => {
                 localStorage.setItem("hideReviewModal", "true");
                 setHideReviewModal(true);
                 setShowReviewModal(false);
               }}
             >
-              다시 보지 않기
+              닫기
             </Button>
-            <Button onClick={() => setShowReviewModal(false)}>닫기</Button>
             <Button
               variant="contained"
               onClick={async () => {
