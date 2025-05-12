@@ -20,6 +20,7 @@ class BingoBoards(Base):
     board_data = mapped_column(MutableDict.as_mutable(JSON), nullable=False)
 
     bingo_count = mapped_column(Integer, default=0, nullable=False)
+    user_interaction_count = mapped_column(Integer, default=0, nullable=False)
     created_at = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )
@@ -54,6 +55,13 @@ class BingoBoards(Base):
         board.board_data.update(board_data)
 
         return board
+    
+    @classmethod
+    async def update_board_interaction_count_by_userid(cls, session: AsyncSession, user_id: int, interaction_cnt: int):
+        board = await cls.get_board_by_userid(session, user_id)
+        board.user_interaction_count = interaction_cnt
+        session.add(board)
+        await session.commit()
 
     @classmethod
     async def update_bingo_count(cls, session: AsyncSession, user_id: int):
@@ -115,6 +123,7 @@ class BingoBoards(Base):
 
         not_selected_ids = []
         updated_keywords = []
+        interaction_cnt = board.user_interaction_count
         for idx, bingo_dict in board_data.items():
             value, status, interaction_id = bingo_dict["value"], bingo_dict["status"], bingo_dict.get("interaction_id")
             if send_user.user_id == interaction_id:  # 이미 interaction 한 유저인 경우는 Pass
@@ -129,7 +138,9 @@ class BingoBoards(Base):
             for update_idx in not_selected_ids:
                 board_data[update_idx]["status"] = 1
                 board_data[update_idx]["interaction_id"] = send_user.user_id
+            interaction_cnt += 1
             await cls.update_board_by_userid(session, receive_user_id, board_data)
+            await cls.update_board_interaction_count_by_userid(session, receive_user_id, interaction_cnt)
             board = await cls.update_bingo_count(session, receive_user_id)
 
         return BingoInteractionSchema(

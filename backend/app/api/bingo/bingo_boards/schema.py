@@ -49,6 +49,7 @@ class BingoBoardResponse(BaseSchema):
     user_id: Optional[int] = Field(title="유저 ID", default=None)
     board_data: Optional[dict] = Field(title="빙고판 데이터", default=None)
     bingo_count: Optional[int] = Field(title="빙고 갯수", default=None)
+    user_interaction_count: Optional[int] = Field(title="유저 상호작용 갯수", default=None)
     created_at: Optional[datetime] = Field(title="생성일", default=None)
     updated_at: Optional[datetime] = Field(title="수정일", default=None)
 
