@@ -1019,6 +1019,7 @@ const BingoGame = () => {
                 name="review-stars"
                 value={reviewStars}
                 onChange={(_, newValue) => setReviewStars(newValue)}
+                sx={{ fontSize: 30 }}
               />
             </Box>
             <TextField
