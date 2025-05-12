@@ -101,6 +101,20 @@ export const updateBingoBoard = async (
   return response.ok;
 };
 
+// TODO: api 경로 수정
+export const submitReview = async (userId: string, stars: number, review: string) => {
+  const response = await fetch(`${API_URL}/api/review`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ userId, stars, review }),
+    }
+  );
+  return response.ok;
+};
+
 export const createUserBingoInteraction = async (
   word_id_list: string,
   send_user_id: number,

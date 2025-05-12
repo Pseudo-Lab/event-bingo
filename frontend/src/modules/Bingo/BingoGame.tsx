@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Container, Box, Typography, Button, Grid, Paper, Chip, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Snackbar, Alert, Divider, Card, CardContent, ToggleButton, ToggleButtonGroup
+  Snackbar, Alert, Divider, Card, CardContent, ToggleButton, ToggleButtonGroup,
+  Rating, 
 } from '@mui/material';
 import { styled } from "@mui/system";
 import PersonIcon from '@mui/icons-material/Person';
@@ -17,9 +18,11 @@ import {
   createUserBingoInteraction,
   getUserLatestInteraction,
   getUserName,
+  submitReview,
 } from "../../api/bingo_api.ts";
 import logo from '../../assets/pseudo_lab_logo.png';
 import bingoKeywords from '../../data/bingo-keywords.json';
+import { unlockConfig } from '../../config/unlockConfig';
 
 // Define proper interfaces
 interface BingoCell {
@@ -76,18 +79,10 @@ const BingoGame = () => {
   const [opponentId, setOpponentId] = useState('');
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
   const [bingoCount, setBingoCount] = useState(0);
-  const bingoMissionCount = 3;
-  const keywordCount = 3;
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [collectedKeywords, setCollectedKeywords] = useState(0);
   const [metPersonNum, setMetPersonNum] = useState(0);
-  const [exchangeHistory, setExchangeHistory] = useState<ExchangeRecord[]>([
-    { id: 1, date: '2023.04.10', person: '김데이터 연구원', given: ['머신러닝 모델'], received: '데이터파이프라인 활용' },
-    { id: 2, date: '2023.04.05', person: '이백사 교수', given: ['빅데이터 분석'], received: '데이터 마이닝' },
-    { id: 3, date: '2023.03.28', person: '정분석가 이사', given: ['알고리즘 개선'], received: '인식 최적화' },
-    { id: 4, date: '2023.04.02', person: '박빅데이터 책임', given: ['빅데이터 분석'], received: '데이터 흐름 최적화' }
-  ]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyFilter, setHistoryFilter] = useState('all');
   const [lastSelectedCell, setLastSelectedCell] = useState<number | null>(null);
@@ -108,11 +103,36 @@ const BingoGame = () => {
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'warning' | 'error' | 'info'>('success');
   const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
   const [showAllBingoModal, setShowAllBingoModal] = useState(false);
+  const [remainingTime, setRemainingTime] = useState<number>(0);
+  const [locked, setLocked] = useState(new Date().getTime() < unlockConfig.unlockTime);
+  const bingoMissionCount = unlockConfig.bingoMissionCount;
+  const keywordCount = unlockConfig.keywordCount;
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewStars, setReviewStars] = useState<number | null>(null);
+  const [reviewText, setReviewText] = useState('');
+  const [hasSubmittedReview, setHasSubmittedReview] = useState(false);
+  const [hideReviewModal, setHideReviewModal] = useState(() =>localStorage.getItem("hideReviewModal") === "true");
 
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
     return undefined;
   }
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const diff = unlockConfig.unlockTime - now;
+  
+      if (diff <= 0) {
+        setLocked(false);
+        clearInterval(interval);
+      } else {
+        setRemainingTime(diff);
+      }
+    }, 1000);
+  
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -164,10 +184,6 @@ const BingoGame = () => {
       if (userName) setUsername(userName);
     };
 
-    if (bingoCount >= bingoMissionCount) {
-      setShowAllBingoModal(true);
-    }
-  
     init();
   }, []);
 
@@ -310,6 +326,10 @@ const BingoGame = () => {
       if (!hasShownConfetti && bingoCount >= bingoMissionCount) {
         setShowConfetti(true);
         setHasShownConfetti(true);
+      }
+
+      if ((bingoCount === 1 || bingoCount === 2) && !hasSubmittedReview && !hideReviewModal) {
+        setShowReviewModal(true);
       }
   
       // Clear animation after some time
@@ -565,6 +585,36 @@ const BingoGame = () => {
       setHistoryFilter(newFilter);
     }
   };
+
+  if (locked) {
+    const days = Math.floor(remainingTime / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((remainingTime / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((remainingTime / (1000 * 60)) % 60);
+    const seconds = Math.floor((remainingTime / 1000) % 60);
+  
+    return (
+      <GradientContainer>
+        <Box sx={{ textAlign: 'center', mt: 10 }}>
+          <Typography variant="h4" gutterBottom>빙고 카운트다운!</Typography>
+  
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mt: 4 }}>
+            {[{ label: '일', value: days },
+              { label: '시간', value: hours },
+              { label: '분', value: minutes },
+              { label: '초', value: seconds }].map(({ label, value }) => (
+              <Box key={label}>
+                <Typography variant="h2" fontWeight="bold">
+                  {String(value).padStart(2, '0')}
+                </Typography>
+                <Typography variant="subtitle1">{label}</Typography>
+              </Box>
+            ))}
+          </Box>  
+        </Box>
+      </GradientContainer>
+    );
+  }
+
 
   return (
     <GradientContainer>
@@ -875,7 +925,7 @@ const BingoGame = () => {
         `}</style>
         
         {/* 기록 보기 버튼 */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        {/* <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
           <Button 
             variant="contained" 
             color="primary"
@@ -884,7 +934,7 @@ const BingoGame = () => {
           >
             교환 기록 {showHistory ? '가리기' : '보기'}
           </Button>
-        </Box>
+        </Box> */}
         
         {/* 교환 기록 */}
         {showHistory && (
@@ -907,32 +957,6 @@ const BingoGame = () => {
                   <Typography variant="caption">사람별</Typography>
                 </ToggleButton>
               </ToggleButtonGroup>
-            </Box>
-            
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {exchangeHistory.map(history => (
-                <Box key={history.id} sx={{ borderBottom: 1, borderColor: 'divider', pb: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                    <Typography color="warning.main" fontWeight="medium">{history.person}</Typography>
-                    <Typography variant="caption" color="text.secondary">{history.date}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Chip 
-                      label={history.given} 
-                      size="small" 
-                      variant="outlined"
-                      sx={{ mr: 1, bgcolor: 'grey.100' }} 
-                    />
-                    <Typography variant="body2" color="text.secondary" sx={{ mx: 0.5 }}>→</Typography>
-                    <Chip 
-                      label={history.received} 
-                      size="small" 
-                      variant="outlined"
-                      sx={{ bgcolor: 'grey.100' }} 
-                    />
-                  </Box>
-                </Box>
-              ))}
             </Box>
           </Paper>
         )}
@@ -987,12 +1011,65 @@ const BingoGame = () => {
           </Box>
         )}
 
+        <Dialog open={showReviewModal} onClose={() => setShowReviewModal(false)}>
+          <DialogContent>
+            <Typography mb={2}>빙고 게임에 대한 간단한 피드백을 남겨주세요.</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+              <Rating
+                name="review-stars"
+                value={reviewStars}
+                onChange={(_, newValue) => setReviewStars(newValue)}
+              />
+            </Box>
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              placeholder="간단한 리뷰를 작성해주세요"
+              value={reviewText}
+              onChange={(e) => setReviewText(e.target.value)}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button
+              variant="text"
+              color="secondary"
+              onClick={() => {
+                localStorage.setItem("hideReviewModal", "true");
+                setHideReviewModal(true);
+                setShowReviewModal(false);
+              }}
+            >
+              다시 보지 않기
+            </Button>
+            <Button onClick={() => setShowReviewModal(false)}>닫기</Button>
+            <Button
+              variant="contained"
+              onClick={async () => {
+                if (userId && reviewStars !== null) {
+                  try {
+                    await submitReview(userId, reviewStars, reviewText);
+                    showAlert("소중한 리뷰 감사합니다!");
+                    localStorage.setItem("hideReviewModal", "true"); // 유저 리뷰 get하는 함수 사용하면 삭제
+                    setHideReviewModal(true); // 유저 리뷰 get하는 함수 사용하면 삭제
+                    setShowReviewModal(false);
+                  } catch (err) {
+                    showAlert("리뷰 제출 중 문제가 발생했습니다.", 'error');
+                  }
+                } else {
+                  showAlert("별점을 입력해주세요.", 'warning');
+                }
+              }}
+            >
+              제출
+            </Button>
+          </DialogActions>
+        </Dialog>
         <Dialog open={showAllBingoModal} onClose={() => setShowAllBingoModal(false)}>
           <DialogTitle>빙고 완성 🎉</DialogTitle>
           <DialogContent>
-            <Typography>축하합니다!</Typography>
-            <Typography>모든 빙고를 완성했습니다.</Typography>
-            <Typography>DevFactory 부스로 오시면 소정의 상품을 드립니다.</Typography>
+            <Typography>축하합니다! 빙고를 완성했습니다.</Typography>
+            <Typography>Devfactory 부스로 오시면 소정의 선물을 드립니다!</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowAllBingoModal(false)} color="primary">
