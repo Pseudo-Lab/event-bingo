@@ -1,4 +1,5 @@
 import {
+  Box,
   Container,
   Typography,
   Input,
@@ -15,6 +16,7 @@ import {
 } from "@mui/material";
 import { styled } from "@mui/system";
 import { useState, useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
 import { singUpUser } from "../../api/bingo_api";
 
 const GradientContainer = styled(Container)(({ theme }) => ({
@@ -45,6 +47,7 @@ const Home = () => {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertSeverity, setAlertSeverity] = useState<'error' | 'success'>('error');
+  const navigate = useNavigate();
 
   useEffect(() => {
     const storedId = localStorage.getItem("myID");
@@ -99,7 +102,7 @@ const Home = () => {
           href="https://umoh.io/en/pseudocon2025"
           target="_blank" 
           rel="noopener"
-        >우모 링크</Link>
+        >수도콘 행사 페이지(우모)</Link>
       </Typography>
       {!isLoggedIn ? (
         <>
@@ -122,7 +125,8 @@ const Home = () => {
             sx={{ mt: 1 }}
           />
           <Button
-            sx={{ marginTop: "5px" }}
+            variant="contained"
+            sx={{ marginTop: "5px", backgroundColor: '#698BFF' }}
             onClick={handLogin}
             disabled={!isAgreed || loginEmail === ""}
           >
@@ -134,9 +138,17 @@ const Home = () => {
           <Typography variant="h6" sx={{ fontWeight: "bold", marginTop: "1rem", color: "#333" }}>
             {loginEmail || localStorage.getItem("myEmail")}
           </Typography>
-          <Button onClick={handleLogout} sx={{ marginTop: "5px" }}>
-            로그아웃
-          </Button>
+          <Box sx={{ display: 'flex', justifyContent: 'center', marginTop: "5px" }}>
+            <Button variant="contained" onClick={handleLogout} sx={{ marginRight: "10px", backgroundColor: '#698BFF' }}>
+              로그아웃
+            </Button>
+            <Button 
+              variant="outlined" 
+              onClick={() => navigate('/bingo')}
+            >
+              빙고로 이동
+            </Button>
+          </Box>
         </>
       )}
 
