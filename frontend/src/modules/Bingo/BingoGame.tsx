@@ -107,6 +107,7 @@ const BingoGame = () => {
   const [hasShownConfetti, setHasShownConfetti] = useState(false);
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'warning' | 'error' | 'info'>('success');
   const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
+  const [showAllBingoModal, setShowAllBingoModal] = useState(false);
 
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
@@ -162,6 +163,10 @@ const BingoGame = () => {
       }
       if (userName) setUsername(userName);
     };
+
+    if (bingoCount >= bingoMissionCount) {
+      setShowAllBingoModal(true);
+    }
   
     init();
   }, []);
@@ -400,6 +405,9 @@ const BingoGame = () => {
     
     setCompletedLines(newCompletedLines);
     setBingoCount(newBingoCount);
+    if (newBingoCount >= bingoMissionCount) {
+      setShowAllBingoModal(true);
+    }
   };
 
   // 알림 닫기 함수
@@ -978,6 +986,20 @@ const BingoGame = () => {
             `}</style>
           </Box>
         )}
+
+        <Dialog open={showAllBingoModal} onClose={() => setShowAllBingoModal(false)}>
+          <DialogTitle>빙고 완성 🎉</DialogTitle>
+          <DialogContent>
+            <Typography>축하합니다!</Typography>
+            <Typography>모든 빙고를 완성했습니다.</Typography>
+            <Typography>DevFactory 부스로 오시면 소정의 상품을 드립니다.</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowAllBingoModal(false)} color="primary">
+              닫기
+            </Button>
+          </DialogActions>
+        </Dialog>
         
         {/* 알림 */}
         <Snackbar 
