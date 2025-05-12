@@ -240,7 +240,6 @@ const BingoGame = () => {
       });
       
       const storedId = localStorage.getItem("myID");
-      console.log('Current User ID', storedId);
       if (storedId) {
         await createBingoBoard(storedId, boardData);
         setUserId(storedId);
