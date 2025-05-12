@@ -6,7 +6,8 @@ from typing import Optional
 
 class BingoUser(BaseSchema):
     user_id: Optional[int] = Field(title="빙고 유저 ID", default=None)
-    username: Optional[str] = Field(title="빙고 유저 이름", default=None)
+    user_email: Optional[str] = Field(title="빙고 유저 Email", default=None)
+    user_name: Optional[str] = Field(title="빙고 유저 이름", default=None)
 
 
 class LoginState(IntEnum):
