@@ -18,6 +18,7 @@ import {
   getUserName,
 } from "../../api/bingo_api.ts";
 import logo from '../../assets/pseudo_lab_logo.png';
+import bingoKeywords from '../../data/bingo-keywords.json';
 
 // Define proper interfaces
 interface BingoCell {
@@ -41,13 +42,7 @@ interface ExchangeRecord {
   received: string;
 }
 
-const cellValues = [
-  '머신러닝 모델', '딥러닝 프레임워크', '자연어 처리', '컴퓨터 비전', '강화학습',
-  '데이터 시각화', '빅데이터 분석', '클라우드 컴퓨팅', '데이터베이스', '분산 시스템',
-  '파이썬과 최적화', '모델 배포', '알고리즘 개선', 'DevOps', '마이크로서비스',
-  '테스트 자동화', 'CI/CD', '코드 품질', '기술 스택 전환', '성능 최적화',
-  '인공지능 구축', '데이터 파이프라인', '보안 최적화', 'API 설계', '프로젝트 관리'
-];
+const cellValues = bingoKeywords.keywords;
 
 const GradientContainer = styled(Container)(({ theme }) => ({
   minHeight: "100vh",
