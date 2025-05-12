@@ -327,8 +327,8 @@ const BingoGame = () => {
         setShowConfetti(true);
         setHasShownConfetti(true);
       }
-
-      if ((bingoCount === 1 || bingoCount === 2) && !hasSubmittedReview && !hideReviewModal) {
+      
+      if (bingoCount >= 1 && !hasSubmittedReview && !hideReviewModal) {
         setShowReviewModal(true);
       }
   
