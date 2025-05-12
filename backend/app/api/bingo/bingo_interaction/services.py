@@ -1,7 +1,7 @@
 from core.db import AsyncSessionDepends
 from models.bingo import BingoInteraction
 from api.bingo.bingo_boards.schema import BingoBoardResponse
-from api.bingo.bingo_interaction.schema import BingoInteractionResponse
+from api.bingo.bingo_interaction.schema import BingoInteractionResponse, BingoInteractionListResponse
 
 
 class BaseBingoInteraction:
@@ -27,3 +27,27 @@ class GetUserLatestInteraction(BaseBingoInteraction):
             )
         except AttributeError as e:
             return BingoInteractionResponse(ok=False, message=str(e))
+
+
+class GetUserAllInteractions(BaseBingoInteraction):
+    async def execute(self, user_id: int) -> BingoInteractionListResponse:
+        try:
+            interactions = await BingoInteraction.get_user_all_interactions(self.async_session, user_id)
+            return BingoInteractionListResponse(
+                interactions=[
+                    BingoInteractionResponse(
+                        **interaction.__dict__,
+                        ok=True,
+                        message="유저의 빙고 인터렉션 조회에 성공하였습니다."
+                    )
+                    for interaction in interactions
+                ],
+                ok=True,
+                message="유저의 모든 빙고 인터렉션 조회에 성공하였습니다."
+            )
+        except Exception as e:
+            return BingoInteractionListResponse(
+                interactions=[],
+                ok=False,
+                message=str(e)
+            )

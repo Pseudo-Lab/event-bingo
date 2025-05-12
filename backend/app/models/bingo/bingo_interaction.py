@@ -34,3 +34,12 @@ class BingoInteraction(Base):
         )
         data = res.scalars().first()
         return data
+
+    @classmethod
+    async def get_user_all_interactions(cls, session: AsyncSession, user_id: int):
+        res = await session.execute(
+            select(cls)
+            .where((cls.receive_user_id == user_id) | (cls.send_user_id == user_id))
+            .order_by(cls.created_at.desc())
+        )
+        return res.scalars().all()
