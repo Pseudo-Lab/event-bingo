@@ -153,6 +153,16 @@ export const getUserLatestInteraction = async (userId: string, limit: number = 0
   return data;
 };
 
+export const getUserAllInteraction = async (userId: string) => {
+  const response = await fetch(`${API_URL}/api/bingo/interactions/${userId}/all`);
+
+  if (response.ok === false) {
+    return "";
+  }
+  const data = await response.json();
+  return data;
+};
+
 export const getUserName = async (userId: string) => {
   const response = await fetch(`${API_URL}/api/auth/bingo/get-user/${userId}`);
   if (response.ok === false) {
