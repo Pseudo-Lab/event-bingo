@@ -36,6 +36,18 @@ class BingoUser(Base):
         await session.commit()
         await session.refresh(new_user)
         return new_user
+    
+    @classmethod
+    async def create_new(cls, session: AsyncSession, email: str, user_name: str):
+        is_user = await session.execute(select(cls).where(cls.user_email == email))
+        is_user = is_user.one_or_none()
+        if is_user:
+            raise ValueError(f"{email}은 이미 존재하는 유저입니다. 다른 email을 사용해주세요.")
+        new_user = BingoUser(user_name=user_name, user_email=email)
+        session.add(new_user)
+        await session.commit()
+        await session.refresh(new_user)
+        return new_user
 
     @classmethod
     async def get_user_by_email(cls, session, email: str):

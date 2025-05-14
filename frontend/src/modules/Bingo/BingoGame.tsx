@@ -88,7 +88,7 @@ const BingoGame = () => {
   const [lastSelectedCell, setLastSelectedCell] = useState<number | null>(null);
   // 새로운 빙고 라인이 발견되었는지 확인하기 위한 상태
   const [newBingoFound, setNewBingoFound] = useState(false);
-  const [initialSetupOpen, setInitialSetupOpen] = useState(true);
+  const [initialSetupOpen, setInitialSetupOpen] = useState(false);
   const [selectedInitialKeywords, setSelectedInitialKeywords] = useState<string[]>([]);
   // 빙고 라인의 셀들을 추적하기 위한 상태
   const [bingoLineCells, setBingoLineCells] = useState<number[]>([]);
@@ -147,6 +147,7 @@ const BingoGame = () => {
     const init = async () => {
       const storedId = localStorage.getItem("myID");
       const userName = localStorage.getItem("myUserName");
+
       if (!storedId) {
         window.location.href = "/";
         return;
