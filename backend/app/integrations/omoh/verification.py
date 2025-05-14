@@ -16,5 +16,10 @@ def verify_email_in_attendances(email: str) -> str:
 
     attendance_list = pd.read_excel(file_path)
     if email not in attendance_list["Email"].values:
-        raise ValueError(f"수도콘 행사(우모) 신청시 사용한 이메일을 입력해주세요.")
+        raise ValueError(
+            "입력하신 이메일은 행사에 등록된 정보와 일치하지 않습니다.\n"
+            "비회원으로 로그인 시, 빙고의 다양한 기능을 이용하실 수 없습니다.\n"
+            "원활한 이용을 위해 우모 사이트에 가입하신 이메일로 로그인해 주세요.\n"
+            "수도콘 행사 페이지(우모) 링크에서 이메일을 확인해보세요."
+        )
     return attendance_list.loc[attendance_list["Email"] == email, "Name"].values[0]

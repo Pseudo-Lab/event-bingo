@@ -160,20 +160,18 @@ const Home = () => {
             label="개인정보 처리 동의(필수)"
             sx={{ mt: 1 }}
           />
-          <Button
-            variant="contained"
-            sx={{ marginTop: "5px", backgroundColor: '#698BFF' }}
-            onClick={handLogin}
-            disabled={!isAgreed || loginEmail === ""}
-          >
-            계정 생성 또는 로그인
-          </Button>
-
-          {loginErrorCount >= 2 && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: "5px" }}>
+            <Button
+              variant="contained"
+              sx={{ marginRight: '10px', backgroundColor: '#698BFF' }}
+              onClick={handLogin}
+              disabled={!isAgreed || loginEmail === ""}
+            >
+              계정 생성 또는 로그인
+            </Button>
             <Button
               variant="outlined"
               sx={{
-                marginTop: "15px",
                 color: 'red',
                 border: '1px solid red',
                 '&:hover': {
@@ -198,9 +196,9 @@ const Home = () => {
               onClick={handleNewSingupModal}
               disabled={!isAgreed || loginEmail === ""}
               >
-              새로운 계정 생성
+              비회원로그인
             </Button>
-          )}
+          </Box>
         </>
       ) : (
         <>
@@ -280,12 +278,10 @@ const Home = () => {
       </Dialog>
 
       <Dialog open={newLoginModal} onClose={() => setNewLoginModal(false)} maxWidth="sm">
-        <DialogTitle>새 계정 정보 입력</DialogTitle>
+        <DialogTitle>비회원으로 로그인</DialogTitle>
         <DialogContent dividers>
           <Typography gutterBottom>
             우모 이메일을 찾을 수 없는 경우에만 이용해주세요.
-            <br></br>
-            이름과 이메일을 입력하여 별도로 등록해주세요.
           </Typography>
           <StyledInput
             placeholder="이름"
@@ -312,11 +308,16 @@ const Home = () => {
 
       <Snackbar
         open={alertOpen}
-        autoHideDuration={3000}
+        autoHideDuration={5000}
         onClose={() => setAlertOpen(false)}
       >
-        <Alert onClose={() => setAlertOpen(false)} severity={alertSeverity} sx={{ width: '100%' }}>
-          {alertMessage}
+        <Alert onClose={() => setAlertOpen(false)} severity={alertSeverity} sx={{ width: '100%', textAlign: 'left' }}>
+          {alertMessage.split('\n').map((line, idx) => (
+            <span key={idx}>
+              {line}
+              <br />
+            </span>
+          ))}
         </Alert>
       </Snackbar>
     </GradientContainer>
