@@ -115,15 +115,14 @@ export const updateBingoBoard = async (
   return response.ok;
 };
 
-// TODO: api 경로 수정
-export const submitReview = async (userId: string, stars: number, review: string) => {
-  const response = await fetch(`${API_URL}/api/review`,
+export const submitReview = async (userId: string, rating: number, review: string) => {
+  const response = await fetch(`${API_URL}/api/reviews/${userId}`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ userId, stars, review }),
+      body: JSON.stringify({ rating, review }),
     }
   );
   return response.ok;
