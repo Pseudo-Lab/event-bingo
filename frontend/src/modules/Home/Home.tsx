@@ -20,7 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { singUpUser } from "../../api/bingo_api";
 
 const GradientContainer = styled(Container)(({ theme }) => ({
-  minHeight: "100vh",
+  minHeight: "70vh",
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
