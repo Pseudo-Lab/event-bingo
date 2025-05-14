@@ -221,9 +221,14 @@ const BingoGame = () => {
           setBingoBoard(updatedBoard);
           setCollectedKeywords(prev => prev + newlyUpdatedValues.length);
           setLatestReceivedKeywords(newlyUpdatedValues);
-          // TODO: 교환한 User ID 가져와서 보여주기
-          showAlert(`"${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
+          const interactionData = await getUserLatestInteraction(userId, 1);
+          if (Array.isArray(interactionData) && interactionData.length > 0) {
+            const latestSenderId = interactionData[0].send_user_id;
+            const senderUserName = await getUserName(latestSenderId);
+            if (senderUserName) showAlert(`"${senderUserName}"님에게 "${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
+          }
         }
+        // TODO: 키워드 받았지만 변화 없을 때 메시지?
       } catch (err) {
         console.error("Error refreshing bingo board:", err);
       }
@@ -475,13 +480,18 @@ const BingoGame = () => {
   
     try {
       const result = await updateBingoBoard(myId, opponentId);
+      const receiverName = await getUserName(opponentId);
+      if (!receiverName) {
+        showAlert("존재하지 않는 ID입니다.", 'error');
+        return;
+      }
       await Promise.all(
         myKeywords.map((myKeyword) =>
           createUserBingoInteraction(myKeyword, parseInt(myId), parseInt(opponentId))
         )
       );
       if (result) {
-        showAlert(`"User ${opponentId}"에게 키워드를 성공적으로 전송했습니다!`);
+        showAlert(`"${receiverName}"님에게 키워드를 성공적으로 전송했습니다!`);
       } else {
         showAlert("키워드 교환 요청에 실패했습니다. 다시 시도해주세요.", 'error');
       }
@@ -533,7 +543,6 @@ const BingoGame = () => {
       }
     };
     
-    // Animation styles - only apply to new bingo cells
     if (isNewBingoCell) {
       baseStyle.animation = 'fadeBg 3s ease forwards, pulse 1.5s infinite';
       baseStyle.animationDelay = '1s, 0s';

@@ -159,7 +159,7 @@ export const getUserName = async (userId: string) => {
     return [];
   }
   const data = await response.json();
-  const userName = data["username"];
+  const userName = data["user_name"];
   return userName;
 };
 
