@@ -75,3 +75,10 @@ class BingoUser(Base):
         await session.commit()
         await session.refresh(user)
         return user
+
+    @classmethod
+    async def update_selected_words(cls, session: AsyncSession, user_id: int, words: List[str]):
+        logger.info(f"update_selected_words: {words}")
+        user = await cls.get_user_by_id(session, user_id)
+        user.selected_words = words
+        return user
