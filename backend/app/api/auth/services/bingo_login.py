@@ -29,7 +29,6 @@ class NewLoginUser(BaseBingoUser):
         try:
             # 사용자 생성 또는 조회
             user = await BingoUser.get_user_by_email(self.async_session, email)
-            print("user", user)
             if not user:
                 user = await BingoUser.create_new(self.async_session, email=email, user_name=username)
             logger.debug(f"User created or retrieved: {user}")
