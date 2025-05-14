@@ -1134,7 +1134,7 @@ const BingoGame = () => {
           <DialogTitle>빙고 완성 🎉</DialogTitle>
           <DialogContent>
             <Typography>축하합니다! 빙고를 완성했습니다.</Typography>
-            <Typography>Devfactory 부스로 오시면 소정의 선물을 드립니다!</Typography>
+            <Typography>Devfactory 부스로 오셔서 소정의 선물 받아가세요!</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowAllBingoModal(false)} color="primary">
