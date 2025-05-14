@@ -22,7 +22,7 @@ import {
 } from "../../api/bingo_api.ts";
 import logo from '../../assets/pseudo_lab_logo.png';
 import bingoKeywords from '../../data/bingo-keywords.json';
-import { unlockConfig } from '../../config/unlockConfig';
+import { bingoConfig } from '../../config/bingoConfig.ts';
 
 // Define proper interfaces
 interface BingoCell {
@@ -104,13 +104,13 @@ const BingoGame = () => {
   const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
   const [showAllBingoModal, setShowAllBingoModal] = useState(false);
   const [remainingTime, setRemainingTime] = useState<number>(0);
-  const [locked, setLocked] = useState(new Date().getTime() < unlockConfig.unlockTime);
-  const bingoMissionCount = unlockConfig.bingoMissionCount;
-  const keywordCount = unlockConfig.keywordCount;
+  const [locked, setLocked] = useState(new Date().getTime() < bingoConfig.unlockTime);
+  const bingoMissionCount = bingoConfig.bingoMissionCount;
+  const keywordCount = bingoConfig.keywordCount;
+  const conferenceEndTime = bingoConfig.conferenceEndTime;
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewStars, setReviewStars] = useState<number | null>(null);
   const [reviewText, setReviewText] = useState('');
-  const [hasSubmittedReview, setHasSubmittedReview] = useState(false);
   const [hideReviewModal, setHideReviewModal] = useState(() =>localStorage.getItem("hideReviewModal") === "true");
 
   // 셀 노트 가져오기
@@ -119,9 +119,18 @@ const BingoGame = () => {
   }
 
   useEffect(() => {
+    if (Date.now() > conferenceEndTime) {
+      localStorage.removeItem("myID");
+      localStorage.removeItem("myEmail");
+      localStorage.removeItem("myUserName");
+      localStorage.removeItem("hideReviewModal");
+    }
+  }, []);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date().getTime();
-      const diff = unlockConfig.unlockTime - now;
+      const diff = bingoConfig.unlockTime - now;
   
       if (diff <= 0) {
         setLocked(false);
@@ -327,7 +336,7 @@ const BingoGame = () => {
         setHasShownConfetti(true);
       }
       
-      if (bingoCount >= 1 && !hasSubmittedReview && !hideReviewModal) {
+      if (bingoCount >= 1 && !hideReviewModal) {
         setShowReviewModal(true);
       }
   
@@ -1036,7 +1045,6 @@ const BingoGame = () => {
               onClick={() => {
                 localStorage.setItem("hideReviewModal", "true");
                 setHideReviewModal(true);
-                setShowReviewModal(false);
               }}
             >
               닫기
@@ -1050,7 +1058,6 @@ const BingoGame = () => {
                     showAlert("소중한 리뷰 감사합니다!");
                     localStorage.setItem("hideReviewModal", "true"); // 유저 리뷰 get하는 함수 사용하면 삭제
                     setHideReviewModal(true); // 유저 리뷰 get하는 함수 사용하면 삭제
-                    setShowReviewModal(false);
                   } catch (err) {
                     showAlert("리뷰 제출 중 문제가 발생했습니다.", 'error');
                   }
