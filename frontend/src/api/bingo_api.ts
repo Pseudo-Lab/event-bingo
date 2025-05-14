@@ -16,7 +16,7 @@ export const singUpUser = async (userEmail: string) => {
 
 export const newSingUpUser = async (userEmail: string, userName: string) => {
   const response = await fetch(
-    `${API_URL}/api/auth/bingo/new-sign-up?email=${userEmail}?username=${userName}`,
+    `${API_URL}/api/auth/bingo/new-sign-up?email=${userEmail}&username=${userName}`,
     {
       method: "POST",
       headers: {
