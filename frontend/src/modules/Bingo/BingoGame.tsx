@@ -674,6 +674,20 @@ const BingoGame = () => {
             </Box>
           </DialogContent>
           <DialogActions>
+            <Button
+              onClick={() => (window.location.href = "/")}
+              startIcon={
+                <Box
+                  component="img"
+                  src={logo}
+                  alt="Logo"
+                  sx={{ width: 20, height: 20 }}
+                />
+              }
+              variant="outlined"
+            >
+              홈으로
+            </Button>
             <Button 
               onClick={handleInitialSetup}
               variant="contained"
@@ -943,7 +957,7 @@ const BingoGame = () => {
         `}</style>
         
         {/* 기록 보기 버튼 */}
-        {/* <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
           <Button 
             variant="contained" 
             color="primary"
@@ -952,7 +966,7 @@ const BingoGame = () => {
           >
             교환 기록 {showHistory ? '가리기' : '보기'}
           </Button>
-        </Box> */}
+        </Box>
         
         {/* 교환 기록 */}
         {showHistory && (
