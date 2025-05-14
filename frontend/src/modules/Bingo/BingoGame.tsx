@@ -274,7 +274,7 @@ const BingoGame = () => {
     };
   
     fetchExchangeHistory();
-    const interval = setInterval(fetchExchangeHistory, 10000);
+    const interval = setInterval(fetchExchangeHistory, 5000);
   
     return () => clearInterval(interval);
   }, []);
