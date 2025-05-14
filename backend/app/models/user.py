@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -18,6 +18,8 @@ class BingoUser(Base):
     user_id = mapped_column(Integer, primary_key=True, nullable=False)
     user_name = mapped_column(String(100), nullable=False)
     user_email = mapped_column(String(100), nullable=False)
+    rating = mapped_column(Integer, nullable=True)
+    review = mapped_column(String(500), nullable=True)
     created_at = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )
@@ -60,3 +62,14 @@ class BingoUser(Base):
         if not res:
             raise ValueError(f"{user_id} 의 빙고 유저가 존재하지 않습니다.")
         return res
+
+    @classmethod
+    async def update_review(cls, session: AsyncSession, user_id: int, rating: int, review: Optional[str] = None):
+        user = await cls.get_user_by_id(session, user_id)
+        user.rating = rating
+        if review is not None:
+            user.review = review
+        
+        await session.commit()
+        await session.refresh(user)
+        return user
