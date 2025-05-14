@@ -38,6 +38,7 @@ class BingoBoards(Base):
             raise ValueError(f"{user_id} 의 빙고판은 이미 존재합니다.")
         new_status = BingoBoards(user_id=user_id, board_data=board_data)
         session.add(new_status)
+        await session.commit()
         created_status = await cls.get_board_by_userid(session, user_id)
         return created_status
 

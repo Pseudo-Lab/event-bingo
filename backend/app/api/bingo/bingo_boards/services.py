@@ -1,5 +1,7 @@
 from core.db import AsyncSessionDepends
+from core.log import logger
 from models.bingo import BingoBoards
+from models.user import BingoUser
 from api.bingo.bingo_boards.schema import BingoBoardRequest, BingoBoardResponse, UpdateBingoCountResponse, UserSelectedWordsResponse, UpdateBingoStatusResponse, GetUserBingoEventUser, UpdateBingoStatusResponseByQRScan
 
 
@@ -11,9 +13,21 @@ class BaseBingoBoard:
 class CreateBingoBoard(BaseBingoBoard):
     async def execute(self, user_id: int, board_data: dict) -> BingoBoards:
         try:
+            # 빙고판 생성
             res = await BingoBoards.create(self.async_session, user_id, board_data)
+            
+            # 선택된 단어들 업데이트
+            selected_words = await BingoBoards.get_user_selected_words(self.async_session, user_id)
+            logger.info(f"User {user_id} selected words: {selected_words}")
+            await BingoUser.update_selected_words(self.async_session, user_id, selected_words)
+            
+            # 모든 작업이 완료된 후 commit
+            await self.async_session.commit()
+            
             return BingoBoardResponse(**res.__dict__, ok=True, message="빙고판 생성에 성공하였습니다.")
         except ValueError as e:
+            await self.async_session.rollback()
+            logger.error(f"Failed to create bingo board for user {user_id}: {str(e)}")
             return BingoBoardResponse(ok=False, message=str(e))
 
 
