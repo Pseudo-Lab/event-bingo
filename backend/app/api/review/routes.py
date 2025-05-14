@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from .schema import ReviewCreate
+from .schema import ReviewCreate, ReviewResponse
 from .services import CreateReview
 
 review_router = APIRouter(prefix="/reviews", tags=["reviews"])
@@ -12,6 +12,6 @@ async def create_review(
 ):
     try:
         await create_review_service.execute(user_id=user_id, review_data=review_data)
-        return {"message": "리뷰가 저장되었습니다."}
+        return ReviewResponse(ok=True, message="리뷰가 저장되었습니다.", user_id=user_id, rating=review_data.rating, review=review_data.review)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
