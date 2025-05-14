@@ -16,6 +16,7 @@ import {
   getUser,
   singUpUser,
   createUserBingoInteraction,
+  getUserAllInteraction,
   getUserLatestInteraction,
   getUserName,
   submitReview,
@@ -41,9 +42,9 @@ interface CompletedLine {
 interface ExchangeRecord {
   id: number;
   date: string;
-  person: string;
-  given: string[];
-  received: string;
+  sendPerson?: string;
+  receivePerson?: string;
+  given?: string;
 }
 
 const cellValues = bingoKeywords.keywords;
@@ -84,6 +85,7 @@ const BingoGame = () => {
   const [collectedKeywords, setCollectedKeywords] = useState(0);
   const [metPersonNum, setMetPersonNum] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
+  const [exchangeHistory, setExchangeHistory] = useState<any[]>([]);
   const [historyFilter, setHistoryFilter] = useState('all');
   const [lastSelectedCell, setLastSelectedCell] = useState<number | null>(null);
   // 새로운 빙고 라인이 발견되었는지 확인하기 위한 상태
@@ -236,6 +238,46 @@ const BingoGame = () => {
   
     return () => clearInterval(interval);
   }, [userId, bingoBoard]);
+
+  useEffect(() => {
+    const fetchExchangeHistory = async () => {
+      const userId = localStorage.getItem("myID");
+      if (!userId) return;
+  
+      const rawHistory = await getUserAllInteraction(userId);
+      if (!Array.isArray(rawHistory.interactions)) return;
+  
+      const grouped: { [key: string]: ExchangeRecord } = {};
+  
+      for (const record of rawHistory.interactions) {
+        const date = record.created_at;
+        const key = `${record.send_user_id}-${record.receive_user_id}-${record.word_id_list}`;
+        const isSender = record.send_user_id === parseInt(userId);
+        const otherUserId = isSender ? record.receive_user_id : record.send_user_id;
+  
+        if (!grouped[key]) {
+          grouped[key] = {
+            id: Math.random(),
+            date: date.replace(/-/g, '.').replace('T', ' '),
+          };
+        }
+  
+        const senderName = await getUserName(isSender ? userId : otherUserId);
+        const receiverName = await getUserName(isSender ? otherUserId : userId);
+  
+        grouped[key].given = record.word_id_list;
+        grouped[key].sendPerson = senderName;
+        grouped[key].receivePerson = receiverName;
+      }
+  
+      setExchangeHistory(Object.values(grouped));
+    };
+  
+    fetchExchangeHistory();
+    const interval = setInterval(fetchExchangeHistory, 10000);
+  
+    return () => clearInterval(interval);
+  }, []);
 
   // TODO: userId 사용하도록 수정 필요
   const initializeBoard = async (userId: string, selectedInitialKeywords: string[]) => {
@@ -592,16 +634,6 @@ const BingoGame = () => {
       };
     }
     return baseStyle;
-  };
-
-  // 기록 필터 변경 핸들러
-  const handleHistoryFilterChange = (
-    event: React.MouseEvent<HTMLElement>,
-    newFilter: string,
-  ) => {
-    if (newFilter !== null) {
-      setHistoryFilter(newFilter);
-    }
   };
 
   if (locked) {
@@ -973,23 +1005,27 @@ const BingoGame = () => {
           <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
               <Typography variant="h6" fontWeight="bold">키워드 교환 기록</Typography>
-              <ToggleButtonGroup
-                value={historyFilter}
-                exclusive
-                onChange={handleHistoryFilterChange}
-                size="small"
-              >
-                <ToggleButton value="all">
-                  <Typography variant="caption">전체</Typography>
-                </ToggleButton>
-                <ToggleButton value="recent">
-                  <Typography variant="caption">최근 추가</Typography>
-                </ToggleButton>
-                <ToggleButton value="person">
-                  <Typography variant="caption">사람별</Typography>
-                </ToggleButton>
-              </ToggleButtonGroup>
             </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {exchangeHistory.map(history => (
+                <Box key={history.id} sx={{ borderBottom: 1, borderColor: 'divider', pb: 1, ml: 0.5}}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography color="warning.main" fontWeight="medium">{history.sendPerson}</Typography>
+                    <Typography variant="caption" color="text.secondary">{history.date}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Chip 
+                      label={history.given} 
+                      size="small" 
+                      variant="outlined"
+                      sx={{ bgcolor: 'grey.100' }} 
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{ mx: 1 }}>→</Typography>
+                    <Typography color="warning.main" fontWeight="medium">{history.receivePerson}</Typography>
+                  </Box>
+                </Box>
+              ))}
+          </Box>
           </Paper>
         )}
 
