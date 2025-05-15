@@ -87,7 +87,7 @@ const BoardListView = () => {
                 글쓰기
             </Button>
         </Box>
-      <BoardList items={boardListResponse.boards} />
+      <BoardList items={boardListResponse.items} />
       <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
         <Button variant="contained" onClick={() => handlePageChange(page - 1)} disabled={page <= 1}>
           이전

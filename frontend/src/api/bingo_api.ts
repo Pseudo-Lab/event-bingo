@@ -14,6 +14,21 @@ export const singUpUser = async (userEmail: string) => {
   return data;
 };
 
+export const newSingUpUser = async (userEmail: string, userName: string) => {
+  const response = await fetch(
+    `${API_URL}/api/auth/bingo/new-sign-up?email=${userEmail}&username=${userName}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  const data = await response.json();
+  return data;
+};
+
+// Deprecated
 export const getUser = async (username: string) => {
   const response = await fetch(
     `${API_URL}/api/auth/bingo/get-user?username=${username}`
@@ -101,15 +116,14 @@ export const updateBingoBoard = async (
   return response.ok;
 };
 
-// TODO: api 경로 수정
-export const submitReview = async (userId: string, stars: number, review: string) => {
-  const response = await fetch(`${API_URL}/api/review`,
+export const submitReview = async (userId: string, rating: number, review: string) => {
+  const response = await fetch(`${API_URL}/api/reviews/${userId}`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ userId, stars, review }),
+      body: JSON.stringify({ rating, review }),
     }
   );
   return response.ok;
@@ -140,14 +154,34 @@ export const getUserLatestInteraction = async (userId: string, limit: number = 0
   return data;
 };
 
+export const getUserAllInteraction = async (userId: string) => {
+  const response = await fetch(`${API_URL}/api/bingo/interactions/${userId}/all`);
+
+  if (response.ok === false) {
+    return "";
+  }
+  const data = await response.json();
+  return data;
+};
+
 export const getUserName = async (userId: string) => {
   const response = await fetch(`${API_URL}/api/auth/bingo/get-user/${userId}`);
   if (response.ok === false) {
     return [];
   }
   const data = await response.json();
-  const userName = data["username"];
+  const userName = data["user_name"];
   return userName;
+};
+
+export const getUserProfileUrl = async (userId: string) => {
+  const response = await fetch(`${API_URL}/api/auth/bingo/get-user/${userId}`);
+  if (response.ok === false) {
+    return [];
+  }
+  const data = await response.json();
+  const userProfileUrl = data["user_profile_url"]; // TODO: Check column name
+  return userProfileUrl;
 };
 
 export const updateBingoFromQR = async (userId: string, targetId: string) => {
