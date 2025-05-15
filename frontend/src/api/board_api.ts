@@ -5,7 +5,14 @@ import type { BoardItemProps, BoardListResponse, CommentProps, RequestEditCommen
 
 const PAGE_COUNT: number = 50;
 
-export const createBoard = async (boardInfo) => {
+interface BoardInfo {
+  author: string;
+  title: string;
+  contents: string;
+  password: string;
+}
+
+export const createBoard = async (boardInfo: BoardInfo): Promise<boolean> => {
   const response = await fetch(`${API_URL}/api/board`, {
     method: "POST",
     headers: {
@@ -56,7 +63,7 @@ export const requestBoardEditComments = async (requestData: RequestEditComment):
   return await response.json();
 };
 
-export let createBoardResponse = async (boardInfo): Promise<boolean> => {
+export let createBoardResponse = async (boardInfo: BoardInfo): Promise<boolean> => {
   try {
     const response = await createBoard(boardInfo);
     return response;
