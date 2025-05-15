@@ -4,6 +4,8 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        - VITE_API_URL=${VITE_API_URL}
     ports:
       - "${FRONTEND_PORT}:80"
     environment:

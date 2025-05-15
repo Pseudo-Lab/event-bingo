@@ -16,9 +16,10 @@ import {
   getUserLatestInteraction,
   getUserName,
   submitReview,
-  getUserProfileUrl,
+  getUserUmohId,
 } from "../../api/bingo_api.ts";
 import logo from '../../assets/pseudo_lab_logo.png';
+import newLogo from '../../assets/pseudo-lab-logo-no-text.svg';
 import bingoKeywords from '../../data/bingo-keywords.json';
 import { bingoConfig } from '../../config/bingoConfig.ts';
 
@@ -43,13 +44,13 @@ interface ExchangeRecord {
   sendPersonProfileUrl?: string;
   receivePerson?: string;
   receivePersonProfileUrl?: string;
-  given?: string;
+  given?: string[];
 }
 
 const cellValues = bingoKeywords.keywords;
 
 const GradientContainer = styled(Container)(({ theme }) => ({
-  minHeight: "100vh",
+  minHeight: "70vh",
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
@@ -62,6 +63,7 @@ const GradientContainer = styled(Container)(({ theme }) => ({
 const BingoGame = () => {
   const [username, setUsername] = useState('사용자 이름');
   const [userId, setUserId] = useState<string>('');
+  const [umohId, setUmohId] = useState<string>('');
   const [myKeywords, setMyKeywords] = useState<string[]>([]);
   const shuffleArray = (array: string[]) => {
     return [...array].sort(() => Math.random() - 0.5);
@@ -104,7 +106,9 @@ const BingoGame = () => {
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'warning' | 'error' | 'info'>('success');
   const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
   const [showAllBingoModal, setShowAllBingoModal] = useState(false);
-  const [remainingTime, setRemainingTime] = useState<number>(0);
+  const [remainingTime, setRemainingTime] = useState(() => {
+    return bingoConfig.unlockTime - Date.now();
+  });
   const [locked, setLocked] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const isTester = urlParams.get("early") === "true";
@@ -119,6 +123,15 @@ const BingoGame = () => {
   const conferenceEndTime = bingoConfig.conferenceEndTime;
   const conferenceInfoPage = bingoConfig.conferenceInfoPage;
   const [userProfileUrl, setUserProfileUrl] = useState(conferenceInfoPage);
+  const conferenceProfileBasePage = bingoConfig.conferenceProfileBasePage;
+
+  const getUserProfileUrl = (userId: string | null) => {
+    if (userId) {
+      return `${conferenceProfileBasePage}\\${userId}`;
+    } else {
+      return conferenceInfoPage;
+    }
+  }
 
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
@@ -163,6 +176,10 @@ const BingoGame = () => {
         try {
           setUserId(storedId);
           const boardData = await getBingoBoard(storedId);
+          const umohId = await getUserUmohId(storedId);
+          setUmohId(umohId);
+          const userProfileUrl = getUserProfileUrl(umohId);
+          setUserProfileUrl(userProfileUrl);
           const boardInteractionData = await getUserInteractionCount(storedId);
           setMetPersonNum(boardInteractionData)
           if (boardData && boardData.length > 0) {
@@ -194,9 +211,6 @@ const BingoGame = () => {
           else {
             setInitialSetupOpen(true);
           }
-          // TODO: use api
-          // const userProfileUrl = await getUserProfileUrl(storedId);
-          // if (userProfileUrl) setUserProfileUrl(userProfileUrl);
         } catch (error) {
           console.error("Error loading user board:", error);
         }
@@ -258,37 +272,39 @@ const BingoGame = () => {
       const grouped: { [key: string]: ExchangeRecord } = {};
   
       for (const record of rawHistory.interactions) {
-        const date = record.created_at;
-        const key = `${record.send_user_id}-${record.receive_user_id}-${record.word_id_list}`;
         const isSender = record.send_user_id === parseInt(userId);
         const otherUserId = isSender ? record.receive_user_id : record.send_user_id;
   
-        if (!grouped[key]) {
-          grouped[key] = {
+        const groupKey = `${record.send_user_id}-${record.receive_user_id}`;
+  
+        if (!grouped[groupKey]) {
+          const senderName = await getUserName(isSender ? userId : otherUserId);
+          const receiverName = await getUserName(isSender ? otherUserId : userId);
+          const senderUmohId = await getUserUmohId(isSender ? userId : otherUserId);
+          const receiverUmohId = await getUserUmohId(isSender ? otherUserId : userId);
+  
+          grouped[groupKey] = {
             id: Math.random(),
-            date: date.replace(/-/g, '.').replace('T', ' '),
+            date: record.created_at.replace(/-/g, '.').replace('T', ' ').slice(0, 16),
+            sendPerson: senderName,
+            sendPersonProfileUrl: getUserProfileUrl(senderUmohId),
+            receivePerson: receiverName,
+            receivePersonProfileUrl: getUserProfileUrl(receiverUmohId),
+            given: [],
           };
         }
   
-        const senderName = await getUserName(isSender ? userId : otherUserId);
-        const receiverName = await getUserName(isSender ? otherUserId : userId);
-        // TODO: use api
-        // const sendPersonProfileUrl = await getUserProfileUrl(isSender ? userId : otherUserId);
-        // const receivePersonProfileUrl = await getUserProfileUrl(isSender ? otherUserId : userId);
+        const wordList = Array.isArray(record.word_id_list)
+          ? record.word_id_list
+          : [record.word_id_list];
   
-        grouped[key].given = record.word_id_list;
-        grouped[key].sendPerson = senderName;
-        grouped[key].sendPersonProfileUrl = conferenceInfoPage;
-        grouped[key].receivePerson = receiverName;
-        grouped[key].receivePersonProfileUrl = conferenceInfoPage;
+        grouped[groupKey].given = [...(grouped[groupKey].given || []), ...wordList];
       }
-  
       setExchangeHistory(Object.values(grouped));
     };
   
     fetchExchangeHistory();
     const interval = setInterval(fetchExchangeHistory, 5000);
-  
     return () => clearInterval(interval);
   }, []);
 
@@ -659,8 +675,7 @@ const BingoGame = () => {
       <GradientContainer>
         <Box sx={{ textAlign: 'center', mt: 10 }}>
           <Typography variant="h4" gutterBottom>빙고 카운트다운!</Typography>
-  
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mt: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 4 }}>
             {[{ label: '일', value: days },
               { label: '시간', value: hours },
               { label: '분', value: minutes },
@@ -724,7 +739,7 @@ const BingoGame = () => {
               startIcon={
                 <Box
                   component="img"
-                  src={logo}
+                  src={newLogo}
                   alt="Logo"
                   sx={{ width: 20, height: 20 }}
                 />
@@ -751,7 +766,6 @@ const BingoGame = () => {
               <Box component="img" src={logo} alt="Logo" sx={{ width: 24, height: 24, mr: 1 }} />
               <Typography variant="body1" fontWeight="bold">키워드 교환 빙고</Typography>
             </Box>
-            <Button sx={{ fontSize: 15, color: 'primary.main' }}>{username}</Button>
             <Button
               sx={{ fontSize: 15, color: 'primary.main' }}
               component="a"
@@ -1029,28 +1043,29 @@ const BingoGame = () => {
               <Typography variant="h6" fontWeight="bold">키워드 교환 기록</Typography>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {exchangeHistory.map(history => (
-                <Box key={history.id} sx={{ borderBottom: 1, borderColor: 'divider', pb: 1, ml: 0.5}}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography color="warning.main" fontWeight="medium">{history.sendPerson}
-                      <Link href={history.sendPersonProfileUrl} target="_blank" rel="noopener"></Link>
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">{history.date}</Typography>
+            {exchangeHistory.map((history) => (
+              <Box key={history.id} sx={{ borderBottom: 1, borderColor: 'divider', pb: 1, ml: 0.5 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'centger', gap: 1 }}>
+                    <Link href={history.sendPersonProfileUrl} target="_blank" rel="noopener" underline="none">
+                      <Typography color="warning.main" fontWeight="medium">{history.sendPerson}</Typography>
+                    </Link>
+                    <Typography variant="body2" color="text.secondary">→</Typography>
+                    <Link href={history.receivePersonProfileUrl} target="_blank" rel="noopener" underline="none">
+                      <Typography color="warning.main" fontWeight="medium">{history.receivePerson}</Typography>
+                    </Link>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Chip 
-                      label={history.given} 
-                      size="small" 
-                      variant="outlined"
-                      sx={{ bgcolor: 'grey.100' }} 
-                    />
-                    <Typography variant="body2" color="text.secondary" sx={{ mx: 1 }}>→</Typography>
-                    <Typography color="warning.main" fontWeight="medium">{history.receivePerson}
-                      <Link href={history.receivePersonProfileUrl} target="_blank" rel="noopener"></Link>
-                    </Typography>
-                  </Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {history.date}
+                  </Typography>
                 </Box>
-              ))}
+                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                  {history.given.map((word: string, i: string) => (
+                    <Chip key={i} label={word} size="small" variant="outlined" sx={{ bgcolor: 'grey.100' }} />
+                  ))}
+                </Box>
+              </Box>
+            ))}
           </Box>
           </Paper>
         )}
