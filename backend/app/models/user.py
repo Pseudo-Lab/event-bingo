@@ -18,9 +18,11 @@ class BingoUser(Base):
     user_id = mapped_column(Integer, primary_key=True, nullable=False)
     user_name = mapped_column(String(100), nullable=False)
     user_email = mapped_column(String(100), nullable=False)
+    umoh_id = mapped_column(Integer, nullable=False)
     rating = mapped_column(Integer, nullable=True)
     review = mapped_column(String(500), nullable=True)
     selected_words = mapped_column(JSON, nullable=True, default=list)
+    is_agreed = mapped_column(Boolean, nullable=False, default=False)
     
     created_at = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
