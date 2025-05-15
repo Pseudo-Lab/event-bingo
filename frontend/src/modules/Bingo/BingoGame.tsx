@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Container, Box, Typography, Button, Grid, Paper, Chip, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Snackbar, Alert, Divider, Card, CardContent, ToggleButton, ToggleButtonGroup,
-  Rating, 
+  Snackbar, Alert, Divider, Rating, Link
 } from '@mui/material';
 import { styled } from "@mui/system";
 import PersonIcon from '@mui/icons-material/Person';
@@ -12,14 +11,12 @@ import {
   updateBingoBoard,
   createBingoBoard,
   getUserInteractionCount,
-  getSelectedWords,
-  getUser,
-  singUpUser,
   createUserBingoInteraction,
   getUserAllInteraction,
   getUserLatestInteraction,
   getUserName,
   submitReview,
+  getUserProfileUrl,
 } from "../../api/bingo_api.ts";
 import logo from '../../assets/pseudo_lab_logo.png';
 import bingoKeywords from '../../data/bingo-keywords.json';
@@ -43,7 +40,9 @@ interface ExchangeRecord {
   id: number;
   date: string;
   sendPerson?: string;
+  sendPersonProfileUrl?: string;
   receivePerson?: string;
+  receivePersonProfileUrl?: string;
   given?: string;
 }
 
@@ -111,13 +110,15 @@ const BingoGame = () => {
     const isTester = urlParams.get("early") === "true";
     return !isTester && new Date().getTime() < bingoConfig.unlockTime;
   });
-  const bingoMissionCount = bingoConfig.bingoMissionCount;
-  const keywordCount = bingoConfig.keywordCount;
-  const conferenceEndTime = bingoConfig.conferenceEndTime;
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewStars, setReviewStars] = useState<number | null>(null);
   const [reviewText, setReviewText] = useState('');
   const [hideReviewModal, setHideReviewModal] = useState(() =>localStorage.getItem("hideReviewModal") === "true");
+  const bingoMissionCount = bingoConfig.bingoMissionCount;
+  const keywordCount = bingoConfig.keywordCount;
+  const conferenceEndTime = bingoConfig.conferenceEndTime;
+  const conferenceInfoPage = bingoConfig.conferenceInfoPage;
+  const [userProfileUrl, setUserProfileUrl] = useState(conferenceInfoPage);
 
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
@@ -193,6 +194,9 @@ const BingoGame = () => {
           else {
             setInitialSetupOpen(true);
           }
+          // TODO: use api
+          // const userProfileUrl = await getUserProfileUrl(storedId);
+          // if (userProfileUrl) setUserProfileUrl(userProfileUrl);
         } catch (error) {
           console.error("Error loading user board:", error);
         }
@@ -268,10 +272,15 @@ const BingoGame = () => {
   
         const senderName = await getUserName(isSender ? userId : otherUserId);
         const receiverName = await getUserName(isSender ? otherUserId : userId);
+        // TODO: use api
+        // const sendPersonProfileUrl = await getUserProfileUrl(isSender ? userId : otherUserId);
+        // const receivePersonProfileUrl = await getUserProfileUrl(isSender ? otherUserId : userId);
   
         grouped[key].given = record.word_id_list;
         grouped[key].sendPerson = senderName;
+        grouped[key].sendPersonProfileUrl = conferenceInfoPage;
         grouped[key].receivePerson = receiverName;
+        grouped[key].receivePersonProfileUrl = conferenceInfoPage;
       }
   
       setExchangeHistory(Object.values(grouped));
@@ -743,6 +752,15 @@ const BingoGame = () => {
               <Typography variant="body1" fontWeight="bold">키워드 교환 빙고</Typography>
             </Box>
             <Button sx={{ fontSize: 15, color: 'primary.main' }}>{username}</Button>
+            <Button
+              sx={{ fontSize: 15, color: 'primary.main' }}
+              component="a"
+              href={userProfileUrl}
+              target="_blank"
+              rel="noopener"
+            >
+              {username}
+            </Button>
           </Box>
           
           <Divider sx={{ my: 1.5 }} />
@@ -1014,7 +1032,9 @@ const BingoGame = () => {
               {exchangeHistory.map(history => (
                 <Box key={history.id} sx={{ borderBottom: 1, borderColor: 'divider', pb: 1, ml: 0.5}}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography color="warning.main" fontWeight="medium">{history.sendPerson}</Typography>
+                    <Typography color="warning.main" fontWeight="medium">{history.sendPerson}
+                      <Link href={history.sendPersonProfileUrl} target="_blank" rel="noopener"></Link>
+                    </Typography>
                     <Typography variant="caption" color="text.secondary">{history.date}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -1025,7 +1045,9 @@ const BingoGame = () => {
                       sx={{ bgcolor: 'grey.100' }} 
                     />
                     <Typography variant="body2" color="text.secondary" sx={{ mx: 1 }}>→</Typography>
-                    <Typography color="warning.main" fontWeight="medium">{history.receivePerson}</Typography>
+                    <Typography color="warning.main" fontWeight="medium">{history.receivePerson}
+                      <Link href={history.receivePersonProfileUrl} target="_blank" rel="noopener"></Link>
+                    </Typography>
                   </Box>
                 </Box>
               ))}

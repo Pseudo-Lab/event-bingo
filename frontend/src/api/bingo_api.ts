@@ -28,6 +28,7 @@ export const newSingUpUser = async (userEmail: string, userName: string) => {
   return data;
 };
 
+// Deprecated
 export const getUser = async (username: string) => {
   const response = await fetch(
     `${API_URL}/api/auth/bingo/get-user?username=${username}`
@@ -171,6 +172,16 @@ export const getUserName = async (userId: string) => {
   const data = await response.json();
   const userName = data["user_name"];
   return userName;
+};
+
+export const getUserProfileUrl = async (userId: string) => {
+  const response = await fetch(`${API_URL}/api/auth/bingo/get-user/${userId}`);
+  if (response.ok === false) {
+    return [];
+  }
+  const data = await response.json();
+  const userProfileUrl = data["user_profile_url"]; // TODO: Check column name
+  return userProfileUrl;
 };
 
 export const updateBingoFromQR = async (userId: string, targetId: string) => {
