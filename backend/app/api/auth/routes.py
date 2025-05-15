@@ -6,8 +6,8 @@ auth_router = APIRouter(prefix="/auth")
 
 
 @auth_router.post("/bingo/sign-up", response_model=BingoUser, description="빙고용 회원가입 API")
-async def bingo_sign_up(email: str, privacy_agreed: bool = False, bingo_user: LoginUser = Depends(LoginUser)):
-    res = await bingo_user.execute(email, privacy_agreed)
+async def bingo_sign_up(email: str, bingo_user: LoginUser = Depends(LoginUser)):
+    res = await bingo_user.execute(email)
     return res
 
 
