@@ -1,11 +1,11 @@
 from datetime import datetime
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator, Optional, List
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 from core.db import AsyncSession
 from core.log import logger
-from sqlalchemy import Boolean, DateTime, Integer, Sequence, String, select
+from sqlalchemy import Boolean, DateTime, Integer, Sequence, String, JSON, select
 from sqlalchemy.orm import mapped_column
 
 from models.base import Base
@@ -20,6 +20,8 @@ class BingoUser(Base):
     user_email = mapped_column(String(100), nullable=False)
     rating = mapped_column(Integer, nullable=True)
     review = mapped_column(String(500), nullable=True)
+    selected_words = mapped_column(JSON, nullable=True, default=list)
+    
     created_at = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )
@@ -84,4 +86,11 @@ class BingoUser(Base):
         
         await session.commit()
         await session.refresh(user)
+        return user
+
+    @classmethod
+    async def update_selected_words(cls, session: AsyncSession, user_id: int, words: List[str]):
+        logger.info(f"update_selected_words: {words}")
+        user = await cls.get_user_by_id(session, user_id)
+        user.selected_words = words
         return user
