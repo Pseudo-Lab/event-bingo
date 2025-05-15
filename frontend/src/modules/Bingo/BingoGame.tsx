@@ -19,6 +19,7 @@ import {
   getUserProfileUrl,
 } from "../../api/bingo_api.ts";
 import logo from '../../assets/pseudo_lab_logo.png';
+import newLogo from '../../assets/pseudo-lab-logo-no-text.svg';
 import bingoKeywords from '../../data/bingo-keywords.json';
 import { bingoConfig } from '../../config/bingoConfig.ts';
 
@@ -726,7 +727,7 @@ const BingoGame = () => {
               startIcon={
                 <Box
                   component="img"
-                  src={logo}
+                  src={newLogo}
                   alt="Logo"
                   sx={{ width: 20, height: 20 }}
                 />
