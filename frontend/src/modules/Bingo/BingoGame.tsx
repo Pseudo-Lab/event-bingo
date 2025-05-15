@@ -269,11 +269,14 @@ const BingoGame = () => {
       const rawHistory = await getUserAllInteraction(userId);
       if (!Array.isArray(rawHistory.interactions)) return;
   
-      const grouped: { [key: string]: ExchangeRecord } = {};
+      type GroupKey = string;
+      const grouped: { [key: GroupKey]: ExchangeRecord } = {};
   
       for (const record of rawHistory.interactions) {
         const isSender = record.send_user_id === parseInt(userId);
         const otherUserId = isSender ? record.receive_user_id : record.send_user_id;
+        const key = `${record.send_user_id}-${record.receive_user_id}-${record.word_id_list}`;
+        // const key = `${record.send_user_id}-${record.receive_user_id}-${date.slice(0, 16)}`; // group by sender, receiver, and rounded timestamp
   
         const groupKey = `${record.send_user_id}-${record.receive_user_id}`;
   
