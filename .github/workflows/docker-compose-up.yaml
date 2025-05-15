@@ -32,7 +32,6 @@ jobs:
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           DB_PORT=${{ secrets.DB_PORT }}
           DB_DATABASE=${{ secrets.DB_DATABASE }}
-          GUEST_FILE_PATH=${{ secrets.GUEST_FILE_PATH }}
           EOF
 
       - name: Build and Run with Docker Compose
