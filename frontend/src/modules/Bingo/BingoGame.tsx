@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container, Box, Typography, Button, Grid, Paper, Chip, LinearProgress,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Snackbar, Alert, Divider, Rating, Link
+  Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, Snackbar, Alert, Rating
 } from '@mui/material';
-import { styled } from "@mui/system";
-import PersonIcon from '@mui/icons-material/Person';
 import {
   getBingoBoard,
   updateBingoBoard,
@@ -21,54 +18,26 @@ import {
 import logo from '../../assets/pseudo_lab_logo.png';
 import bingoKeywords from '../../data/bingo-keywords.json';
 import { bingoConfig } from '../../config/bingoConfig.ts';
-
-// Define proper interfaces
-interface BingoCell {
-  id: number;
-  value: string;
-  selected: number; // 유저가 고른 키워드
-  status: number; // 빙고 키워드 활성화 여부
-  note?: string;
-}
-
-interface CompletedLine {
-  type: string;
-  index: number;
-}
-
-interface ExchangeRecord {
-  id: number;
-  date: string;
-  sendPerson?: string;
-  sendPersonProfileUrl?: string;
-  receivePerson?: string;
-  receivePersonProfileUrl?: string;
-  given?: string;
-}
+import BingoBoard from './components/BingoBoard';
+import InitialKeywordDialog from './components/InitialKeywordDialog';
+import BingoHeader from './components/BingoHeader';
+import ExchangeInput from './components/ExchangeInput';
+import ExchangeHistory from './components/ExchangeHistory';
+import { BingoCell, CompletedLine, ExchangeRecord } from './types';
+import { GradientContainer } from '../../styles/containers.ts';
+import { animations } from '../../styles/animations.ts';
+import { BINGO_BOARD_SIZE, BINGO_GRID_SIZE, ANIMATION_DURATION, ALERT_DURATION, POLLING_INTERVAL, CELL_STYLES } from './constants';
+import { shuffleArray, getCellNote, getCellsInLine } from './utils/helpers';
 
 const cellValues = bingoKeywords.keywords;
-
-const GradientContainer = styled(Container)(({ theme }) => ({
-  minHeight: "100vh",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  alignItems: "center",
-  background: "linear-gradient(135deg, #FFE5EC, #E0F7FA)",
-  padding: 0,
-  textAlign: "center",
-}));
 
 const BingoGame = () => {
   const [username, setUsername] = useState('사용자 이름');
   const [userId, setUserId] = useState<string>('');
   const [myKeywords, setMyKeywords] = useState<string[]>([]);
-  const shuffleArray = (array: string[]) => {
-    return [...array].sort(() => Math.random() - 0.5);
-  };
   const [bingoBoard, setBingoBoard] = useState<BingoCell[]>(() => {
     const shuffledValues = shuffleArray(cellValues);
-    return Array(25).fill(null).map((_, i) => ({
+    return Array(BINGO_BOARD_SIZE).fill(null).map((_, i) => ({
       id: i,
       value: shuffledValues[i],
       selected: 0,
@@ -119,11 +88,6 @@ const BingoGame = () => {
   const conferenceEndTime = bingoConfig.conferenceEndTime;
   const conferenceInfoPage = bingoConfig.conferenceInfoPage;
   const [userProfileUrl, setUserProfileUrl] = useState(conferenceInfoPage);
-
-  // 셀 노트 가져오기
-  function getCellNote(index: number): string | undefined {
-    return undefined;
-  }
 
   useEffect(() => {
     if (Date.now() > conferenceEndTime) {
@@ -682,429 +646,53 @@ const BingoGame = () => {
   return (
     <GradientContainer>
       <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
-        {/* 초기 키워드 설정 모달 */}
-        <Dialog 
-          open={initialSetupOpen} 
-          fullWidth 
-          maxWidth="sm"
-          disableEscapeKeyDown
-          onClose={(event, reason) => {
-            if (reason !== 'backdropClick') {
-              setInitialSetupOpen(false);
-            }
-          }}
-        >
-          <DialogTitle>빙고 게임 시작하기</DialogTitle>
-          <DialogContent>
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body1" mb={1}>나의 키워드를 선택하세요 ({keywordCount}개):</Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {cellValues.map((keyword, index) => (
-                  <Chip
-                    key={index}
-                    label={keyword}
-                    clickable
-                    color={selectedInitialKeywords.includes(keyword) ? "primary" : "default"}
-                    onClick={() => toggleInitialKeyword(keyword)}
-                    variant={selectedInitialKeywords.includes(keyword) ? "filled" : "outlined"}
-                  />
-                ))}
-              </Box>
-            </Box>
-            
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                {selectedInitialKeywords.length}/{keywordCount} 선택됨
-              </Typography>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => (window.location.href = "/")}
-              startIcon={
-                <Box
-                  component="img"
-                  src={logo}
-                  alt="Logo"
-                  sx={{ width: 20, height: 20 }}
-                />
-              }
-              variant="outlined"
-            >
-              홈으로
-            </Button>
-            <Button 
-              onClick={handleInitialSetup}
-              variant="contained"
-              color="primary"
-              disabled={selectedInitialKeywords.length !== keywordCount}
-            >
-              게임 시작하기
-            </Button>
-          </DialogActions>
-        </Dialog>
-        
-        {/* 헤더 섹션 */}
-        <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Box component="img" src={logo} alt="Logo" sx={{ width: 24, height: 24, mr: 1 }} />
-              <Typography variant="body1" fontWeight="bold">키워드 교환 빙고</Typography>
-            </Box>
-            <Button sx={{ fontSize: 15, color: 'primary.main' }}>{username}</Button>
-            <Button
-              sx={{ fontSize: 15, color: 'primary.main' }}
-              component="a"
-              href={userProfileUrl}
-              target="_blank"
-              rel="noopener"
-            >
-              {username}
-            </Button>
-          </Box>
-          
-          <Divider sx={{ my: 1.5 }} />
-          
-          {/* 키워드 태그 */}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" fontWeight="bold" color="text.secondary" mb={1}>나의 키워드</Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              {myKeywords.map((keyword, index) => (
-                <Chip
-                  key={index}
-                  label={keyword}
-                  size="medium"
-                  sx={{ bgcolor: 'primary.50', color: 'primary.main', fontWeight: 'bold' }}
-                />
-              ))}
-            </Box>
-          </Box>
-          
-          {/* 수집 현황 */}
-          <Grid container spacing={1.5} sx={{ mb: 2 }}>
-            <Grid item xs={6}>
-              <Paper elevation={0} sx={{ bgcolor: 'grey.200', p: 1, borderRadius: 1, height: '100%' }}>
-                <Box sx={{ minHeight: 50 }}>
-                  <Typography variant="caption" color="text.secondary">수집한 키워드</Typography>
-                </Box>
-                <Typography variant="h6" fontWeight="medium">{collectedKeywords}/25</Typography>
-              </Paper>  
-            </Grid>
-            <Grid item xs={6}>
-              <Paper elevation={0} sx={{ bgcolor: 'grey.200', p: 1, borderRadius: 1, height: '100%' }}>
-                <Box sx={{ minHeight: 50 }}>
-                  <Typography variant="caption" color="text.secondary">만난 PseudoCon<br></br>참가자</Typography>
-                </Box>
-                <Typography variant="h6" fontWeight="medium">{metPersonNum}명</Typography>
-              </Paper>
-            </Grid>
-          </Grid>
-          
-          {/* 빙고 진행 상태 */}
-          <Box sx={{ mb: 0.5 }}>
-            <Typography variant="body2" color="text.secondary">빙고 상태</Typography>
-          </Box>
-          <LinearProgress 
-            variant="determinate" 
-            value={Math.min(bingoCount * (100/bingoMissionCount), 100)}
-            sx={{ 
-              mb: 1, 
-              borderRadius: 1, 
-              height: 8,
-              bgcolor: 'grey.200',
-              '& .MuiLinearProgress-bar': {
-                bgcolor: bingoCount >= bingoMissionCount ? 'success.main' : 'warning.main',
-                transition: newBingoFound ? 'width 1s ease-in-out' : undefined
-              }
-            }}
-          />
-          <Typography variant="body2" color="text.secondary" align="right">
-            {bingoCount >= bingoMissionCount ? "빙고 완성! 🎉" : `${bingoCount}줄 빙고 달성 중`}
-          </Typography>
-        </Paper>
-
-        {/* 키워드 교환 입력 섹션 */}
-        <Paper elevation={2} sx={{ p: 1.5, my: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 1 }}>
-            <Typography variant="body2" fontWeight="bold" sx={{ mr: 1 }}>키워드 교환</Typography>
-            <Typography variant="body2" fontWeight="bold">(</Typography>
-            <PersonIcon sx={{ fontSize: 15, color: 'primary.100' }} />
-            <Typography variant="body2" fontWeight="bold">내 ID: {userId})</Typography>
-          </Box>
-          <Box sx={{ display: 'flex',  justifyContent: 'center', alignItems: 'center', gap: 1 }}>
-            <TextField
-              value={opponentId}
-              onChange={(e) => setOpponentId(e.target.value)}
-              placeholder="상대방 ID 입력"
-              size="small"
-            />
-            <Button 
-              variant="contained" 
-              color="warning"
-              onClick={handleExchange}
-              sx={{
-                px: 1,
-                width: '50%',
-                '&:focus': {
-                  outline: 'none',
-                },
-                '&:focus-visible': {
-                  outline: 'none',
-                  boxShadow: 'none',
-                }
-              }}
-            >
-              내 키워드 보내기
-            </Button>
-          </Box>
-        </Paper>
-        
-        {/* 빙고 보드 */}
-        <Box sx={{ mb: 2, position: 'relative' }}>
-          <Grid container spacing={0.5}>
-            {bingoBoard.map((cell, index) => (
-              <Grid item xs={2.4} sm={2.4} key={cell.id}>
-                <Paper
-                  elevation={cell.status ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
-                  sx={getCellStyle(index)}
-                >
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        fontSize: 'clamp(0.45rem, 2.7vw, 0.75rem)', 
-                        fontWeight: 'bold',
-                        textAlign: 'center',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis', 
-                        width: '100%',
-                        color: cell.status ? 
-                          (animatedCells.includes(index) ? 'white' : 
-                          (isCellInCompletedLine(index) ? 'amber.800' : 'primary.800')) 
-                          : 'text.primary'
-                      }}
-                    >
-                      {cell.value}
-                    </Typography>
-                  </Box>
-                  
-                  {/* 노트 표시 */}
-                  {cell.note && (
-                    <Typography 
-                      variant="caption" 
-                      color="text.secondary" 
-                      sx={{ 
-                        position: 'absolute',
-                        bottom: 4,
-                        left: 4,
-                        fontSize: '0.6rem'
-                      }}
-                    >
-                      {cell.note}
-                    </Typography>
-                  )}
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
-          
-          {/* 빙고 라인 애니메이션 - 실선 */}
-          {newBingoFound && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none',
-                zIndex: 10
-              }}
-            >
-              {completedLines.map((line, lineIndex) => {
-                // 라인의 시작점과 끝점 계산 - 박스의 중앙에서 시작하고 끝나도록 수정
-                let startX, startY, endX, endY;
-                const cellsInLine = getCellsInLine(line.type, line.index);
-
-                // Only draw line if *all* cells in this line are part of new bingo cells
-                const isNewLine = cellsInLine.every(cell => newBingoCells.includes(cell));
-                
-                if (!isNewLine) return null;
-                
-                if (line.type === 'row') {
-                  // 열 라인: 왼쪽 중앙에서 오른쪽 중앙으로
-                  startX = '2%';  // 첫 번째 셀의 중앙 x좌표
-                  startY = `${line.index * 20 + 10}%`;  // 행의 중앙 y좌표
-                  endX = '98%';    // 마지막 셀의 중앙 x좌표
-                  endY = `${line.index * 20 + 10}%`;  // 행의 중앙 y좌표
-                } else if (line.type === 'col') {
-                  // 행 라인: 상단 중앙에서 하단 중앙으로
-                  startX = `${line.index * 20 + 10}%`;  // 열의 중앙 x좌표
-                  startY = '3%';  // 첫 번째 셀의 중앙 y좌표
-                  endX = `${line.index * 20 + 10}%`;  // 열의 중앙 x좌표
-                  endY = '98%';    // 마지막 셀의 중앙 y좌표
-                } else if (line.type === 'diagonal' && line.index === 1) {
-                  // 주 대각선: 좌상단 셀 중앙에서 우하단 셀 중앙으로
-                  startX = '2%';
-                  startY = '3%';
-                  endX = '97%';
-                  endY = '97%';
-                } else if (line.type === 'diagonal' && line.index === 2) {
-                  // 부 대각선: 우상단 셀 중앙에서 좌하단 셀 중앙으로
-                  startX = '97%';
-                  startY = '3%';
-                  endX = '2%';
-                  endY = '98%';
-                }
-                
-                // 애니메이션 중인 라인만 표시
-                if (animatedCells.length > 0 && getCellsInLine(line.type, line.index).some(cell => animatedCells.includes(cell))) {
-                  return (
-                    <svg
-                      key={`line-${lineIndex}`}
-                      width="100%"
-                      height="100%"
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        zIndex: 5
-                      }}
-                    >
-                      <line
-                        x1={startX}
-                        y1={startY}
-                        x2={endX}
-                        y2={endY}
-                        stroke="red"
-                        strokeWidth="5"
-                        strokeLinecap="round"
-                        style={{
-                          strokeDasharray: '1000',
-                          strokeDashoffset: '1000',
-                          animation: 'drawLine 1s forwards'
-                        }}
-                      />
-                    </svg>
-                  );
-                }
-                return null;
-              })}
-            </Box>
-          )}
-        </Box>
-
-        {/* 애니메이션 스타일 추가 */}
+        <InitialKeywordDialog
+          open={initialSetupOpen}
+          keywords={cellValues}
+          selectedKeywords={selectedInitialKeywords}
+          onToggle={toggleInitialKeyword}
+          onSave={handleInitialSetup}
+          onClose={() => setInitialSetupOpen(false)}
+          keywordCount={keywordCount}
+          logo={logo}
+        />
+        <BingoHeader
+          username={username}
+          userProfileUrl={userProfileUrl}
+          logo={logo}
+          myKeywords={myKeywords}
+          collectedKeywords={collectedKeywords}
+          metPersonNum={metPersonNum}
+          bingoCount={bingoCount}
+          bingoMissionCount={bingoMissionCount}
+          newBingoFound={newBingoFound}
+        />
+        <ExchangeInput
+          opponentId={opponentId}
+          onOpponentIdChange={e => setOpponentId(e.target.value)}
+          onExchange={handleExchange}
+          userId={userId}
+        />
+        <BingoBoard
+          bingoBoard={bingoBoard}
+          animatedCells={animatedCells}
+          newBingoCells={newBingoCells}
+          completedLines={completedLines}
+          newBingoFound={newBingoFound}
+          getCellStyle={getCellStyle}
+          isCellInCompletedLine={isCellInCompletedLine}
+          getCellsInLine={getCellsInLine}
+        />
+        <ExchangeHistory
+          showHistory={showHistory}
+          exchangeHistory={exchangeHistory}
+          onToggleShowHistory={() => setShowHistory(!showHistory)}
+        />
         <style>{`
-          @keyframes drawLine {
-            to {
-              stroke-dashoffset: 0;
-            }
-          }
-          @keyframes fall {
-            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-          }
+          ${animations.drawLine}
+          ${animations.fall}
         `}</style>
         
-        {/* 기록 보기 버튼 */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-          <Button 
-            variant="contained" 
-            color="primary"
-            onClick={() => setShowHistory(!showHistory)}
-            sx={{ px: 3, width: '150px' }}
-          >
-            교환 기록 {showHistory ? '가리기' : '보기'}
-          </Button>
-        </Box>
-        
-        {/* 교환 기록 */}
-        {showHistory && (
-          <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-              <Typography variant="h6" fontWeight="bold">키워드 교환 기록</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {exchangeHistory.map(history => (
-                <Box key={history.id} sx={{ borderBottom: 1, borderColor: 'divider', pb: 1, ml: 0.5}}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography color="warning.main" fontWeight="medium">{history.sendPerson}
-                      <Link href={history.sendPersonProfileUrl} target="_blank" rel="noopener"></Link>
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">{history.date}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Chip 
-                      label={history.given} 
-                      size="small" 
-                      variant="outlined"
-                      sx={{ bgcolor: 'grey.100' }} 
-                    />
-                    <Typography variant="body2" color="text.secondary" sx={{ mx: 1 }}>→</Typography>
-                    <Typography color="warning.main" fontWeight="medium">{history.receivePerson}
-                      <Link href={history.receivePersonProfileUrl} target="_blank" rel="noopener"></Link>
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
-          </Box>
-          </Paper>
-        )}
-
-        {showConfetti && (
-          <Box sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            pointerEvents: 'none',
-            zIndex: 9999
-          }}>
-            {Array.from({ length: 50 }).map((_, i) => {
-              const size = Math.random() * 10 + 5;
-              const left = Math.random() * 100;
-              const duration = Math.random() * 3 + 2;
-              const delay = Math.random() * 0.5;
-              const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8000', '#8000ff'];
-              return (
-                <Box
-                  key={i}
-                  sx={{
-                    position: 'absolute',
-                    top: '-20px',
-                    left: `${left}%`,
-                    width: `${size}px`,
-                    height: `${size}px`,
-                    bgcolor: colors[Math.floor(Math.random() * colors.length)],
-                    borderRadius: '50%',
-                    animation: `fall ${duration}s linear ${delay}s forwards`
-                  }}
-                />
-              );
-            })}
-            <style>{`
-              @keyframes fall {
-                0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-                100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-              }
-              .animate-dash {
-                stroke-dashoffset: 100;
-                animation: dash 1s linear infinite;
-              }
-              @keyframes dash {
-                to {
-                  stroke-dashoffset: 0;
-                }
-              }
-            `}</style>
-          </Box>
-        )}
-
         <Dialog open={showReviewModal} onClose={() => setShowReviewModal(false)}>
           <DialogContent>
             <Typography mb={2}>빙고 게임에 대한 간단한 피드백을 남겨주세요.</Typography>
@@ -1169,7 +757,6 @@ const BingoGame = () => {
           </DialogActions>
         </Dialog>
         
-        {/* 알림 */}
         <Snackbar 
           open={alertOpen} 
           autoHideDuration={3000} 
