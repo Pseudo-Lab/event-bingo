@@ -272,7 +272,7 @@ const Home = () => {
       </Dialog>
 
       <Dialog open={newLoginModal} onClose={() => setNewLoginModal(false)} maxWidth="sm">
-        <DialogTitle>비회원 가입</DialogTitle>
+        <DialogTitle>비회원로그인</DialogTitle>
         <DialogContent dividers>
           <Typography gutterBottom>
             우모 이메일을 찾을 수 없는 경우에만 이용해주세요.
