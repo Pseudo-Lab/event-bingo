@@ -171,33 +171,27 @@ const Home = () => {
               계정 생성 또는 로그인
             </Button>
             <Button
-              variant="outlined"
+              variant="contained"
               sx={{
-                color: 'red',
-                border: '1px solid red',
+                backgroundColor: 'rgba(243, 145, 59, 1)',
                 '&:hover': {
-                  backgroundColor: 'rgba(255, 0, 0, 0.04)',
+                  backgroundColor: 'rgba(243, 145, 59, 1)',
                   borderColor: 'red',
-                  color: 'red',
                 },
                 '&.Mui-disabled': {
-                  color: 'rgba(255, 0, 0, 0.5)',
-                  borderColor: 'rgba(255, 0, 0, 0.5)',
+                  borderColor: 'rgba(243, 145, 59, 0.5)',
                 },
                 '&:focus': {
                   outline: 'none',
-                  borderColor: 'red',
                 },
                 '&:active': {
-                  backgroundColor: 'rgba(255, 0, 0, 0.08)',
-                  color: 'red',
-                  borderColor: 'red',
+                  backgroundColor: '#d46a0d',
                 },
               }}
               onClick={handleNewSingupModal}
-              disabled={!isAgreed || loginEmail === ""}
+              disabled={!isAgreed}
               >
-              비회원가입
+              비회원로그인
             </Button>
           </Box>
         </>
@@ -279,7 +273,7 @@ const Home = () => {
       </Dialog>
 
       <Dialog open={newLoginModal} onClose={() => setNewLoginModal(false)} maxWidth="sm">
-        <DialogTitle>비회원 가입</DialogTitle>
+        <DialogTitle>비회원로그인</DialogTitle>
         <DialogContent dividers>
           <Typography gutterBottom>
             우모 이메일을 찾을 수 없는 경우에만 이용해주세요.
@@ -302,7 +296,7 @@ const Home = () => {
             닫기
           </Button>
           <Button onClick={handleNewSignup} variant="contained" color="primary">
-            가입하기
+            로그인
           </Button>
         </DialogActions>
       </Dialog>
