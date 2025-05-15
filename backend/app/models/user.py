@@ -107,4 +107,11 @@ class BingoUser(Base):
         user.selected_words = words
         return user
     
-    
+    @classmethod
+    async def update_privacy_agreement(cls, session: AsyncSession, email: str, privacy_agreed: bool):
+        user = await cls.get_user_by_email(session, email)
+        user.privacy_agreed = privacy_agreed
+        user.agreement_at = datetime.now(ZoneInfo("Asia/Seoul"))
+        await session.commit()
+        await session.refresh(user)
+        return user
