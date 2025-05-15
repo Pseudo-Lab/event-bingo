@@ -104,7 +104,9 @@ const BingoGame = () => {
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'warning' | 'error' | 'info'>('success');
   const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
   const [showAllBingoModal, setShowAllBingoModal] = useState(false);
-  const [remainingTime, setRemainingTime] = useState<number>(0);
+  const [remainingTime, setRemainingTime] = useState(() => {
+    return bingoConfig.unlockTime - Date.now();
+  });
   const [locked, setLocked] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const isTester = urlParams.get("early") === "true";
