@@ -44,7 +44,9 @@ const Home = () => {
   const [loginEmail, setLoginEmail] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [agreeOpen, setAgreeOpen] = useState(false);
+  const [agreeDataOpen, setAgreeDataOpen] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
+  const [isAgreedData, setIsAgreedData] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertSeverity, setAlertSeverity] = useState<'error' | 'success'>('error');
@@ -162,12 +164,24 @@ const Home = () => {
             label="개인정보 처리 동의(필수)"
             sx={{ mt: 1 }}
           />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={isAgreedData}
+                onChange={(e) => {
+                  if (!isAgreedData) setAgreeDataOpen(true);
+                  else setIsAgreedData(false);
+                }}
+              />
+            }
+            label="개인정보 제3자 제공 동의서(필수)"
+          />
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: "5px" }}>
             <Button
               variant="contained"
               sx={{ marginRight: '10px', backgroundColor: '#698BFF' }}
               onClick={handLogin}
-              disabled={!isAgreed || loginEmail === ""}
+              disabled={!isAgreed || !isAgreedData || loginEmail === ""}
             >
               계정 생성 또는 로그인
             </Button>
@@ -189,7 +203,7 @@ const Home = () => {
                 },
               }}
               onClick={handleNewSingupModal}
-              disabled={!isAgreed || loginEmail === ""}
+              disabled={!isAgreed || !isAgreedData || loginEmail === ""}
               >
               비회원로그인
             </Button>
@@ -215,47 +229,49 @@ const Home = () => {
       )}
 
       {/* 개인정보 처리 동의 모달 */}
-      <Dialog open={agreeOpen} onClose={() => setAgreeOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>개인정보 처리 동의서</DialogTitle>
+      <Dialog open={agreeOpen} onClose={() => setAgreeOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>[필수] 개인정보 수집 및 이용 동의서</DialogTitle>
         <DialogContent dividers>
           <Typography gutterBottom>
-            <strong>1. 개인정보 수집·이용 및 제3자 제공 동의</strong>
-          </Typography>
-          <Typography gutterBottom>
-            devFactory 팀의 빙고 게임 운영을 위해 아래와 같이 개인정보를 처리합니다.
+            <strong>가짜연구소</strong>는 본 행사 운영 및 네트워킹 서비스 제공을 위해 아래와 같이 개인정보를 수집 및 이용합니다.
           </Typography>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem', marginBottom: '1rem' }}>
-            <thead>
-              <tr>
-                <th style={{ border: '1px solid #ccc', padding: '8px', background: '#f5f5f5' }}>구분</th>
-                <th style={{ border: '1px solid #ccc', padding: '8px', background: '#f5f5f5' }}>내용</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>수집 목적</td>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>빙고 게임 참가자 식별, 결과 분석 및 이벤트 운영</td>
-              </tr>
-              <tr>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>수집 항목</td>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>이름, 이메일, 빙고 키워드 교환 이력</td>
-              </tr>
-              <tr>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>보유 기간</td>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>이벤트 종료 후 3개월</td>
-              </tr>
-              <tr>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>보안 조치</td>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>데이터 전송 시 HTTPS 암호화, 접근 권한 제한</td>
-              </tr>
-            </tbody>
-          </table>
+          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+            ■ 수집 항목
+          </Typography>
+          <Typography variant="body2" gutterBottom>
+            이름, 이메일 주소, 키워드 선택 내역, 후기 및 별점, 빙고 보드 구성 정보, 키워드 교환 및 상호작용 기록
+          </Typography>
 
+          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+            ■ 수집 목적
+          </Typography>
+          <Typography variant="body2" gutterBottom>
+            - 행사 참가자 식별 및 빙고 서비스 제공<br />
+            - 키워드 기반 매칭 및 네트워킹 기능 제공<br />
+            - 후기 및 참여 내역 기반 통계 분석<br />
+            - 이벤트 참여 확인 및 기념품 지급<br />
+            - 추후 행사 기획 및 운영 개선에 활용
+          </Typography>
+
+          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+            ■ 보유 및 이용 기간
+          </Typography>
+          <Typography variant="body2" gutterBottom>
+            수집일로부터 <strong>최대 5년</strong>간 보관 또는 이용 목적 달성 시까지 보유하며,
+            보유 기간 경과 또는 참가자 요청 시 <strong>즉시 파기</strong>합니다.
+          </Typography>
+
+          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+            ■ 귀하의 권리
+          </Typography>
           <Typography variant="body2" color="text.secondary">
-            ※ 귀하는 개인정보 수집·이용에 대한 동의를 거부할 권리가 있으나, 동의 거부 시 빙고 게임 서비스 이용이 제한될 수 있습니다.
+            귀하는 개인정보 수집 및 이용에 대한 동의를 거부할 수 있습니다.
+            다만, <strong>본 동의는 빙고 서비스 이용을 위한 필수 사항</strong>으로,
+            동의하지 않을 경우 <strong>빙고 서비스 이용이 제한</strong>될 수 있습니다.
           </Typography>
         </DialogContent>
+
         <DialogActions>
           <Button onClick={() => setAgreeOpen(false)} color="error">
             동의 안함
@@ -264,6 +280,70 @@ const Home = () => {
             onClick={() => {
               setIsAgreed(true);
               setAgreeOpen(false);
+            }}
+            color="primary"
+          >
+            동의함
+          </Button>
+        </DialogActions>
+      </Dialog>
+    
+      <Dialog open={agreeDataOpen} onClose={() => setAgreeDataOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>[필수] 개인정보 제3자 제공 동의서</DialogTitle>
+        <DialogContent dividers>
+          <Typography gutterBottom>
+            행사 신청 플랫폼(주식회사 스플랩)을 통해 수집된 참가자의 개인정보가 아래와 같이 <strong>가짜연구소</strong>에 제공됩니다.
+          </Typography>
+
+          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+            ■ 제공받는 자
+          </Typography>
+          <Typography variant="body2" gutterBottom>
+            가짜연구소
+          </Typography>
+
+          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+            ■ 제공 항목
+          </Typography>
+          <Typography variant="body2" gutterBottom>
+            이름, 이메일 주소, 휴대전화번호 등 참가자가 행사 신청 시 우모에 입력한 정보
+          </Typography>
+
+          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+            ■ 제공 목적
+          </Typography>
+          <Typography variant="body2" gutterBottom>
+            - 행사 참가자 식별 및 관리<br />
+            - 빙고 등 프로그램 운영 및 네트워킹 서비스 제공<br />
+            - 참여 이력 기반 사후 피드백 및 안내
+          </Typography>
+
+          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+            ■ 보유 및 이용 기간
+          </Typography>
+          <Typography variant="body2" gutterBottom>
+            제공일로부터 <strong>최대 5년</strong> 또는 목적 달성 시까지 보관하며,  
+            참가자가 요청할 경우 <strong>즉시 파기</strong>됩니다.
+          </Typography>
+
+          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+            ■ 귀하의 권리
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            귀하는 개인정보 제공에 대한 동의를 거부할 권리가 있습니다.  
+            단, <strong>본 동의는 빙고 서비스 이용을 위한 필수 사항</strong>으로,  
+            동의하지 않으실 경우 <strong>서비스 이용이 제한</strong>될 수 있습니다.
+          </Typography>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setAgreeDataOpen(false)} color="error">
+            동의 안함
+          </Button>
+          <Button
+            onClick={() => {
+              setIsAgreedData(true);
+              setAgreeDataOpen(false);
             }}
             color="primary"
           >
