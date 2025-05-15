@@ -278,9 +278,6 @@ const BingoGame = () => {
         const groupKey = `${record.send_user_id}-${record.receive_user_id}`;
   
         if (!grouped[groupKey]) {
-        const groupKey = `${record.send_user_id}-${record.receive_user_id}`;
-  
-        if (!grouped[groupKey]) {
           const senderName = await getUserName(isSender ? userId : otherUserId);
           const receiverName = await getUserName(isSender ? otherUserId : userId);
           const senderUmohId = await getUserUmohId(isSender ? userId : otherUserId);
@@ -303,8 +300,6 @@ const BingoGame = () => {
   
         grouped[groupKey].given = [...(grouped[groupKey].given || []), ...wordList];
       }
-    }
-  
       setExchangeHistory(Object.values(grouped));
     };
   
