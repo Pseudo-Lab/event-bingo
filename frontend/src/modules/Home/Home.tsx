@@ -176,7 +176,6 @@ const Home = () => {
                 backgroundColor: 'rgba(243, 145, 59, 1)',
                 '&:hover': {
                   backgroundColor: 'rgba(243, 145, 59, 1)',
-                  borderColor: 'red',
                 },
                 '&.Mui-disabled': {
                   borderColor: 'rgba(243, 145, 59, 0.5)',
