@@ -106,7 +106,11 @@ const BingoGame = () => {
   const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
   const [showAllBingoModal, setShowAllBingoModal] = useState(false);
   const [remainingTime, setRemainingTime] = useState<number>(0);
-  const [locked, setLocked] = useState(new Date().getTime() < bingoConfig.unlockTime);
+  const [locked, setLocked] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isTester = urlParams.get("early") === "true";
+    return !isTester && new Date().getTime() < bingoConfig.unlockTime;
+  });
   const bingoMissionCount = bingoConfig.bingoMissionCount;
   const keywordCount = bingoConfig.keywordCount;
   const conferenceEndTime = bingoConfig.conferenceEndTime;
