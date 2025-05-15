@@ -23,7 +23,7 @@ const BoardView = () => {
                 const fetchedContents = await getBoardContentResponse(itemProps.board_id);
                 const fetchedComments = await getBoardCommentsResponse(itemProps.board_id);
                 setContents(fetchedContents);
-                setComments(fetchedComments.comments);
+                setComments(fetchedComments);
             } catch (error) {
                 setError("Failed to fetch board contents or comments");
                 console.error("Error fetching data:", error);

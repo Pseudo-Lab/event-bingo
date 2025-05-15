@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Container, Box, Typography, Button, Grid, Paper, Chip, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Snackbar, Alert, Divider, Card, CardContent, ToggleButton, ToggleButtonGroup,
-  Rating, 
+  Snackbar, Alert, Divider, Rating, Link
 } from '@mui/material';
 import { styled } from "@mui/system";
 import PersonIcon from '@mui/icons-material/Person';
@@ -12,17 +11,16 @@ import {
   updateBingoBoard,
   createBingoBoard,
   getUserInteractionCount,
-  getSelectedWords,
-  getUser,
-  singUpUser,
   createUserBingoInteraction,
+  getUserAllInteraction,
   getUserLatestInteraction,
   getUserName,
   submitReview,
+  getUserProfileUrl,
 } from "../../api/bingo_api.ts";
 import logo from '../../assets/pseudo_lab_logo.png';
 import bingoKeywords from '../../data/bingo-keywords.json';
-import { unlockConfig } from '../../config/unlockConfig';
+import { bingoConfig } from '../../config/bingoConfig.ts';
 
 // Define proper interfaces
 interface BingoCell {
@@ -41,9 +39,11 @@ interface CompletedLine {
 interface ExchangeRecord {
   id: number;
   date: string;
-  person: string;
-  given: string[];
-  received: string;
+  sendPerson?: string;
+  sendPersonProfileUrl?: string;
+  receivePerson?: string;
+  receivePersonProfileUrl?: string;
+  given?: string;
 }
 
 const cellValues = bingoKeywords.keywords;
@@ -84,11 +84,12 @@ const BingoGame = () => {
   const [collectedKeywords, setCollectedKeywords] = useState(0);
   const [metPersonNum, setMetPersonNum] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
+  const [exchangeHistory, setExchangeHistory] = useState<any[]>([]);
   const [historyFilter, setHistoryFilter] = useState('all');
   const [lastSelectedCell, setLastSelectedCell] = useState<number | null>(null);
   // 새로운 빙고 라인이 발견되었는지 확인하기 위한 상태
   const [newBingoFound, setNewBingoFound] = useState(false);
-  const [initialSetupOpen, setInitialSetupOpen] = useState(true);
+  const [initialSetupOpen, setInitialSetupOpen] = useState(false);
   const [selectedInitialKeywords, setSelectedInitialKeywords] = useState<string[]>([]);
   // 빙고 라인의 셀들을 추적하기 위한 상태
   const [bingoLineCells, setBingoLineCells] = useState<number[]>([]);
@@ -104,14 +105,20 @@ const BingoGame = () => {
   const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
   const [showAllBingoModal, setShowAllBingoModal] = useState(false);
   const [remainingTime, setRemainingTime] = useState<number>(0);
-  const [locked, setLocked] = useState(new Date().getTime() < unlockConfig.unlockTime);
-  const bingoMissionCount = unlockConfig.bingoMissionCount;
-  const keywordCount = unlockConfig.keywordCount;
+  const [locked, setLocked] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isTester = urlParams.get("early") === "true";
+    return !isTester && new Date().getTime() < bingoConfig.unlockTime;
+  });
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewStars, setReviewStars] = useState<number | null>(null);
   const [reviewText, setReviewText] = useState('');
-  const [hasSubmittedReview, setHasSubmittedReview] = useState(false);
   const [hideReviewModal, setHideReviewModal] = useState(() =>localStorage.getItem("hideReviewModal") === "true");
+  const bingoMissionCount = bingoConfig.bingoMissionCount;
+  const keywordCount = bingoConfig.keywordCount;
+  const conferenceEndTime = bingoConfig.conferenceEndTime;
+  const conferenceInfoPage = bingoConfig.conferenceInfoPage;
+  const [userProfileUrl, setUserProfileUrl] = useState(conferenceInfoPage);
 
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
@@ -119,9 +126,18 @@ const BingoGame = () => {
   }
 
   useEffect(() => {
+    if (Date.now() > conferenceEndTime) {
+      localStorage.removeItem("myID");
+      localStorage.removeItem("myEmail");
+      localStorage.removeItem("myUserName");
+      localStorage.removeItem("hideReviewModal");
+    }
+  }, []);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date().getTime();
-      const diff = unlockConfig.unlockTime - now;
+      const diff = bingoConfig.unlockTime - now;
   
       if (diff <= 0) {
         setLocked(false);
@@ -138,6 +154,7 @@ const BingoGame = () => {
     const init = async () => {
       const storedId = localStorage.getItem("myID");
       const userName = localStorage.getItem("myUserName");
+
       if (!storedId) {
         window.location.href = "/";
         return;
@@ -177,6 +194,9 @@ const BingoGame = () => {
           else {
             setInitialSetupOpen(true);
           }
+          // TODO: use api
+          // const userProfileUrl = await getUserProfileUrl(storedId);
+          // if (userProfileUrl) setUserProfileUrl(userProfileUrl);
         } catch (error) {
           console.error("Error loading user board:", error);
         }
@@ -211,9 +231,14 @@ const BingoGame = () => {
           setBingoBoard(updatedBoard);
           setCollectedKeywords(prev => prev + newlyUpdatedValues.length);
           setLatestReceivedKeywords(newlyUpdatedValues);
-          // TODO: 교환한 User ID 가져와서 보여주기
-          showAlert(`"${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
+          const interactionData = await getUserLatestInteraction(userId, 1);
+          if (Array.isArray(interactionData) && interactionData.length > 0) {
+            const latestSenderId = interactionData[0].send_user_id;
+            const senderUserName = await getUserName(latestSenderId);
+            if (senderUserName) showAlert(`"${senderUserName}"님에게 "${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
+          }
         }
+        // TODO: 키워드 받았지만 변화 없을 때 메시지?
       } catch (err) {
         console.error("Error refreshing bingo board:", err);
       }
@@ -221,6 +246,51 @@ const BingoGame = () => {
   
     return () => clearInterval(interval);
   }, [userId, bingoBoard]);
+
+  useEffect(() => {
+    const fetchExchangeHistory = async () => {
+      const userId = localStorage.getItem("myID");
+      if (!userId) return;
+  
+      const rawHistory = await getUserAllInteraction(userId);
+      if (!Array.isArray(rawHistory.interactions)) return;
+  
+      const grouped: { [key: string]: ExchangeRecord } = {};
+  
+      for (const record of rawHistory.interactions) {
+        const date = record.created_at;
+        const key = `${record.send_user_id}-${record.receive_user_id}-${record.word_id_list}`;
+        const isSender = record.send_user_id === parseInt(userId);
+        const otherUserId = isSender ? record.receive_user_id : record.send_user_id;
+  
+        if (!grouped[key]) {
+          grouped[key] = {
+            id: Math.random(),
+            date: date.replace(/-/g, '.').replace('T', ' '),
+          };
+        }
+  
+        const senderName = await getUserName(isSender ? userId : otherUserId);
+        const receiverName = await getUserName(isSender ? otherUserId : userId);
+        // TODO: use api
+        // const sendPersonProfileUrl = await getUserProfileUrl(isSender ? userId : otherUserId);
+        // const receivePersonProfileUrl = await getUserProfileUrl(isSender ? otherUserId : userId);
+  
+        grouped[key].given = record.word_id_list;
+        grouped[key].sendPerson = senderName;
+        grouped[key].sendPersonProfileUrl = conferenceInfoPage;
+        grouped[key].receivePerson = receiverName;
+        grouped[key].receivePersonProfileUrl = conferenceInfoPage;
+      }
+  
+      setExchangeHistory(Object.values(grouped));
+    };
+  
+    fetchExchangeHistory();
+    const interval = setInterval(fetchExchangeHistory, 5000);
+  
+    return () => clearInterval(interval);
+  }, []);
 
   // TODO: userId 사용하도록 수정 필요
   const initializeBoard = async (userId: string, selectedInitialKeywords: string[]) => {
@@ -327,7 +397,7 @@ const BingoGame = () => {
         setHasShownConfetti(true);
       }
       
-      if (bingoCount >= 1 && !hasSubmittedReview && !hideReviewModal) {
+      if (bingoCount >= 1 && !hideReviewModal) {
         setShowReviewModal(true);
       }
   
@@ -465,13 +535,18 @@ const BingoGame = () => {
   
     try {
       const result = await updateBingoBoard(myId, opponentId);
+      const receiverName = await getUserName(opponentId);
+      if (!receiverName) {
+        showAlert("존재하지 않는 ID입니다.", 'error');
+        return;
+      }
       await Promise.all(
         myKeywords.map((myKeyword) =>
           createUserBingoInteraction(myKeyword, parseInt(myId), parseInt(opponentId))
         )
       );
       if (result) {
-        showAlert(`"User ${opponentId}"에게 키워드를 성공적으로 전송했습니다!`);
+        showAlert(`"${receiverName}"님에게 키워드를 성공적으로 전송했습니다!`);
       } else {
         showAlert("키워드 교환 요청에 실패했습니다. 다시 시도해주세요.", 'error');
       }
@@ -523,7 +598,6 @@ const BingoGame = () => {
       }
     };
     
-    // Animation styles - only apply to new bingo cells
     if (isNewBingoCell) {
       baseStyle.animation = 'fadeBg 3s ease forwards, pulse 1.5s infinite';
       baseStyle.animationDelay = '1s, 0s';
@@ -573,16 +647,6 @@ const BingoGame = () => {
       };
     }
     return baseStyle;
-  };
-
-  // 기록 필터 변경 핸들러
-  const handleHistoryFilterChange = (
-    event: React.MouseEvent<HTMLElement>,
-    newFilter: string,
-  ) => {
-    if (newFilter !== null) {
-      setHistoryFilter(newFilter);
-    }
   };
 
   if (locked) {
@@ -655,6 +719,20 @@ const BingoGame = () => {
             </Box>
           </DialogContent>
           <DialogActions>
+            <Button
+              onClick={() => (window.location.href = "/")}
+              startIcon={
+                <Box
+                  component="img"
+                  src={logo}
+                  alt="Logo"
+                  sx={{ width: 20, height: 20 }}
+                />
+              }
+              variant="outlined"
+            >
+              홈으로
+            </Button>
             <Button 
               onClick={handleInitialSetup}
               variant="contained"
@@ -674,6 +752,15 @@ const BingoGame = () => {
               <Typography variant="body1" fontWeight="bold">키워드 교환 빙고</Typography>
             </Box>
             <Button sx={{ fontSize: 15, color: 'primary.main' }}>{username}</Button>
+            <Button
+              sx={{ fontSize: 15, color: 'primary.main' }}
+              component="a"
+              href={userProfileUrl}
+              target="_blank"
+              rel="noopener"
+            >
+              {username}
+            </Button>
           </Box>
           
           <Divider sx={{ my: 1.5 }} />
@@ -924,7 +1011,7 @@ const BingoGame = () => {
         `}</style>
         
         {/* 기록 보기 버튼 */}
-        {/* <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
           <Button 
             variant="contained" 
             color="primary"
@@ -933,30 +1020,38 @@ const BingoGame = () => {
           >
             교환 기록 {showHistory ? '가리기' : '보기'}
           </Button>
-        </Box> */}
+        </Box>
         
         {/* 교환 기록 */}
         {showHistory && (
           <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
               <Typography variant="h6" fontWeight="bold">키워드 교환 기록</Typography>
-              <ToggleButtonGroup
-                value={historyFilter}
-                exclusive
-                onChange={handleHistoryFilterChange}
-                size="small"
-              >
-                <ToggleButton value="all">
-                  <Typography variant="caption">전체</Typography>
-                </ToggleButton>
-                <ToggleButton value="recent">
-                  <Typography variant="caption">최근 추가</Typography>
-                </ToggleButton>
-                <ToggleButton value="person">
-                  <Typography variant="caption">사람별</Typography>
-                </ToggleButton>
-              </ToggleButtonGroup>
             </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {exchangeHistory.map(history => (
+                <Box key={history.id} sx={{ borderBottom: 1, borderColor: 'divider', pb: 1, ml: 0.5}}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography color="warning.main" fontWeight="medium">{history.sendPerson}
+                      <Link href={history.sendPersonProfileUrl} target="_blank" rel="noopener"></Link>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">{history.date}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Chip 
+                      label={history.given} 
+                      size="small" 
+                      variant="outlined"
+                      sx={{ bgcolor: 'grey.100' }} 
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{ mx: 1 }}>→</Typography>
+                    <Typography color="warning.main" fontWeight="medium">{history.receivePerson}
+                      <Link href={history.receivePersonProfileUrl} target="_blank" rel="noopener"></Link>
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+          </Box>
           </Paper>
         )}
 
@@ -1036,7 +1131,6 @@ const BingoGame = () => {
               onClick={() => {
                 localStorage.setItem("hideReviewModal", "true");
                 setHideReviewModal(true);
-                setShowReviewModal(false);
               }}
             >
               닫기
@@ -1050,7 +1144,6 @@ const BingoGame = () => {
                     showAlert("소중한 리뷰 감사합니다!");
                     localStorage.setItem("hideReviewModal", "true"); // 유저 리뷰 get하는 함수 사용하면 삭제
                     setHideReviewModal(true); // 유저 리뷰 get하는 함수 사용하면 삭제
-                    setShowReviewModal(false);
                   } catch (err) {
                     showAlert("리뷰 제출 중 문제가 발생했습니다.", 'error');
                   }
@@ -1067,7 +1160,7 @@ const BingoGame = () => {
           <DialogTitle>빙고 완성 🎉</DialogTitle>
           <DialogContent>
             <Typography>축하합니다! 빙고를 완성했습니다.</Typography>
-            <Typography>Devfactory 부스로 오시면 소정의 선물을 드립니다!</Typography>
+            <Typography>Devfactory 부스로 오셔서 소정의 선물 받아가세요!</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowAllBingoModal(false)} color="primary">

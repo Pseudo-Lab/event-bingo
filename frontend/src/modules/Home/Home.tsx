@@ -17,10 +17,11 @@ import {
 import { styled } from "@mui/system";
 import { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
-import { singUpUser } from "../../api/bingo_api";
+import { singUpUser, newSingUpUser } from "../../api/bingo_api";
+import { bingoConfig } from '../../config/bingoConfig.ts';
 
 const GradientContainer = styled(Container)(({ theme }) => ({
-  minHeight: "100vh",
+  minHeight: "70vh",
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
@@ -47,6 +48,12 @@ const Home = () => {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertSeverity, setAlertSeverity] = useState<'error' | 'success'>('error');
+  const [loginErrorCount, setLoginErrorCount] = useState(0);
+  const [newLoginModal, setNewLoginModal] = useState(false);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const conferenceInfoPage = bingoConfig.conferenceInfoPage;
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -69,6 +76,9 @@ const Home = () => {
       setAlertMessage(result.message);
       setAlertSeverity("error");
       setAlertOpen(true);
+      // 못 찾는 경우 가입
+      setLoginErrorCount(prev => prev + 1)
+      console.log('loginErrorCount', loginErrorCount);
       return;
     }
 
@@ -76,6 +86,34 @@ const Home = () => {
     localStorage.setItem("myEmail", result.user_email);
     localStorage.setItem("myUserName", result.user_name);
     setIsLoggedIn(true);
+    window.location.href = "/bingo";
+  };
+
+  const handleNewSingupModal = () => {
+    setNewLoginModal(true);
+  }
+
+  const handleNewSignup = async () => {
+    if (!newUserName || !newUserEmail) {
+      setAlertMessage("이름과 이메일을 모두 입력해주세요.");
+      setAlertSeverity("error");
+      setAlertOpen(true);
+      return;
+    }
+  
+    const result = await newSingUpUser(newUserEmail, newUserName);
+    if (!result.ok) {
+      setAlertMessage(result.message || "가입에 실패했습니다.");
+      setAlertSeverity("error");
+      setAlertOpen(true);
+      return;
+    }
+  
+    localStorage.setItem("myID", result.user_id);
+    localStorage.setItem("myEmail", result.user_email);
+    localStorage.setItem("myUserName", result.user_name);
+    setIsLoggedIn(true);
+    setNewLoginModal(false);
     window.location.href = "/bingo";
   };
 
@@ -99,7 +137,7 @@ const Home = () => {
       </Typography>
       <Typography>
         <Link
-          href="https://umoh.io/en/pseudocon2025"
+          href={conferenceInfoPage}
           target="_blank" 
           rel="noopener"
         >수도콘 행사 페이지(우모)</Link>
@@ -124,14 +162,45 @@ const Home = () => {
             label="개인정보 처리 동의(필수)"
             sx={{ mt: 1 }}
           />
-          <Button
-            variant="contained"
-            sx={{ marginTop: "5px", backgroundColor: '#698BFF' }}
-            onClick={handLogin}
-            disabled={!isAgreed || loginEmail === ""}
-          >
-            계정 생성 또는 로그인
-          </Button>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: "5px" }}>
+            <Button
+              variant="contained"
+              sx={{ marginRight: '10px', backgroundColor: '#698BFF' }}
+              onClick={handLogin}
+              disabled={!isAgreed || loginEmail === ""}
+            >
+              계정 생성 또는 로그인
+            </Button>
+            <Button
+              variant="outlined"
+              sx={{
+                color: 'red',
+                border: '1px solid red',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 0, 0, 0.04)',
+                  borderColor: 'red',
+                  color: 'red',
+                },
+                '&.Mui-disabled': {
+                  color: 'rgba(255, 0, 0, 0.5)',
+                  borderColor: 'rgba(255, 0, 0, 0.5)',
+                },
+                '&:focus': {
+                  outline: 'none',
+                  borderColor: 'red',
+                },
+                '&:active': {
+                  backgroundColor: 'rgba(255, 0, 0, 0.08)',
+                  color: 'red',
+                  borderColor: 'red',
+                },
+              }}
+              onClick={handleNewSingupModal}
+              disabled={!isAgreed || loginEmail === ""}
+              >
+              비회원로그인
+            </Button>
+          </Box>
         </>
       ) : (
         <>
@@ -156,44 +225,44 @@ const Home = () => {
       <Dialog open={agreeOpen} onClose={() => setAgreeOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>개인정보 처리 동의서</DialogTitle>
         <DialogContent dividers>
-      <Typography gutterBottom>
-        <strong>1. 개인정보 수집·이용 및 제3자 제공 동의</strong>
-      </Typography>
-      <Typography gutterBottom>
-        devFactory 팀의 빙고 게임 운영을 위해 아래와 같이 개인정보를 처리합니다.
-      </Typography>
+          <Typography gutterBottom>
+            <strong>1. 개인정보 수집·이용 및 제3자 제공 동의</strong>
+          </Typography>
+          <Typography gutterBottom>
+            devFactory 팀의 빙고 게임 운영을 위해 아래와 같이 개인정보를 처리합니다.
+          </Typography>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem', marginBottom: '1rem' }}>
-        <thead>
-          <tr>
-            <th style={{ border: '1px solid #ccc', padding: '8px', background: '#f5f5f5' }}>구분</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px', background: '#f5f5f5' }}>내용</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style={{ border: '1px solid #ccc', padding: '8px' }}>수집 목적</td>
-            <td style={{ border: '1px solid #ccc', padding: '8px' }}>빙고 게임 참가자 식별, 결과 분석 및 이벤트 운영</td>
-          </tr>
-          <tr>
-            <td style={{ border: '1px solid #ccc', padding: '8px' }}>수집 항목</td>
-            <td style={{ border: '1px solid #ccc', padding: '8px' }}>이름, 이메일, 빙고 키워드 교환 이력</td>
-          </tr>
-          <tr>
-            <td style={{ border: '1px solid #ccc', padding: '8px' }}>보유 기간</td>
-            <td style={{ border: '1px solid #ccc', padding: '8px' }}>이벤트 종료 후 3개월</td>
-          </tr>
-          <tr>
-            <td style={{ border: '1px solid #ccc', padding: '8px' }}>보안 조치</td>
-            <td style={{ border: '1px solid #ccc', padding: '8px' }}>데이터 전송 시 HTTPS 암호화, 접근 권한 제한</td>
-          </tr>
-        </tbody>
-      </table>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem', marginBottom: '1rem' }}>
+            <thead>
+              <tr>
+                <th style={{ border: '1px solid #ccc', padding: '8px', background: '#f5f5f5' }}>구분</th>
+                <th style={{ border: '1px solid #ccc', padding: '8px', background: '#f5f5f5' }}>내용</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>수집 목적</td>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>빙고 게임 참가자 식별, 결과 분석 및 이벤트 운영</td>
+              </tr>
+              <tr>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>수집 항목</td>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>이름, 이메일, 빙고 키워드 교환 이력</td>
+              </tr>
+              <tr>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>보유 기간</td>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>이벤트 종료 후 3개월</td>
+              </tr>
+              <tr>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>보안 조치</td>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>데이터 전송 시 HTTPS 암호화, 접근 권한 제한</td>
+              </tr>
+            </tbody>
+          </table>
 
-      <Typography variant="body2" color="text.secondary">
-        ※ 귀하는 개인정보 수집·이용에 대한 동의를 거부할 권리가 있으나, 동의 거부 시 빙고 게임 서비스 이용이 제한될 수 있습니다.
-      </Typography>
-    </DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            ※ 귀하는 개인정보 수집·이용에 대한 동의를 거부할 권리가 있으나, 동의 거부 시 빙고 게임 서비스 이용이 제한될 수 있습니다.
+          </Typography>
+        </DialogContent>
         <DialogActions>
           <Button onClick={() => setAgreeOpen(false)} color="error">
             동의 안함
@@ -210,13 +279,47 @@ const Home = () => {
         </DialogActions>
       </Dialog>
 
+      <Dialog open={newLoginModal} onClose={() => setNewLoginModal(false)} maxWidth="sm">
+        <DialogTitle>비회원으로 로그인</DialogTitle>
+        <DialogContent dividers>
+          <Typography gutterBottom>
+            우모 이메일을 찾을 수 없는 경우에만 이용해주세요.
+          </Typography>
+          <StyledInput
+            placeholder="이름"
+            value={newUserName}
+            onChange={(e) => setNewUserName(e.target.value)}
+            fullWidth
+          />
+          <StyledInput
+            placeholder="이메일"
+            value={newUserEmail}
+            onChange={(e) => setNewUserEmail(e.target.value)}
+            fullWidth
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNewLoginModal(false)}>
+            닫기
+          </Button>
+          <Button onClick={handleNewSignup} variant="contained" color="primary">
+            가입하기
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Snackbar
         open={alertOpen}
-        autoHideDuration={3000}
+        autoHideDuration={5000}
         onClose={() => setAlertOpen(false)}
       >
-        <Alert onClose={() => setAlertOpen(false)} severity={alertSeverity} sx={{ width: '100%' }}>
-          {alertMessage}
+        <Alert onClose={() => setAlertOpen(false)} severity={alertSeverity} sx={{ width: '100%', textAlign: 'left' }}>
+          {alertMessage.split('\n').map((line, idx) => (
+            <span key={idx}>
+              {line}
+              <br />
+            </span>
+          ))}
         </Alert>
       </Snackbar>
     </GradientContainer>
