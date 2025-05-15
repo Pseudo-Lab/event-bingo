@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Query
 
 from .schema import BingoInteractionRequest
 from .services import CreateBingoInteraction, GetUserLatestInteraction, GetUserAllInteractions
@@ -18,9 +18,10 @@ async def create_bingo_interaction(
 @bingo_interaction_router.get("/{user_id}")
 async def get_user_latest_interaction(
     user_id: int = Path(..., title="유저 아이디"),
+    limit: int = Query(..., title="최대 조회 개수"),
     bingo_interaction: GetUserLatestInteraction = Depends(GetUserLatestInteraction),
 ):
-    return await bingo_interaction.execute(user_id=user_id)
+    return await bingo_interaction.execute(user_id=user_id, limit=limit)
 
 
 @bingo_interaction_router.get("/{user_id}/all")
