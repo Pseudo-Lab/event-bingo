@@ -18,6 +18,7 @@ import { styled } from "@mui/system";
 import { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
 import { singUpUser, newSingUpUser } from "../../api/bingo_api";
+import { bingoConfig } from '../../config/bingoConfig.ts';
 
 const GradientContainer = styled(Container)(({ theme }) => ({
   minHeight: "70vh",
@@ -51,6 +52,7 @@ const Home = () => {
   const [newLoginModal, setNewLoginModal] = useState(false);
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
+  const conferenceInfoPage = bingoConfig.conferenceInfoPage;
 
   const navigate = useNavigate();
 
@@ -135,7 +137,7 @@ const Home = () => {
       </Typography>
       <Typography>
         <Link
-          href="https://umoh.io/en/pseudocon2025"
+          href={conferenceInfoPage}
           target="_blank" 
           rel="noopener"
         >수도콘 행사 페이지(우모)</Link>
