@@ -89,6 +89,7 @@ const Home = () => {
   };
 
   const handleNewSingupModal = () => {
+    setNewUserEmail(loginEmail);
     setNewLoginModal(true);
   }
 
@@ -188,7 +189,7 @@ const Home = () => {
                 },
               }}
               onClick={handleNewSingupModal}
-              disabled={!isAgreed}
+              disabled={!isAgreed || loginEmail === ""}
               >
               비회원로그인
             </Button>
