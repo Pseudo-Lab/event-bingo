@@ -16,7 +16,7 @@ import {
   getUserLatestInteraction,
   getUserName,
   submitReview,
-  getUserProfileUrl,
+  getUserUmohId,
 } from "../../api/bingo_api.ts";
 import logo from '../../assets/pseudo_lab_logo.png';
 import newLogo from '../../assets/pseudo-lab-logo-no-text.svg';
@@ -63,6 +63,7 @@ const GradientContainer = styled(Container)(({ theme }) => ({
 const BingoGame = () => {
   const [username, setUsername] = useState('사용자 이름');
   const [userId, setUserId] = useState<string>('');
+  const [umohId, setUmohId] = useState<string>('');
   const [myKeywords, setMyKeywords] = useState<string[]>([]);
   const shuffleArray = (array: string[]) => {
     return [...array].sort(() => Math.random() - 0.5);
@@ -122,6 +123,15 @@ const BingoGame = () => {
   const conferenceEndTime = bingoConfig.conferenceEndTime;
   const conferenceInfoPage = bingoConfig.conferenceInfoPage;
   const [userProfileUrl, setUserProfileUrl] = useState(conferenceInfoPage);
+  const conferenceProfileBasePage = bingoConfig.conferenceProfileBasePage;
+
+  const getUserProfileUrl = (userId: string | null) => {
+    if (userId) {
+      return `${conferenceProfileBasePage}\\${userId}`;
+    } else {
+      return conferenceInfoPage;
+    }
+  }
 
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
@@ -166,6 +176,10 @@ const BingoGame = () => {
         try {
           setUserId(storedId);
           const boardData = await getBingoBoard(storedId);
+          const umohId = await getUserUmohId(storedId);
+          setUmohId(umohId);
+          const userProfileUrl = getUserProfileUrl(umohId);
+          setUserProfileUrl(userProfileUrl);
           const boardInteractionData = await getUserInteractionCount(storedId);
           setMetPersonNum(boardInteractionData)
           if (boardData && boardData.length > 0) {
@@ -197,9 +211,6 @@ const BingoGame = () => {
           else {
             setInitialSetupOpen(true);
           }
-          // TODO: use api
-          // const userProfileUrl = await getUserProfileUrl(storedId);
-          // if (userProfileUrl) setUserProfileUrl(userProfileUrl);
         } catch (error) {
           console.error("Error loading user board:", error);
         }
@@ -269,14 +280,16 @@ const BingoGame = () => {
         if (!grouped[groupKey]) {
           const senderName = await getUserName(isSender ? userId : otherUserId);
           const receiverName = await getUserName(isSender ? otherUserId : userId);
+          const senderUmohId = await getUserUmohId(isSender ? userId : otherUserId);
+          const receiverUmohId = await getUserUmohId(isSender ? otherUserId : userId);
   
           grouped[groupKey] = {
             id: Math.random(),
             date: record.created_at.replace(/-/g, '.').replace('T', ' ').slice(0, 16),
             sendPerson: senderName,
-            sendPersonProfileUrl: conferenceInfoPage,
+            sendPersonProfileUrl: getUserProfileUrl(senderUmohId),
             receivePerson: receiverName,
-            receivePersonProfileUrl: conferenceInfoPage,
+            receivePersonProfileUrl: getUserProfileUrl(receiverUmohId),
             given: [],
           };
         }
