@@ -22,32 +22,32 @@ class BingoUser(Base):
     rating = mapped_column(Integer, nullable=True)
     review = mapped_column(String(500), nullable=True)
     selected_words = mapped_column(JSON, nullable=True, default=list)
-    is_agreed = mapped_column(Boolean, nullable=False, default=False)
+    privacy_agreed = mapped_column(Boolean, nullable=False, default=False)
     
     created_at = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )
 
     @classmethod
-    async def create(cls, session: AsyncSession, email: str):
+    async def create(cls, session: AsyncSession, email: str, privacy_agreed: bool = False):
         user_name = verify_email_in_attendances(email)
         is_user = await session.execute(select(cls).where(cls.user_email == email))
         is_user = is_user.one_or_none()
         if is_user:
             raise ValueError(f"{email}은 이미 존재하는 유저입니다. 다른 email을 사용해주세요.")
-        new_user = BingoUser(user_name=user_name, user_email=email)
+        new_user = BingoUser(user_name=user_name, user_email=email, privacy_agreed=privacy_agreed)
         session.add(new_user)
         await session.commit()
         await session.refresh(new_user)
         return new_user
     
     @classmethod
-    async def create_new(cls, session: AsyncSession, email: str, user_name: str):
+    async def create_new(cls, session: AsyncSession, email: str, user_name: str, privacy_agreed: bool = False):
         is_user = await session.execute(select(cls).where(cls.user_email == email))
         is_user = is_user.one_or_none()
         if is_user:
             raise ValueError(f"{email}은 이미 존재하는 유저입니다. 다른 email을 사용해주세요.")
-        new_user = BingoUser(user_name=user_name, user_email=email)
+        new_user = BingoUser(user_name=user_name, user_email=email, privacy_agreed=privacy_agreed)
         session.add(new_user)
         await session.commit()
         await session.refresh(new_user)
@@ -96,3 +96,5 @@ class BingoUser(Base):
         user = await cls.get_user_by_id(session, user_id)
         user.selected_words = words
         return user
+    
+    

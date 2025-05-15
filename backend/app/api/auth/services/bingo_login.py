@@ -10,12 +10,12 @@ class BaseBingoUser:
 
 
 class LoginUser(BaseBingoUser):
-    async def execute(self, email: str) -> BingoUser:
+    async def execute(self, email: str, privacy_agreed: bool = False) -> BingoUser:
         try:
             # 사용자 생성 또는 조회
             user = await BingoUser.get_user_by_email(self.async_session, email)
             if not user:
-                user = await BingoUser.create(self.async_session, email=email)
+                user = await BingoUser.create(self.async_session, email=email, privacy_agreed=privacy_agreed)
             logger.debug(f"User created or retrieved: {user}")
 
             return BingoUserResponse(**user.__dict__, ok=True, message="빙고 유저 생성에 성공하였습니다.")
@@ -25,12 +25,12 @@ class LoginUser(BaseBingoUser):
 
 
 class NewLoginUser(BaseBingoUser):
-    async def execute(self, email: str, username: str) -> BingoUser:
+    async def execute(self, email: str, username: str, privacy_agreed: bool = False) -> BingoUser:
         try:
             # 사용자 생성 또는 조회
             user = await BingoUser.get_user_by_email(self.async_session, email)
             if not user:
-                user = await BingoUser.create_new(self.async_session, email=email, user_name=username)
+                user = await BingoUser.create_new(self.async_session, email=email, user_name=username, privacy_agreed=privacy_agreed)
             logger.debug(f"User created or retrieved: {user}")
 
             return BingoUserResponse(**user.__dict__, ok=True, message="빙고 유저 생성에 성공하였습니다.")
