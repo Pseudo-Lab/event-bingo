@@ -9,23 +9,23 @@ const ImageContainer = styled(Container)({
   alignItems: "center",
 });
 
-const MainContainer = styled(Container)({
+const MainContainer = styled(Container)(({ theme }) => ({
   textAlign: "center",
-  padding: (theme: Theme) => theme.spacing(4),
-  margin: (theme: Theme) => theme.spacing(4),
-});
+  padding: theme.spacing(4),
+  margin: theme.spacing(4),
+}));
 
-const Title = styled(Typography)({
+const Title = styled(Typography)(({ theme }) => ({
   fontSize: "2.5rem",
   fontWeight: "bold",
-  marginBottom: (theme: Theme) => theme.spacing(2),
-  color: (theme: Theme) => theme.palette.primary.main,
-});
+  marginBottom: theme.spacing(2),
+  color: theme.palette.primary.main,
+}));
 
-const Description = styled(Typography)({
+const Description = styled(Typography)(({ theme }) => ({
   fontSize: "1.2rem",
-  marginBottom: (theme: Theme) => theme.spacing(4),
-});
+  marginBottom: theme.spacing(4),
+}));
 
 const IntroduceBuilder = () => {
   return (
