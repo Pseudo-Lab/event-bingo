@@ -1,11 +1,11 @@
 from datetime import datetime
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional, List
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 from core.db import AsyncSession
 from core.log import logger
-from sqlalchemy import Boolean, DateTime, Integer, Sequence, String, select
+from sqlalchemy import Boolean, DateTime, Integer, Sequence, String, JSON, select
 from sqlalchemy.orm import mapped_column
 
 from models.base import Base
@@ -18,6 +18,10 @@ class BingoUser(Base):
     user_id = mapped_column(Integer, primary_key=True, nullable=False)
     user_name = mapped_column(String(100), nullable=False)
     user_email = mapped_column(String(100), nullable=False)
+    rating = mapped_column(Integer, nullable=True)
+    review = mapped_column(String(500), nullable=True)
+    selected_words = mapped_column(JSON, nullable=True, default=list)
+    
     created_at = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )
@@ -25,6 +29,18 @@ class BingoUser(Base):
     @classmethod
     async def create(cls, session: AsyncSession, email: str):
         user_name = verify_email_in_attendances(email)
+        is_user = await session.execute(select(cls).where(cls.user_email == email))
+        is_user = is_user.one_or_none()
+        if is_user:
+            raise ValueError(f"{email}은 이미 존재하는 유저입니다. 다른 email을 사용해주세요.")
+        new_user = BingoUser(user_name=user_name, user_email=email)
+        session.add(new_user)
+        await session.commit()
+        await session.refresh(new_user)
+        return new_user
+    
+    @classmethod
+    async def create_new(cls, session: AsyncSession, email: str, user_name: str):
         is_user = await session.execute(select(cls).where(cls.user_email == email))
         is_user = is_user.one_or_none()
         if is_user:
@@ -60,55 +76,21 @@ class BingoUser(Base):
         if not res:
             raise ValueError(f"{user_id} 의 빙고 유저가 존재하지 않습니다.")
         return res
-    
-class User(Base):
-    __tablename__ = "user"
-
-    user_id = mapped_column(Integer, primary_key=True)
-    email = mapped_column(String(120), unique=True, index=True, nullable=False)
-    username = mapped_column(String(100), nullable=False)
-    nickname = mapped_column(String(30), nullable=False)
-    phone_number = mapped_column(String(20), nullable=True)
-    notion_id = mapped_column(String(100), nullable=True)
-    discord_id = mapped_column(String(100), nullable=True)
-    enabled = mapped_column(Boolean, nullable=False)
-    created_at = mapped_column(DateTime, nullable=False)
-
-    access_token = mapped_column(String(255), nullable=True)
-    refresh_token = mapped_column(String(255), nullable=True)
-    access_token_expires_at = mapped_column(DateTime, nullable=True)
-    refresh_token_expires_at = mapped_column(DateTime, nullable=True)
 
     @classmethod
-    async def get_user_by_id(cls, session: AsyncSession, user_id: int):
-        stmt = select(cls).where(cls.user_id == user_id)
-        result = await session.execute(stmt)
-        return result.scalar()
+    async def update_review(cls, session: AsyncSession, user_id: int, rating: int, review: Optional[str] = None):
+        user = await cls.get_user_by_id(session, user_id)
+        user.rating = rating
+        if review is not None:
+            user.review = review
+        
+        await session.commit()
+        await session.refresh(user)
+        return user
 
     @classmethod
-    async def get_user_by_email(cls, session: AsyncSession, email: str):
-        stmt = select(cls).where(cls.email == email)
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    @classmethod
-    async def update_tokens(
-        cls,
-        session: AsyncSession,
-        user_id: int,
-        access_token: str,
-        refresh_token: str,
-        access_expires: datetime,
-        refresh_expires: datetime,
-    ):
-        stmt = select(cls).where(cls.user_id == user_id)
-        result = await session.execute(stmt)
-        user = result.scalar()
-        if user:
-            user.access_token = access_token
-            user.refresh_token = refresh_token
-            user.access_token_expires_at = access_expires
-            user.refresh_token_expires_at = refresh_expires
-            await session.commit()
-            await session.refresh(user)
+    async def update_selected_words(cls, session: AsyncSession, user_id: int, words: List[str]):
+        logger.info(f"update_selected_words: {words}")
+        user = await cls.get_user_by_id(session, user_id)
+        user.selected_words = words
         return user

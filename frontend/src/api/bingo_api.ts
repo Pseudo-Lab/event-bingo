@@ -14,6 +14,21 @@ export const singUpUser = async (userEmail: string) => {
   return data;
 };
 
+export const newSingUpUser = async (userEmail: string, userName: string) => {
+  const response = await fetch(
+    `${API_URL}/api/auth/bingo/new-sign-up?email=${userEmail}&username=${userName}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  const data = await response.json();
+  return data;
+};
+
+// Deprecated
 export const getUser = async (username: string) => {
   const response = await fetch(
     `${API_URL}/api/auth/bingo/get-user?username=${username}`
@@ -59,6 +74,20 @@ export const getBingoBoard = async (userId: string) => {
   return items;
 };
 
+export const getUserInteractionCount = async (userId: string) => {
+  const response = await fetch(`${API_URL}/api/bingo/boards/${userId}`);
+  if (response.ok === false) {
+    return 0;
+  }
+  const data = await response.json();
+  if (data.ok === false) {
+    return 0;
+  }
+
+  const user_interaction_count = data["user_interaction_count"];
+  return user_interaction_count;
+};
+
 export const getSelectedWords = async (userId: string) => {
   const response = await fetch(
     `${API_URL}/api/bingo/boards/selected_words/${userId}`
@@ -87,6 +116,19 @@ export const updateBingoBoard = async (
   return response.ok;
 };
 
+export const submitReview = async (userId: string, rating: number, review: string) => {
+  const response = await fetch(`${API_URL}/api/reviews/${userId}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ rating, review }),
+    }
+  );
+  return response.ok;
+};
+
 export const createUserBingoInteraction = async (
   word_id_list: string,
   send_user_id: number,
@@ -102,8 +144,18 @@ export const createUserBingoInteraction = async (
   return response.ok;
 };
 
-export const getUserLatestInteraction = async (userId: string) => {
-  const response = await fetch(`${API_URL}/api/bingo/interactions/${userId}`);
+export const getUserLatestInteraction = async (userId: string, limit: number = 0) => {
+  const response = await fetch(`${API_URL}/api/bingo/interactions/${userId}?limit=${limit}`);
+
+  if (response.ok === false) {
+    return "";
+  }
+  const data = await response.json();
+  return data;
+};
+
+export const getUserAllInteraction = async (userId: string) => {
+  const response = await fetch(`${API_URL}/api/bingo/interactions/${userId}/all`);
 
   if (response.ok === false) {
     return "";
@@ -118,8 +170,18 @@ export const getUserName = async (userId: string) => {
     return [];
   }
   const data = await response.json();
-  const userName = data["username"];
+  const userName = data["user_name"];
   return userName;
+};
+
+export const getUserUmohId = async (userId: string) => {
+  const response = await fetch(`${API_URL}/api/auth/bingo/get-user/${userId}`);
+  if (response.ok === false) {
+    return [];
+  }
+  const data = await response.json();
+  const umohId = data["umoh_id"];
+  return umohId;
 };
 
 export const updateBingoFromQR = async (userId: string, targetId: string) => {

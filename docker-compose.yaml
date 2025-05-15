@@ -4,6 +4,8 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        - VITE_API_URL=${VITE_API_URL}
     ports:
       - "${FRONTEND_PORT}:80"
     environment:
@@ -21,6 +23,8 @@ services:
     environment:
       DB_URL: mysql+aiomysql://${DB_ROOT}:${DB_ROOT_PASSWORD}@db:${DB_PORT}/${DB_DATABASE}
       GUEST_FILE_PATH: ${GUEST_FILE_PATH}
+      SWAGGER_USERNAME: ${SWAGGER_USERNAME}
+      SWAGGER_PASSWORD: ${SWAGGER_PASSWORD}
     ports:
       - "${BACKEND_PORT}:8000"
     command: >

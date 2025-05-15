@@ -7,9 +7,15 @@ const BingoQR = () => {
 
   useEffect(() => {
     // API 호출
+    if (!id) {
+      throw new Error("id가 없습니다.");
+    }
     const fetchData = async () => {
       const origin_id = atob(id);
       const myId = localStorage.getItem("myID");
+      if (!myId) {
+        throw new Error("id가 없습니다.");
+      }
       if (myId === null || myId === "") window.location.href = "/";
 
       const user = await getUser(myId);
