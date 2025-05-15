@@ -49,7 +49,7 @@ interface ExchangeRecord {
 const cellValues = bingoKeywords.keywords;
 
 const GradientContainer = styled(Container)(({ theme }) => ({
-  minHeight: "100vh",
+  minHeight: "70vh",
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
@@ -247,51 +247,6 @@ const BingoGame = () => {
     return () => clearInterval(interval);
   }, [userId, bingoBoard]);
 
-  // useEffect(() => {
-  //   const fetchExchangeHistory = async () => {
-  //     const userId = localStorage.getItem("myID");
-  //     if (!userId) return;
-  
-  //     const rawHistory = await getUserAllInteraction(userId);
-  //     if (!Array.isArray(rawHistory.interactions)) return;
-  
-  //     const grouped: { [key: string]: ExchangeRecord } = {};
-  
-  //     for (const record of rawHistory.interactions) {
-  //       const date = record.created_at;
-  //       const key = `${record.send_user_id}-${record.receive_user_id}-${record.word_id_list}`;
-  //       const isSender = record.send_user_id === parseInt(userId);
-  //       const otherUserId = isSender ? record.receive_user_id : record.send_user_id;
-  
-  //       if (!grouped[key]) {
-  //         grouped[key] = {
-  //           id: Math.random(),
-  //           date: date.replace(/-/g, '.').replace('T', ' '),
-  //         };
-  //       }
-  
-  //       const senderName = await getUserName(isSender ? userId : otherUserId);
-  //       const receiverName = await getUserName(isSender ? otherUserId : userId);
-  //       // TODO: use api
-  //       // const sendPersonProfileUrl = await getUserProfileUrl(isSender ? userId : otherUserId);
-  //       // const receivePersonProfileUrl = await getUserProfileUrl(isSender ? otherUserId : userId);
-  
-  //       grouped[key].given = record.word_id_list;
-  //       grouped[key].sendPerson = senderName;
-  //       grouped[key].sendPersonProfileUrl = conferenceInfoPage;
-  //       grouped[key].receivePerson = receiverName;
-  //       grouped[key].receivePersonProfileUrl = conferenceInfoPage;
-  //     }
-  
-  //     setExchangeHistory(Object.values(grouped));
-  //   };
-  
-  //   fetchExchangeHistory();
-  //   const interval = setInterval(fetchExchangeHistory, 5000);
-  
-  //   return () => clearInterval(interval);
-  // }, []);
-
   useEffect(() => {
     const fetchExchangeHistory = async () => {
       const userId = localStorage.getItem("myID");
@@ -300,40 +255,34 @@ const BingoGame = () => {
       const rawHistory = await getUserAllInteraction(userId);
       if (!Array.isArray(rawHistory.interactions)) return;
   
-      type GroupKey = string;
-      const grouped: { [key: GroupKey]: ExchangeRecord } = {};
+      const grouped: { [key: string]: ExchangeRecord } = {};
   
       for (const record of rawHistory.interactions) {
-        const date = record.created_at;
         const isSender = record.send_user_id === parseInt(userId);
         const otherUserId = isSender ? record.receive_user_id : record.send_user_id;
-        const key = `${record.send_user_id}-${record.receive_user_id}-${record.word_id_list}`;
-        // const key = `${record.send_user_id}-${record.receive_user_id}-${date.slice(0, 16)}`; // group by sender, receiver, and rounded timestamp
   
-        if (!grouped[key]) {
+        const groupKey = `${record.send_user_id}-${record.receive_user_id}`;
+  
+        if (!grouped[groupKey]) {
           const senderName = await getUserName(isSender ? userId : otherUserId);
           const receiverName = await getUserName(isSender ? otherUserId : userId);
   
-          // Optional: Replace with actual profile URL logic
-          const sendPersonProfileUrl = conferenceInfoPage;
-          const receivePersonProfileUrl = conferenceInfoPage;
-
-          // TODO: use api
-          // const sendPersonProfileUrl = await getUserProfileUrl(isSender ? userId : otherUserId);
-          // const receivePersonProfileUrl = await getUserProfileUrl(isSender ? otherUserId : userId);
-  
-          grouped[key] = {
+          grouped[groupKey] = {
             id: Math.random(),
-            date: date.replace(/-/g, '.').replace('T', ' ').slice(0, 16),
+            date: record.created_at.replace(/-/g, '.').replace('T', ' ').slice(0, 16),
             sendPerson: senderName,
-            sendPersonProfileUrl,
+            sendPersonProfileUrl: conferenceInfoPage,
             receivePerson: receiverName,
-            receivePersonProfileUrl,
+            receivePersonProfileUrl: conferenceInfoPage,
             given: [],
           };
         }
   
-        grouped[key].given = [...(grouped[key].given || []), ...(record.word_id_list || [])];
+        const wordList = Array.isArray(record.word_id_list)
+          ? record.word_id_list
+          : [record.word_id_list];
+  
+        grouped[groupKey].given = [...(grouped[groupKey].given || []), ...wordList];
       }
   
       setExchangeHistory(Object.values(grouped));
@@ -711,8 +660,7 @@ const BingoGame = () => {
       <GradientContainer>
         <Box sx={{ textAlign: 'center', mt: 10 }}>
           <Typography variant="h4" gutterBottom>빙고 카운트다운!</Typography>
-  
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mt: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 4 }}>
             {[{ label: '일', value: days },
               { label: '시간', value: hours },
               { label: '분', value: minutes },
@@ -803,7 +751,6 @@ const BingoGame = () => {
               <Box component="img" src={logo} alt="Logo" sx={{ width: 24, height: 24, mr: 1 }} />
               <Typography variant="body1" fontWeight="bold">키워드 교환 빙고</Typography>
             </Box>
-            <Button sx={{ fontSize: 15, color: 'primary.main' }}>{username}</Button>
             <Button
               sx={{ fontSize: 15, color: 'primary.main' }}
               component="a"
@@ -1081,33 +1028,29 @@ const BingoGame = () => {
               <Typography variant="h6" fontWeight="bold">키워드 교환 기록</Typography>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {exchangeHistory.map(history => (
-                <Box key={history.id} sx={{ borderBottom: 1, borderColor: 'divider', pb: 1, ml: 0.5}}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography color="warning.main" fontWeight="medium">{history.sendPerson}
-                      <Link href={history.sendPersonProfileUrl} target="_blank" rel="noopener"></Link>
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">{history.date}</Typography>
+            {exchangeHistory.map((history) => (
+              <Box key={history.id} sx={{ borderBottom: 1, borderColor: 'divider', pb: 1, ml: 0.5 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'centger', gap: 1 }}>
+                    <Link href={history.sendPersonProfileUrl} target="_blank" rel="noopener" underline="none">
+                      <Typography color="warning.main" fontWeight="medium">{history.sendPerson}</Typography>
+                    </Link>
+                    <Typography variant="body2" color="text.secondary">→</Typography>
+                    <Link href={history.receivePersonProfileUrl} target="_blank" rel="noopener" underline="none">
+                      <Typography color="warning.main" fontWeight="medium">{history.receivePerson}</Typography>
+                    </Link>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {history.given?.map((word: string, idx: number) => (
-                        <Chip 
-                          key={idx}
-                          label={word}
-                          size="small" 
-                          variant="outlined"
-                          sx={{ bgcolor: 'grey.100' }}
-                        />
-                      ))}
-                    </Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mx: 1 }}>→</Typography>
-                    <Typography color="warning.main" fontWeight="medium">{history.receivePerson}
-                      <Link href={history.receivePersonProfileUrl} target="_blank" rel="noopener"></Link>
-                    </Typography>
-                  </Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {history.date}
+                  </Typography>
                 </Box>
-              ))}
+                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                  {history.given.map((word: string, i: string) => (
+                    <Chip key={i} label={word} size="small" variant="outlined" sx={{ bgcolor: 'grey.100' }} />
+                  ))}
+                </Box>
+              </Box>
+            ))}
           </Box>
           </Paper>
         )}

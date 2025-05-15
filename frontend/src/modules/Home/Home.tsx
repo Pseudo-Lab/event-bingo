@@ -78,7 +78,6 @@ const Home = () => {
       setAlertOpen(true);
       // 못 찾는 경우 가입
       setLoginErrorCount(prev => prev + 1)
-      console.log('loginErrorCount', loginErrorCount);
       return;
     }
 
@@ -198,7 +197,7 @@ const Home = () => {
               onClick={handleNewSingupModal}
               disabled={!isAgreed || loginEmail === ""}
               >
-              비회원로그인
+              비회원가입
             </Button>
           </Box>
         </>
@@ -310,7 +309,7 @@ const Home = () => {
 
       <Snackbar
         open={alertOpen}
-        autoHideDuration={5000}
+        autoHideDuration={8000}
         onClose={() => setAlertOpen(false)}
       >
         <Alert onClose={() => setAlertOpen(false)} severity={alertSeverity} sx={{ width: '100%', textAlign: 'left' }}>
