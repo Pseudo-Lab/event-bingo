@@ -1,7 +1,7 @@
 """add selected_words column to bingo_user
 
 Revision ID: e3af490de067
-Revises: d146264b6756
+Revises: 499d313460d4
 Create Date: 2025-05-15 00:49:49.839602+09:00
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'e3af490de067'
-down_revision: Union[str, None] = 'd146264b6756'
+down_revision: Union[str, None] = '499d313460d4'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
