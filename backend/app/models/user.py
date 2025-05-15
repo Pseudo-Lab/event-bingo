@@ -30,7 +30,7 @@ class BingoUser(Base):
 
     @classmethod
     async def create(cls, session: AsyncSession, email: str, privacy_agreed: bool = False):
-        user_name = verify_email_in_attendances(email)
+        user_name = verify_email_in_attendances(email) or None
         is_user = await session.execute(select(cls).where(cls.user_email == email))
         is_user = is_user.one_or_none()
         if is_user:
