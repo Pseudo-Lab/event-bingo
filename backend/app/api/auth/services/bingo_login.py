@@ -12,11 +12,15 @@ class BaseBingoUser:
 class LoginUser(BaseBingoUser):
     async def execute(self, email: str, privacy_agreed: bool = False) -> BingoUser:
         try:
-            # 사용자 생성 또는 조회
+            # 사용자 조회
             user = await BingoUser.get_user_by_email(self.async_session, email)
             if not user:
-                user = await BingoUser.create(self.async_session, email=email, privacy_agreed=privacy_agreed)
-            logger.debug(f"User created or retrieved: {user}")
+                raise ValueError(
+                    "입력하신 이메일은 행사에 등록된 정보와 일치하지 않습니다.\n"
+                    "비회원으로 로그인 시, 빙고의 다양한 기능을 이용하실 수 없습니다.\n"
+                    "원활한 이용을 위해, 수도콘 행사 신청 시 사용하신 이메일(우모 사이트 가입 이메일)로 로그인해 주세요.\n"
+                    "이메일이 기억나지 않으신 경우, 수도콘 행사 페이지(우모)에서 확인해보시기 바랍니다."
+                )
 
             return BingoUserResponse(**user.__dict__, ok=True, message="빙고 유저 생성에 성공하였습니다.")
         except ValueError as e:
