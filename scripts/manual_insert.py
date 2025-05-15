@@ -31,7 +31,7 @@ async def import_users_from_excel() -> None:
     
     # 엑셀 파일 읽기
     df = pd.read_excel(EXCEL_PATH)
-    required_columns = ['이름', '이메일']
+    required_columns = ['ID', '이름', '이메일']
     
     # 필수 컬럼 확인
     if not all(col in df.columns for col in required_columns):
@@ -67,11 +67,12 @@ async def import_users_from_excel() -> None:
 
                         # 사용자 생성
                         await cur.execute("""
-                            INSERT INTO bingo_user (user_name, user_email, privacy_agreed, created_at)
-                            VALUES (%s, %s, %s, %s)
+                            INSERT INTO bingo_user (user_name, user_email, umoh_id, privacy_agreed, created_at)
+                            VALUES (%s, %s, %s, %s, %s)
                         """, (
                             row['이름'],
                             row['이메일'],
+                            row['ID'],  # umoh_id에 엑셀의 ID 값 저장
                             False,
                             datetime.now(ZoneInfo("Asia/Seoul"))
                         ))
