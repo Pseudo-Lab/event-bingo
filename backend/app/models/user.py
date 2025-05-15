@@ -23,10 +23,10 @@ class BingoUser(Base):
     review = mapped_column(String(500), nullable=True)
     selected_words = mapped_column(JSON, nullable=True, default=list)
     privacy_agreed = mapped_column(Boolean, nullable=False, default=False)
-    
     created_at = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )
+    agreement_at = mapped_column(DateTime(timezone=True),  nullable=True)
 
     @classmethod
     async def create(cls, session: AsyncSession, email: str, privacy_agreed: bool = False):
@@ -35,7 +35,12 @@ class BingoUser(Base):
         is_user = is_user.one_or_none()
         if is_user:
             raise ValueError(f"{email}은 이미 존재하는 유저입니다. 다른 email을 사용해주세요.")
-        new_user = BingoUser(user_name=user_name, user_email=email, privacy_agreed=privacy_agreed)
+        new_user = BingoUser(
+            user_name=user_name, 
+            user_email=email, 
+            privacy_agreed=privacy_agreed,
+            agreement_at=datetime.now(ZoneInfo("Asia/Seoul")) if privacy_agreed else None
+        )
         session.add(new_user)
         await session.commit()
         await session.refresh(new_user)
@@ -47,7 +52,12 @@ class BingoUser(Base):
         is_user = is_user.one_or_none()
         if is_user:
             raise ValueError(f"{email}은 이미 존재하는 유저입니다. 다른 email을 사용해주세요.")
-        new_user = BingoUser(user_name=user_name, user_email=email, privacy_agreed=privacy_agreed)
+        new_user = BingoUser(
+            user_name=user_name, 
+            user_email=email, 
+            privacy_agreed=privacy_agreed,
+            agreement_at=datetime.now(ZoneInfo("Asia/Seoul")) if privacy_agreed else None
+        )
         session.add(new_user)
         await session.commit()
         await session.refresh(new_user)
