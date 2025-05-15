@@ -25,3 +25,4 @@ def verify_email_in_attendances(email: str) -> str:
     #         "이메일이 기억나지 않으신 경우, 수도콘 행사 페이지(우모)에서 확인해보시기 바랍니다."
     #     )
     # return attendance_list.loc[attendance_list["Email"] == email, "Name"].values[0]
+
