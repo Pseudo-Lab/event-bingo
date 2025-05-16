@@ -21,7 +21,7 @@ import { singUpUser, newSingUpUser } from "../../api/bingo_api";
 import { bingoConfig } from '../../config/bingoConfig.ts';
 
 const GradientContainer = styled(Container)(({ theme }) => ({
-  minHeight: "70vh",
+  minHeight: "75vh",
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
@@ -123,6 +123,7 @@ const Home = () => {
     localStorage.removeItem("myID");
     localStorage.removeItem("myEmail");
     localStorage.removeItem("myUserName");
+    localStorage.removeItem("hideReviewModal");
     setIsLoggedIn(false);
   };
 
