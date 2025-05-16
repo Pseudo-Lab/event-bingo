@@ -51,6 +51,7 @@ const cellValues = bingoKeywords.keywords;
 
 const GradientContainer = styled(Container)(({ theme }) => ({
   minHeight: "75vh",
+  minHeight: "75vh",
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
@@ -191,6 +192,7 @@ const BingoGame = () => {
               .filter(cell => cell.status === 1)
               .map(cell => cell.value);
             setCollectedKeywords(getBingoKeywords.length - 1);
+            setCollectedKeywords(getBingoKeywords.length - 1);
 
             const interactionData = await getUserLatestInteraction(storedId, 0);
             if (Array.isArray(interactionData) && interactionData.length > 0) {
@@ -205,6 +207,26 @@ const BingoGame = () => {
             }
           }
           else {
+            const shuffledValues = shuffleArray(cellValues);
+            const initialBoard: BingoCell[] = Array(25).fill(null).map((_, i) => {
+              if (i === 12) {
+                return {
+                  id: i,
+                  value: 'Logo',
+                  selected: 0,
+                  status: 1,
+                  note: undefined,
+                };
+              }
+              return {
+                id: i,
+                value: shuffledValues[i < 12 ? i : i - 1],
+                selected: 0,
+                status: 0,
+                note: getCellNote(i),
+              };
+            });
+            setBingoBoard(initialBoard);
             const shuffledValues = shuffleArray(cellValues);
             const initialBoard: BingoCell[] = Array(25).fill(null).map((_, i) => {
               if (i === 12) {
@@ -245,6 +267,7 @@ const BingoGame = () => {
         const latestBoard = await getBingoBoard(userId);
         const boardInteractionData = await getUserInteractionCount(userId);
         setMetPersonNum(boardInteractionData)
+        if (!latestBoard || latestBoard.length === 0 || !bingoBoard) return;
         if (!latestBoard || latestBoard.length === 0 || !bingoBoard) return;
   
         const newlyUpdatedValues: string[] = [];
@@ -331,6 +354,20 @@ const BingoGame = () => {
         [key: string]: { value: string; status: number; selected: number };
       } = {};
 
+      bingoBoard?.forEach((item, index) => {
+        if (index === 12) {
+          boardData[index] = {
+            value: 'Logo',
+            status: 1,
+            selected: 0,
+          };
+        } else {
+          boardData[index] = {
+            value: item.value,
+            status: 0,
+            selected: selectedInitialKeywords.includes(item.value) ? 1 : 0,
+          };
+        }
       bingoBoard?.forEach((item, index) => {
         if (index === 12) {
           boardData[index] = {
@@ -461,6 +498,7 @@ const BingoGame = () => {
   
   useEffect(() => {
     if (bingoBoard?.length === 25) {
+    if (bingoBoard?.length === 25) {
       checkBingoLines();
     }
   }, [bingoBoard]);
@@ -469,6 +507,8 @@ const BingoGame = () => {
   const checkBingoLines = () => {
     const newCompletedLines: CompletedLine[] = [];
     let newBingoCount = 0;
+
+    if (!bingoBoard) return;
 
     if (!bingoBoard) return;
 
@@ -614,6 +654,8 @@ const BingoGame = () => {
   const getCellStyle = (index: number) => {
     if (!bingoBoard) return {};
 
+    if (!bingoBoard) return {};
+
     const isMarked = bingoBoard[index].status;
     const isInCompletedLine = isCellInCompletedLine(index);
     const isLastSelected = index === lastSelectedCell;
@@ -699,6 +741,7 @@ const BingoGame = () => {
   
     return (
       <GradientContainer>
+        <Box sx={{ textAlign: 'center' }}>
         <Box sx={{ textAlign: 'center' }}>
           <Typography variant="h4" gutterBottom>빙고 카운트다운!</Typography>
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 4 }}>
@@ -828,6 +871,7 @@ const BingoGame = () => {
                   <Typography variant="caption" color="text.secondary">수집한 키워드</Typography>
                 </Box>
                 <Typography variant="h6" fontWeight="medium">{collectedKeywords}/24</Typography>
+                <Typography variant="h6" fontWeight="medium">{collectedKeywords}/24</Typography>
               </Paper>  
             </Grid>
             <Grid item xs={6}>
@@ -903,12 +947,27 @@ const BingoGame = () => {
         <Box sx={{ mb: 2, position: 'relative' }}>
           <Grid container spacing={0.5}>
             {bingoBoard?.map((cell, index) => (
+            {bingoBoard?.map((cell, index) => (
               <Grid item xs={2.4} sm={2.4} key={cell.id}>
                 <Paper
                   elevation={cell.status ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
                   sx={getCellStyle(index)}
                 >
                   <Box sx={{ textAlign: 'center' }}>
+                  {index === 12 ? (
+                    <Box
+                      component="img"
+                      src={logo}
+                      alt="Center Logo"
+                      sx={{
+                        width: '100%',
+                        height: 'auto',
+                        mx: 'auto',
+                        display: 'block',
+                        opacity: 0.9,
+                      }}
+                    />
+                  ) : (
                   {index === 12 ? (
                     <Box
                       component="img"
@@ -948,6 +1007,7 @@ const BingoGame = () => {
                     >
                       {cell.value}
                     </Typography>
+                  )}
                   )}
                   </Box>
                   
