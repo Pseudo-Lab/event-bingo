@@ -50,7 +50,7 @@ interface ExchangeRecord {
 const cellValues = bingoKeywords.keywords;
 
 const GradientContainer = styled(Container)(({ theme }) => ({
-  minHeight: "70vh",
+  minHeight: "75vh",
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
