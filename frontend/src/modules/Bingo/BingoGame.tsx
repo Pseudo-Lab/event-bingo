@@ -690,7 +690,7 @@ const BingoGame = () => {
   
     return (
       <GradientContainer>
-        <Box sx={{ textAlign: 'center', mt: 10 }}>
+        <Box sx={{ textAlign: 'center' }}>
           <Typography variant="h4" gutterBottom>빙고 카운트다운!</Typography>
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 4 }}>
             {[{ label: '일', value: days },
@@ -911,7 +911,7 @@ const BingoGame = () => {
                       <Typography 
                         variant="caption" 
                         sx={{ 
-                          fontSize: 'clamp(0.45rem, 2.7vw, 0.75rem)', 
+                          fontSize: 'clamp(0.6rem, 3vw, 1rem)',
                           fontWeight: 'bold',
                           textAlign: 'center',
                           display: '-webkit-box',
