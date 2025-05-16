@@ -29,7 +29,7 @@ class BingoUser(Base):
     agreement_at = mapped_column(DateTime(timezone=True),  nullable=True)
 
     @classmethod
-    async def create(cls, session: AsyncSession, email: str, privacy_agreed: bool = False):
+    async def create(cls, session: AsyncSession, email: str):
         user_name = verify_email_in_attendances(email) or None
         is_user = await session.execute(select(cls).where(cls.user_email == email))
         is_user = is_user.one_or_none()
@@ -38,8 +38,8 @@ class BingoUser(Base):
         new_user = BingoUser(
             user_name=user_name, 
             user_email=email, 
-            privacy_agreed=privacy_agreed,
-            agreement_at=datetime.now(ZoneInfo("Asia/Seoul")) if privacy_agreed else None
+            privacy_agreed=True,
+            agreement_at=datetime.now(ZoneInfo("Asia/Seoul"))
         )
         session.add(new_user)
         await session.commit()
@@ -47,7 +47,7 @@ class BingoUser(Base):
         return new_user
     
     @classmethod
-    async def create_new(cls, session: AsyncSession, email: str, user_name: str, privacy_agreed: bool = False):
+    async def create_new(cls, session: AsyncSession, email: str, user_name: str):
         is_user = await session.execute(select(cls).where(cls.user_email == email))
         is_user = is_user.one_or_none()
         if is_user:
@@ -55,8 +55,8 @@ class BingoUser(Base):
         new_user = BingoUser(
             user_name=user_name, 
             user_email=email, 
-            privacy_agreed=privacy_agreed,
-            agreement_at=datetime.now(ZoneInfo("Asia/Seoul")) if privacy_agreed else None
+            privacy_agreed=True,
+            agreement_at=datetime.now(ZoneInfo("Asia/Seoul"))
         )
         session.add(new_user)
         await session.commit()
@@ -108,9 +108,9 @@ class BingoUser(Base):
         return user
     
     @classmethod
-    async def update_privacy_agreement(cls, session: AsyncSession, email: str, privacy_agreed: bool):
+    async def update_privacy_agreement(cls, session: AsyncSession, email: str):
         user = await cls.get_user_by_email(session, email)
-        user.privacy_agreed = privacy_agreed
+        user.privacy_agreed = True
         user.agreement_at = datetime.now(ZoneInfo("Asia/Seoul"))
         await session.commit()
         await session.refresh(user)
