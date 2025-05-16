@@ -8,6 +8,8 @@ class BingoUser(BaseSchema):
     user_id: Optional[int] = Field(title="빙고 유저 ID", default=None)
     user_email: Optional[str] = Field(title="빙고 유저 Email", default=None)
     user_name: Optional[str] = Field(title="빙고 유저 이름", default=None)
+    umoh_id: Optional[int] = Field(title="우모 ID", default=None)
+    privacy_agreed: Optional[bool] = Field(title="개인정보 동의 여부", default=False)
 
 
 class LoginState(IntEnum):
