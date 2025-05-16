@@ -123,6 +123,7 @@ const Home = () => {
     localStorage.removeItem("myID");
     localStorage.removeItem("myEmail");
     localStorage.removeItem("myUserName");
+    localStorage.removeItem("hideReviewModal");
     setIsLoggedIn(false);
   };
 
