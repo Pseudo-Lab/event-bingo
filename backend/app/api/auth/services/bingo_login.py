@@ -22,7 +22,7 @@ class LoginUser(BaseBingoUser):
                     "이메일이 기억나지 않으신 경우, 수도콘 행사 페이지(우모)에서 확인해보시기 바랍니다."
                 )
 
-            user = await BingoUser.update_privacy_agreement(self.async_session, email, privacy_agreed=True)
+            user = await BingoUser.update_privacy_agreement(self.async_session, email)
             return BingoUserResponse(**user.__dict__, ok=True, message="빙고 유저 생성에 성공하였습니다.")
         except ValueError as e:
             logger.info(str(e))
@@ -35,7 +35,7 @@ class NewLoginUser(BaseBingoUser):
             # 사용자 생성 또는 조회
             user = await BingoUser.get_user_by_email(self.async_session, email)
             if not user:
-                user = await BingoUser.create_new(self.async_session, email=email, user_name=username, privacy_agreed=True)
+                user = await BingoUser.create_new(self.async_session, email=email, user_name=username)
             logger.debug(f"User created or retrieved: {user}")
 
             return BingoUserResponse(**user.__dict__, ok=True, message="빙고 유저 생성에 성공하였습니다.")
