@@ -1231,7 +1231,7 @@ const BingoGame = () => {
             if (showReviewModal) setTimeout(() => setShowReviewModal(true), 100);
           }}
         >
-          <DialogTitle>빙고 완성 🎉</DialogTitle>
+          <DialogTitle>3줄 미션 달성 🎉</DialogTitle>
           <DialogContent>
             <Typography>축하합니다! 빙고를 완성했습니다.</Typography>
             <Typography>Devfactory 부스로 오셔서 소정의 선물 받아가세요!</Typography>
@@ -1246,7 +1246,7 @@ const BingoGame = () => {
               >
                 Devfactory Repo
               </Link>
-              에 ⭐️ 하나 눌러주세요!
+              에 ⭐️ 한번 눌러주세요!
             </Typography>
             <Typography>여러분의 관심이 큰 힘이 됩니다 😊</Typography>
           </DialogContent>
