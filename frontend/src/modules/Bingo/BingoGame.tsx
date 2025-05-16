@@ -68,27 +68,6 @@ const BingoGame = () => {
   const shuffleArray = (array: string[]) => {
     return [...array].sort(() => Math.random() - 0.5);
   };
-  // const [bingoBoard, setBingoBoard] = useState<BingoCell[]>(() => {
-  //   const shuffledValues = shuffleArray(cellValues);
-  //   return Array(25).fill(null).map((_, i) => {
-  //     if (i === 12) {
-  //       return {
-  //         id: i,
-  //         value: 'Logo',
-  //         selected: 0,
-  //         status: 1,
-  //         note: undefined,
-  //       };
-  //     }
-  //     return {
-  //       id: i,
-  //       value: shuffledValues[i < 12 ? i : i - 1], 
-  //       selected: 0,
-  //       status: 0,
-  //       note: getCellNote(i),
-  //     };
-  //   });
-  // });
   const [bingoBoard, setBingoBoard] = useState<BingoCell[] | null>(null);
   const [opponentId, setOpponentId] = useState('');
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
@@ -136,6 +115,11 @@ const BingoGame = () => {
   const conferenceInfoPage = bingoConfig.conferenceInfoPage;
   const [userProfileUrl, setUserProfileUrl] = useState(conferenceInfoPage);
   const conferenceProfileBasePage = bingoConfig.conferenceProfileBasePage;
+  const visibleModal = showAllBingoModal
+    ? "allBingo"
+    : showReviewModal
+    ? "review"
+    : null;
 
   const getUserProfileUrl = (userId: string | null) => {
     if (userId) {
@@ -942,9 +926,12 @@ const BingoGame = () => {
                     <Typography 
                       variant="caption" 
                       sx={{ 
-                        fontSize: cell.value.length > 9
-                          ? 'clamp(0.4rem, 2.5vw, 0.85rem)'
-                          : 'clamp(0.6rem, 3vw, 1rem)',
+                        fontSize:
+                          cell.value.length <= 7
+                            ? 'clamp(0.6rem, 3vw, 1rem)'
+                            : cell.value.length <= 14
+                            ? 'clamp(0.6rem, 2.8vw, 0.85rem)'
+                            : 'clamp(0.5rem, 2.5vw, 0.7rem)',
                         fontWeight: 'bold',
                         textAlign: 'center',
                         display: '-webkit-box',
@@ -1179,7 +1166,7 @@ const BingoGame = () => {
           </Box>
         )}
 
-        <Dialog open={showReviewModal} onClose={() => setShowReviewModal(false)}>
+        <Dialog open={visibleModal === "review"} onClose={() => setShowReviewModal(false)}>
           <DialogContent>
             <Typography mb={2}>빙고 게임에 대한 간단한 피드백을 남겨주세요.</Typography>
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
@@ -1204,7 +1191,7 @@ const BingoGame = () => {
               variant="text"
               onClick={() => {
                 localStorage.setItem("hideReviewModal", "true");
-                setHideReviewModal(true);
+                setShowReviewModal(false);
               }}
             >
               닫기
@@ -1217,7 +1204,7 @@ const BingoGame = () => {
                     await submitReview(userId, reviewStars, reviewText);
                     showAlert("소중한 리뷰 감사합니다!");
                     localStorage.setItem("hideReviewModal", "true"); // 유저 리뷰 get하는 함수 사용하면 삭제
-                    setHideReviewModal(true); // 유저 리뷰 get하는 함수 사용하면 삭제
+                    setShowReviewModal(false); // 유저 리뷰 get하는 함수 사용하면 삭제
                   } catch (err) {
                     showAlert("리뷰 제출 중 문제가 발생했습니다.", 'error');
                   }
@@ -1230,11 +1217,31 @@ const BingoGame = () => {
             </Button>
           </DialogActions>
         </Dialog>
-        <Dialog open={showAllBingoModal} onClose={() => setShowAllBingoModal(false)}>
+        <Dialog
+          open={visibleModal === "allBingo"}
+          onClose={() => {
+            setShowAllBingoModal(false);
+            if (showReviewModal) setTimeout(() => setShowReviewModal(true), 100);
+          }}
+        >
           <DialogTitle>빙고 완성 🎉</DialogTitle>
           <DialogContent>
             <Typography>축하합니다! 빙고를 완성했습니다.</Typography>
             <Typography>Devfactory 부스로 오셔서 소정의 선물 받아가세요!</Typography>
+            <br></br>
+            <Typography>
+              재미있게 즐기셨다면{' '}
+              <Link
+                href="https://github.com/Pseudo-Lab/devfactory"
+                target="_blank"
+                rel="noopener"
+                underline="always"
+              >
+                Devfactory Repo
+              </Link>
+              에 ⭐️ 하나 눌러주세요!
+            </Typography>
+            <Typography>여러분의 관심이 큰 힘이 됩니다 😊</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowAllBingoModal(false)} color="primary">
