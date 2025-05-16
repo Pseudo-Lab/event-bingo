@@ -65,10 +65,19 @@ def hc():
     return "server is running"
 
 
-@app.post("/zozo-manual-reset-db")
+@app.post("/api/zozo-manual-reset-db")
 async def reset_db(response: Response):
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    await db.reset_database()
-    return {"message": "Database reset successfully"}
+    try:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        await db.reset_database()
+        return {
+            "status": "success",
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
