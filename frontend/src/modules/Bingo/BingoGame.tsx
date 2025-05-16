@@ -50,7 +50,8 @@ interface ExchangeRecord {
 const cellValues = bingoKeywords.keywords;
 
 const GradientContainer = styled(Container)(({ theme }) => ({
-  minHeight: "70vh",
+  minHeight: "75vh",
+  minHeight: "75vh",
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
@@ -68,16 +69,7 @@ const BingoGame = () => {
   const shuffleArray = (array: string[]) => {
     return [...array].sort(() => Math.random() - 0.5);
   };
-  const [bingoBoard, setBingoBoard] = useState<BingoCell[]>(() => {
-    const shuffledValues = shuffleArray(cellValues);
-    return Array(25).fill(null).map((_, i) => ({
-      id: i,
-      value: shuffledValues[i],
-      selected: 0,
-      status: 0,
-      note: getCellNote(i)
-    }));
-  });
+  const [bingoBoard, setBingoBoard] = useState<BingoCell[] | null>(null);
   const [opponentId, setOpponentId] = useState('');
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
   const [bingoCount, setBingoCount] = useState(0);
@@ -124,6 +116,11 @@ const BingoGame = () => {
   const conferenceInfoPage = bingoConfig.conferenceInfoPage;
   const [userProfileUrl, setUserProfileUrl] = useState(conferenceInfoPage);
   const conferenceProfileBasePage = bingoConfig.conferenceProfileBasePage;
+  const visibleModal = showAllBingoModal
+    ? "allBingo"
+    : showReviewModal
+    ? "review"
+    : null;
 
   const getUserProfileUrl = (userId: string | null) => {
     if (userId) {
@@ -194,7 +191,8 @@ const BingoGame = () => {
             const getBingoKeywords = boardData
               .filter(cell => cell.status === 1)
               .map(cell => cell.value);
-            setCollectedKeywords(getBingoKeywords.length);
+            setCollectedKeywords(getBingoKeywords.length - 1);
+            setCollectedKeywords(getBingoKeywords.length - 1);
 
             const interactionData = await getUserLatestInteraction(storedId, 0);
             if (Array.isArray(interactionData) && interactionData.length > 0) {
@@ -209,6 +207,26 @@ const BingoGame = () => {
             }
           }
           else {
+            const shuffledValues = shuffleArray(cellValues);
+            const initialBoard: BingoCell[] = Array(25).fill(null).map((_, i) => {
+              if (i === 12) {
+                return {
+                  id: i,
+                  value: 'Logo',
+                  selected: 0,
+                  status: 1,
+                  note: undefined,
+                };
+              }
+              return {
+                id: i,
+                value: shuffledValues[i < 12 ? i : i - 1],
+                selected: 0,
+                status: 0,
+                note: getCellNote(i),
+              };
+            });
+            setBingoBoard(initialBoard);
             setInitialSetupOpen(true);
           }
         } catch (error) {
@@ -229,7 +247,8 @@ const BingoGame = () => {
         const latestBoard = await getBingoBoard(userId);
         const boardInteractionData = await getUserInteractionCount(userId);
         setMetPersonNum(boardInteractionData)
-        if (!latestBoard || latestBoard.length === 0) return;
+        if (!latestBoard || latestBoard.length === 0 || !bingoBoard) return;
+        if (!latestBoard || latestBoard.length === 0 || !bingoBoard) return;
   
         const newlyUpdatedValues: string[] = [];
   
@@ -315,14 +334,20 @@ const BingoGame = () => {
         [key: string]: { value: string; status: number; selected: number };
       } = {};
 
-      bingoBoard.forEach((item, index) => {
-        return (boardData[index] = {
-          value: item.value,
-          status: 0,
-          selected: selectedInitialKeywords.includes(item.value)
-            ? 1
-            : 0,
-        });
+      bingoBoard?.forEach((item, index) => {
+        if (index === 12) {
+          boardData[index] = {
+            value: 'Logo',
+            status: 1,
+            selected: 0,
+          };
+        } else {
+          boardData[index] = {
+            value: item.value,
+            status: 0,
+            selected: selectedInitialKeywords.includes(item.value) ? 1 : 0,
+          };
+        }
       });
       
       const storedId = localStorage.getItem("myID");
@@ -438,7 +463,7 @@ const BingoGame = () => {
   }, [completedLines, bingoCount]);
   
   useEffect(() => {
-    if (bingoBoard.length === 25) {
+    if (bingoBoard?.length === 25) {
       checkBingoLines();
     }
   }, [bingoBoard]);
@@ -447,6 +472,10 @@ const BingoGame = () => {
   const checkBingoLines = () => {
     const newCompletedLines: CompletedLine[] = [];
     let newBingoCount = 0;
+
+    if (!bingoBoard) return;
+
+    if (!bingoBoard) return;
 
     // 가로 줄 체크
     for (let row = 0; row < 5; row++) {
@@ -588,6 +617,10 @@ const BingoGame = () => {
 
   // 셀 스타일 관리
   const getCellStyle = (index: number) => {
+    if (!bingoBoard) return {};
+
+    if (!bingoBoard) return {};
+
     const isMarked = bingoBoard[index].status;
     const isInCompletedLine = isCellInCompletedLine(index);
     const isLastSelected = index === lastSelectedCell;
@@ -673,7 +706,7 @@ const BingoGame = () => {
   
     return (
       <GradientContainer>
-        <Box sx={{ textAlign: 'center', mt: 10 }}>
+        <Box sx={{ textAlign: 'center' }}>
           <Typography variant="h4" gutterBottom>빙고 카운트다운!</Typography>
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 4 }}>
             {[{ label: '일', value: days },
@@ -801,7 +834,7 @@ const BingoGame = () => {
                 <Box sx={{ minHeight: 50 }}>
                   <Typography variant="caption" color="text.secondary">수집한 키워드</Typography>
                 </Box>
-                <Typography variant="h6" fontWeight="medium">{collectedKeywords}/25</Typography>
+                <Typography variant="h6" fontWeight="medium">{collectedKeywords}/24</Typography>
               </Paper>  
             </Grid>
             <Grid item xs={6}>
@@ -876,17 +909,36 @@ const BingoGame = () => {
         {/* 빙고 보드 */}
         <Box sx={{ mb: 2, position: 'relative' }}>
           <Grid container spacing={0.5}>
-            {bingoBoard.map((cell, index) => (
+            {bingoBoard?.map((cell, index) => (
               <Grid item xs={2.4} sm={2.4} key={cell.id}>
                 <Paper
                   elevation={cell.status ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
                   sx={getCellStyle(index)}
                 >
                   <Box sx={{ textAlign: 'center' }}>
+                  {index === 12 ? (
+                    <Box
+                      component="img"
+                      src={logo}
+                      alt="Center Logo"
+                      sx={{
+                        width: '100%',
+                        height: 'auto',
+                        mx: 'auto',
+                        display: 'block',
+                        opacity: 0.9,
+                      }}
+                    />
+                  ) : (
                     <Typography 
                       variant="caption" 
                       sx={{ 
-                        fontSize: 'clamp(0.45rem, 2.7vw, 0.75rem)', 
+                        fontSize:
+                          cell.value.length <= 7
+                            ? 'clamp(0.6rem, 3vw, 1rem)'
+                            : cell.value.length <= 14
+                            ? 'clamp(0.6rem, 2.8vw, 0.85rem)'
+                            : 'clamp(0.5rem, 2.5vw, 0.7rem)',
                         fontWeight: 'bold',
                         textAlign: 'center',
                         display: '-webkit-box',
@@ -903,6 +955,7 @@ const BingoGame = () => {
                     >
                       {cell.value}
                     </Typography>
+                  )}
                   </Box>
                   
                   {/* 노트 표시 */}
@@ -1120,7 +1173,7 @@ const BingoGame = () => {
           </Box>
         )}
 
-        <Dialog open={showReviewModal} onClose={() => setShowReviewModal(false)}>
+        <Dialog open={visibleModal === "review"} onClose={() => setShowReviewModal(false)}>
           <DialogContent>
             <Typography mb={2}>빙고 게임에 대한 간단한 피드백을 남겨주세요.</Typography>
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
@@ -1145,7 +1198,7 @@ const BingoGame = () => {
               variant="text"
               onClick={() => {
                 localStorage.setItem("hideReviewModal", "true");
-                setHideReviewModal(true);
+                setShowReviewModal(false);
               }}
             >
               닫기
@@ -1158,7 +1211,7 @@ const BingoGame = () => {
                     await submitReview(userId, reviewStars, reviewText);
                     showAlert("소중한 리뷰 감사합니다!");
                     localStorage.setItem("hideReviewModal", "true"); // 유저 리뷰 get하는 함수 사용하면 삭제
-                    setHideReviewModal(true); // 유저 리뷰 get하는 함수 사용하면 삭제
+                    setShowReviewModal(false); // 유저 리뷰 get하는 함수 사용하면 삭제
                   } catch (err) {
                     showAlert("리뷰 제출 중 문제가 발생했습니다.", 'error');
                   }
@@ -1171,11 +1224,31 @@ const BingoGame = () => {
             </Button>
           </DialogActions>
         </Dialog>
-        <Dialog open={showAllBingoModal} onClose={() => setShowAllBingoModal(false)}>
-          <DialogTitle>빙고 완성 🎉</DialogTitle>
+        <Dialog
+          open={visibleModal === "allBingo"}
+          onClose={() => {
+            setShowAllBingoModal(false);
+            if (showReviewModal) setTimeout(() => setShowReviewModal(true), 100);
+          }}
+        >
+          <DialogTitle>3줄 미션 달성 🎉</DialogTitle>
           <DialogContent>
             <Typography>축하합니다! 빙고를 완성했습니다.</Typography>
             <Typography>Devfactory 부스로 오셔서 소정의 선물 받아가세요!</Typography>
+            <br></br>
+            <Typography>
+              재미있게 즐기셨다면{' '}
+              <Link
+                href="https://github.com/Pseudo-Lab/devfactory"
+                target="_blank"
+                rel="noopener"
+                underline="always"
+              >
+                Devfactory Repo
+              </Link>
+              에 ⭐️ 한번 눌러주세요!
+            </Typography>
+            <Typography>여러분의 관심이 큰 힘이 됩니다 😊</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowAllBingoModal(false)} color="primary">
