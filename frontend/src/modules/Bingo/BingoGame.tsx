@@ -70,14 +70,26 @@ const BingoGame = () => {
   };
   const [bingoBoard, setBingoBoard] = useState<BingoCell[]>(() => {
     const shuffledValues = shuffleArray(cellValues);
-    return Array(25).fill(null).map((_, i) => ({
-      id: i,
-      value: shuffledValues[i],
-      selected: 0,
-      status: 0,
-      note: getCellNote(i)
-    }));
+    return Array(25).fill(null).map((_, i) => {
+      if (i === 12) {
+        return {
+          id: i,
+          value: 'Logo',
+          selected: 0,
+          status: 1,
+          note: undefined,
+        };
+      }
+      return {
+        id: i,
+        value: shuffledValues[i < 12 ? i : i - 1],
+        selected: 0,
+        status: 0,
+        note: getCellNote(i),
+      };
+    });
   });
+  
   const [opponentId, setOpponentId] = useState('');
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
   const [bingoCount, setBingoCount] = useState(0);
@@ -614,6 +626,11 @@ const BingoGame = () => {
       }
     };
     
+    if (index === 12) {
+      console.log('index', index);
+      console.log('isNewBingoCell', isNewBingoCell);
+      console.log('isMarked', isMarked);
+    }
     if (isNewBingoCell) {
       baseStyle.animation = 'fadeBg 3s ease forwards, pulse 1.5s infinite';
       baseStyle.animationDelay = '1s, 0s';
@@ -883,26 +900,35 @@ const BingoGame = () => {
                   sx={getCellStyle(index)}
                 >
                   <Box sx={{ textAlign: 'center' }}>
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        fontSize: 'clamp(0.45rem, 2.7vw, 0.75rem)', 
-                        fontWeight: 'bold',
-                        textAlign: 'center',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis', 
-                        width: '100%',
-                        color: cell.status ? 
-                          (animatedCells.includes(index) ? 'white' : 
-                          (isCellInCompletedLine(index) ? 'amber.800' : 'primary.800')) 
-                          : 'text.primary'
-                      }}
-                    >
-                      {cell.value}
-                    </Typography>
+                    {index === 12 ? (
+                      <Box
+                        component="img"
+                        src={logo}
+                        alt="Logo"
+                        sx={{ width: '100%' }}
+                      />
+                    ) : (
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          fontSize: 'clamp(0.45rem, 2.7vw, 0.75rem)', 
+                          fontWeight: 'bold',
+                          textAlign: 'center',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis', 
+                          width: '100%',
+                          color: cell.status ? 
+                            (animatedCells.includes(index) ? 'white' : 
+                            (isCellInCompletedLine(index) ? 'amber.800' : 'primary.800')) 
+                            : 'text.primary'
+                        }}
+                      >
+                        {cell.value}
+                      </Typography>
+                    )}
                   </Box>
                   
                   {/* 노트 표시 */}
