@@ -141,6 +141,7 @@ const BingoGame = () => {
       localStorage.removeItem("myEmail");
       localStorage.removeItem("myUserName");
       localStorage.removeItem("hideReviewModal");
+      localStorage.removeItem("errorFixApplied");
     }
   }, []);
 
