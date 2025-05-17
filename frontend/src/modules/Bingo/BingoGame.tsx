@@ -141,6 +141,23 @@ const BingoGame = () => {
       localStorage.removeItem("myEmail");
       localStorage.removeItem("myUserName");
       localStorage.removeItem("hideReviewModal");
+      localStorage.removeItem("errorFixApplied");
+    }
+  }, []);
+
+  useEffect(() => {
+    const errorFixApplied = localStorage.getItem("errorFixApplied");
+  
+    if (!errorFixApplied) {
+      localStorage.removeItem("myID");
+      localStorage.removeItem("myEmail");
+      localStorage.removeItem("myUserName");
+      localStorage.removeItem("hideReviewModal");
+  
+      localStorage.setItem("errorFixApplied", "true");
+  
+      // Force refresh
+      window.location.reload();
     }
   }, []);
 

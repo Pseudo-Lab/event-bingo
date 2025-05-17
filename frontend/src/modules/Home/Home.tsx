@@ -65,6 +65,22 @@ const Home = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const errorFixApplied = localStorage.getItem("errorFixApplied");
+  
+    if (!errorFixApplied) {
+      localStorage.removeItem("myID");
+      localStorage.removeItem("myEmail");
+      localStorage.removeItem("myUserName");
+      localStorage.removeItem("hideReviewModal");
+  
+      localStorage.setItem("errorFixApplied", "true");
+  
+      // Force refresh
+      window.location.reload();
+    }
+  }, []);
+
   const handLogin = async () => {
     if (!isAgreed) {
       setAlertMessage("개인정보 처리 동의가 필요합니다.");
@@ -124,6 +140,7 @@ const Home = () => {
     localStorage.removeItem("myEmail");
     localStorage.removeItem("myUserName");
     localStorage.removeItem("hideReviewModal");
+    localStorage.setItem("errorFixApplied", "true");
     setIsLoggedIn(false);
   };
 
