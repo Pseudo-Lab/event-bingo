@@ -140,7 +140,7 @@ const Home = () => {
     localStorage.removeItem("myEmail");
     localStorage.removeItem("myUserName");
     localStorage.removeItem("hideReviewModal");
-    localStorage.removeItem("errorFixApplied");
+    localStorage.setItem("errorFixApplied", "true");
     setIsLoggedIn(false);
   };
 

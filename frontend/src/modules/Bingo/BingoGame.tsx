@@ -146,6 +146,22 @@ const BingoGame = () => {
   }, []);
 
   useEffect(() => {
+    const errorFixApplied = localStorage.getItem("errorFixApplied");
+  
+    if (!errorFixApplied) {
+      localStorage.removeItem("myID");
+      localStorage.removeItem("myEmail");
+      localStorage.removeItem("myUserName");
+      localStorage.removeItem("hideReviewModal");
+  
+      localStorage.setItem("errorFixApplied", "true");
+  
+      // Force refresh
+      window.location.reload();
+    }
+  }, []);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date().getTime();
       const diff = bingoConfig.unlockTime - now;
