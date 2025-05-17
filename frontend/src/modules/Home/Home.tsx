@@ -108,6 +108,7 @@ const Home = () => {
     localStorage.setItem("myID", result.user_id);
     localStorage.setItem("myEmail", result.user_email);
     localStorage.setItem("myUserName", result.user_name);
+    localStorage.setItem("errorFixApplied", "true");
     setIsLoggedIn(true);
     window.location.href = "/bingo";
   };
