@@ -146,19 +146,25 @@ const BingoGame = () => {
   }, []);
 
   useEffect(() => {
-    const errorFixApplied = localStorage.getItem("errorFixApplied");
+    const interval = setInterval(() => {
+      const errorFixApplied = localStorage.getItem("errorFixApplied");
   
-    if (!errorFixApplied) {
-      localStorage.removeItem("myID");
-      localStorage.removeItem("myEmail");
-      localStorage.removeItem("myUserName");
-      localStorage.removeItem("hideReviewModal");
+      if (!errorFixApplied) {
+        // 1. localStorage 초기화
+        localStorage.removeItem("myID");
+        localStorage.removeItem("myEmail");
+        localStorage.removeItem("myUserName");
+        localStorage.removeItem("hideReviewModal");
   
-      localStorage.setItem("errorFixApplied", "true");
+        // 2. 다시 실행되지 않도록 플래그 저장
+        localStorage.setItem("errorFixApplied", "true");
   
-      // Force refresh
-      window.location.reload();
-    }
+        // 3. 새로고침
+        window.location.reload();
+      }
+    }, 5000); // 5초마다 감시
+  
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
