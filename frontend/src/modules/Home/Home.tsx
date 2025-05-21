@@ -65,28 +65,6 @@ const Home = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const errorFixApplied = localStorage.getItem("errorFixApplied");
-  
-      if (!errorFixApplied) {
-        // 1. localStorage 초기화
-        localStorage.removeItem("myID");
-        localStorage.removeItem("myEmail");
-        localStorage.removeItem("myUserName");
-        localStorage.removeItem("hideReviewModal");
-  
-        // 2. 다시 실행되지 않도록 플래그 저장
-        localStorage.setItem("errorFixApplied", "true");
-  
-        // 3. 새로고침
-        window.location.reload();
-      }
-    }, 5000); // 5초마다 감시
-  
-    return () => clearInterval(interval);
-  }, []);
-
   const handLogin = async () => {
     if (!isAgreed) {
       setAlertMessage("개인정보 처리 동의가 필요합니다.");
@@ -108,7 +86,6 @@ const Home = () => {
     localStorage.setItem("myID", result.user_id);
     localStorage.setItem("myEmail", result.user_email);
     localStorage.setItem("myUserName", result.user_name);
-    localStorage.setItem("errorFixApplied", "true");
     setIsLoggedIn(true);
     window.location.href = "/bingo";
   };
@@ -147,7 +124,6 @@ const Home = () => {
     localStorage.removeItem("myEmail");
     localStorage.removeItem("myUserName");
     localStorage.removeItem("hideReviewModal");
-    localStorage.setItem("errorFixApplied", "true");
     setIsLoggedIn(false);
   };
 
