@@ -18,22 +18,29 @@ class BingoUser(Base):
     user_id = mapped_column(Integer, primary_key=True, nullable=False)
     user_name = mapped_column(String(100), nullable=False)
     user_email = mapped_column(String(100), nullable=False)
+    umoh_id = mapped_column(Integer, nullable=True)
     rating = mapped_column(Integer, nullable=True)
     review = mapped_column(String(500), nullable=True)
     selected_words = mapped_column(JSON, nullable=True, default=list)
-    
+    privacy_agreed = mapped_column(Boolean, nullable=False, default=False)
     created_at = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )
+    agreement_at = mapped_column(DateTime(timezone=True),  nullable=True)
 
     @classmethod
     async def create(cls, session: AsyncSession, email: str):
-        user_name = verify_email_in_attendances(email)
+        user_name = verify_email_in_attendances(email) or None
         is_user = await session.execute(select(cls).where(cls.user_email == email))
         is_user = is_user.one_or_none()
         if is_user:
             raise ValueError(f"{email}은 이미 존재하는 유저입니다. 다른 email을 사용해주세요.")
-        new_user = BingoUser(user_name=user_name, user_email=email)
+        new_user = BingoUser(
+            user_name=user_name, 
+            user_email=email, 
+            privacy_agreed=True,
+            agreement_at=datetime.now(ZoneInfo("Asia/Seoul"))
+        )
         session.add(new_user)
         await session.commit()
         await session.refresh(new_user)
@@ -45,7 +52,12 @@ class BingoUser(Base):
         is_user = is_user.one_or_none()
         if is_user:
             raise ValueError(f"{email}은 이미 존재하는 유저입니다. 다른 email을 사용해주세요.")
-        new_user = BingoUser(user_name=user_name, user_email=email)
+        new_user = BingoUser(
+            user_name=user_name, 
+            user_email=email, 
+            privacy_agreed=True,
+            agreement_at=datetime.now(ZoneInfo("Asia/Seoul"))
+        )
         session.add(new_user)
         await session.commit()
         await session.refresh(new_user)
@@ -93,4 +105,13 @@ class BingoUser(Base):
         logger.info(f"update_selected_words: {words}")
         user = await cls.get_user_by_id(session, user_id)
         user.selected_words = words
+        return user
+    
+    @classmethod
+    async def update_privacy_agreement(cls, session: AsyncSession, email: str):
+        user = await cls.get_user_by_email(session, email)
+        user.privacy_agreed = True
+        user.agreement_at = datetime.now(ZoneInfo("Asia/Seoul"))
+        await session.commit()
+        await session.refresh(user)
         return user

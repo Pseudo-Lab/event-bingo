@@ -32,7 +32,8 @@ jobs:
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           DB_PORT=${{ secrets.DB_PORT }}
           DB_DATABASE=${{ secrets.DB_DATABASE }}
-          GUEST_FILE_PATH=${{ secrets.GUEST_FILE_PATH }}
+          SWAGGER_USERNAME=${{ secrets.SWAGGER_USERNAME }}
+          SWAGGER_PASSWORD=${{ secrets.SWAGGER_PASSWORD }}
           EOF
 
       - name: Build and Run with Docker Compose

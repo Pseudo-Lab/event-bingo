@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
@@ -65,6 +65,19 @@ def hc():
     return "server is running"
 
 
-@app.get("/reset-db/zozo")
-async def reset_db():
-    await db.reset_database()
+@app.post("/api/zozo-manual-reset-db")
+async def reset_db(response: Response):
+    try:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        await db.reset_database()
+        return {
+            "status": "success",
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "error_type": type(e).__name__
+        }

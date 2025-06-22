@@ -21,7 +21,7 @@ import { singUpUser, newSingUpUser } from "../../api/bingo_api";
 import { bingoConfig } from '../../config/bingoConfig.ts';
 
 const GradientContainer = styled(Container)(({ theme }) => ({
-  minHeight: "70vh",
+  minHeight: "75vh",
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
@@ -123,6 +123,7 @@ const Home = () => {
     localStorage.removeItem("myID");
     localStorage.removeItem("myEmail");
     localStorage.removeItem("myUserName");
+    localStorage.removeItem("hideReviewModal");
     setIsLoggedIn(false);
   };
 
@@ -292,7 +293,15 @@ const Home = () => {
         <DialogTitle>[필수] 개인정보 제3자 제공 동의서</DialogTitle>
         <DialogContent dividers>
           <Typography gutterBottom>
-            행사 신청 플랫폼(주식회사 스플랩)을 통해 수집된 참가자의 개인정보가 아래와 같이 <strong>가짜연구소</strong>에 제공됩니다.
+            행사 신청 플랫폼(주식회사 스플랩)을 통해 수집된 참가자의 개인정보가 아래와 같이
+              <strong> 가짜연구소</strong>,
+              <strong> 한국투자</strong>,
+              <strong> NVIDIA & MSI</strong>,
+              <strong> 그룹바이에이치알</strong>,
+              <strong> 텔레픽스</strong>,
+              <strong> 패스트캠퍼스</strong>,
+              <strong> 텐스토렌트</strong>
+            에 제공됩니다.
           </Typography>
 
           <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
