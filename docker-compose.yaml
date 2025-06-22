@@ -22,7 +22,6 @@ services:
         condition: service_healthy
     environment:
       DB_URL: mysql+aiomysql://${DB_ROOT}:${DB_ROOT_PASSWORD}@db:${DB_PORT}/${DB_DATABASE}
-      GUEST_FILE_PATH: ${GUEST_FILE_PATH}
       SWAGGER_USERNAME: ${SWAGGER_USERNAME}
       SWAGGER_PASSWORD: ${SWAGGER_PASSWORD}
     ports:

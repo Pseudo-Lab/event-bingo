@@ -31,7 +31,7 @@ def main():
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        reload=True,
+        reload=False,
         workers=4,
         log_level=args.log_level.lower(),
         # log_config=None  # uvicorn 기본 로깅 비활성화
