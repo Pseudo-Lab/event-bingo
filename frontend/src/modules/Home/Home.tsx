@@ -18,7 +18,7 @@ import { styled } from "@mui/system";
 import { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
 import { singUpUser, newSingUpUser } from "../../api/bingo_api";
-import { bingoConfig } from '../../config/bingoConfig.ts';
+import config from '../../config/settings.json';
 
 const GradientContainer = styled(Container)(({ theme }) => ({
   minHeight: "75vh",
@@ -44,17 +44,13 @@ const Home = () => {
   const [loginEmail, setLoginEmail] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [agreeOpen, setAgreeOpen] = useState(false);
-  const [agreeDataOpen, setAgreeDataOpen] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
-  const [isAgreedData, setIsAgreedData] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertSeverity, setAlertSeverity] = useState<'error' | 'success'>('error');
-  const [loginErrorCount, setLoginErrorCount] = useState(0);
   const [newLoginModal, setNewLoginModal] = useState(false);
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
-  const conferenceInfoPage = bingoConfig.conferenceInfoPage;
 
   const navigate = useNavigate();
 
@@ -78,8 +74,6 @@ const Home = () => {
       setAlertMessage(result.message);
       setAlertSeverity("error");
       setAlertOpen(true);
-      // 못 찾는 경우 가입
-      setLoginErrorCount(prev => prev + 1)
       return;
     }
 
@@ -123,32 +117,25 @@ const Home = () => {
     localStorage.removeItem("myID");
     localStorage.removeItem("myEmail");
     localStorage.removeItem("myUserName");
-    localStorage.removeItem("hideReviewModal");
+    // localStorage.removeItem("hideReviewModal");
     setIsLoggedIn(false);
   };
 
   return (
     <GradientContainer>
       <Typography variant="h3" sx={{ fontWeight: "bold", marginBottom: "1rem" }}>
-        빙고 네트워킹 
+        {config.title}
       </Typography>
       <Typography variant="h4" sx={{ fontWeight: "bold", marginBottom: "0.5rem" }}>
-        2025 PseudoCon
+        {config.subTitle}
       </Typography>
       <Typography variant="h6" sx={{ marginBottom: "1rem", color: "#555" }}>
-        05월 17일 | 서울창업허브(공덕)
-      </Typography>
-      <Typography>
-        <Link
-          href={conferenceInfoPage}
-          target="_blank" 
-          rel="noopener"
-        >수도콘 행사 페이지(우모)</Link>
+        {config.date} | {config.place}
       </Typography>
       {!isLoggedIn ? (
         <>
           <StyledInput
-            placeholder="우모 가입 이메일을 입력하세요"
+            placeholder="이메일을 입력하세요"
             value={loginEmail}
             onChange={(e) => setLoginEmail(e.target.value)}
           />
@@ -165,24 +152,12 @@ const Home = () => {
             label="개인정보 처리 동의(필수)"
             sx={{ mt: 1 }}
           />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={isAgreedData}
-                onChange={(e) => {
-                  if (!isAgreedData) setAgreeDataOpen(true);
-                  else setIsAgreedData(false);
-                }}
-              />
-            }
-            label="개인정보 제3자 제공 동의서(필수)"
-          />
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: "5px" }}>
             <Button
               variant="contained"
               sx={{ marginRight: '10px', backgroundColor: '#698BFF' }}
               onClick={handLogin}
-              disabled={!isAgreed || !isAgreedData || loginEmail === ""}
+              disabled={!isAgreed || loginEmail === ""}
             >
               계정 생성 또는 로그인
             </Button>
@@ -204,7 +179,7 @@ const Home = () => {
                 },
               }}
               onClick={handleNewSingupModal}
-              disabled={!isAgreed || !isAgreedData || loginEmail === ""}
+              disabled={!isAgreed || loginEmail === ""}
               >
               비회원로그인
             </Button>
@@ -234,7 +209,7 @@ const Home = () => {
         <DialogTitle>[필수] 개인정보 수집 및 이용 동의서</DialogTitle>
         <DialogContent dividers>
           <Typography gutterBottom>
-            <strong>가짜연구소</strong>는 본 행사 운영 및 네트워킹 서비스 제공을 위해 아래와 같이 개인정보를 수집 및 이용합니다.
+            <strong>{config.host}</strong>는 본 행사 운영 및 네트워킹 서비스 제공을 위해 아래와 같이 개인정보를 수집 및 이용합니다.
           </Typography>
 
           <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
@@ -288,84 +263,12 @@ const Home = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    
-      <Dialog open={agreeDataOpen} onClose={() => setAgreeDataOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>[필수] 개인정보 제3자 제공 동의서</DialogTitle>
-        <DialogContent dividers>
-          <Typography gutterBottom>
-            행사 신청 플랫폼(주식회사 스플랩)을 통해 수집된 참가자의 개인정보가 아래와 같이
-              <strong> 가짜연구소</strong>,
-              <strong> 한국투자</strong>,
-              <strong> NVIDIA & MSI</strong>,
-              <strong> 그룹바이에이치알</strong>,
-              <strong> 텔레픽스</strong>,
-              <strong> 패스트캠퍼스</strong>,
-              <strong> 텐스토렌트</strong>
-            에 제공됩니다.
-          </Typography>
-
-          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-            ■ 제공받는 자
-          </Typography>
-          <Typography variant="body2" gutterBottom>
-            가짜연구소
-          </Typography>
-
-          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-            ■ 제공 항목
-          </Typography>
-          <Typography variant="body2" gutterBottom>
-            이름, 이메일 주소, 휴대전화번호 등 참가자가 행사 신청 시 우모에 입력한 정보
-          </Typography>
-
-          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-            ■ 제공 목적
-          </Typography>
-          <Typography variant="body2" gutterBottom>
-            - 행사 참가자 식별 및 관리<br />
-            - 빙고 등 프로그램 운영 및 네트워킹 서비스 제공<br />
-            - 참여 이력 기반 사후 피드백 및 안내
-          </Typography>
-
-          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-            ■ 보유 및 이용 기간
-          </Typography>
-          <Typography variant="body2" gutterBottom>
-            제공일로부터 <strong>최대 5년</strong> 또는 목적 달성 시까지 보관하며,  
-            참가자가 요청할 경우 <strong>즉시 파기</strong>됩니다.
-          </Typography>
-
-          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-            ■ 귀하의 권리
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            귀하는 개인정보 제공에 대한 동의를 거부할 권리가 있습니다.  
-            단, <strong>본 동의는 빙고 서비스 이용을 위한 필수 사항</strong>으로,  
-            동의하지 않으실 경우 <strong>서비스 이용이 제한</strong>될 수 있습니다.
-          </Typography>
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={() => setAgreeDataOpen(false)} color="error">
-            동의 안함
-          </Button>
-          <Button
-            onClick={() => {
-              setIsAgreedData(true);
-              setAgreeDataOpen(false);
-            }}
-            color="primary"
-          >
-            동의함
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Dialog open={newLoginModal} onClose={() => setNewLoginModal(false)} maxWidth="sm">
         <DialogTitle>비회원로그인</DialogTitle>
         <DialogContent dividers>
           <Typography gutterBottom>
-            우모 이메일을 찾을 수 없는 경우에만 이용해주세요.
+            이메일을 찾을 수 없는 경우에만 이용해주세요.
           </Typography>
           <StyledInput
             placeholder="이름"
