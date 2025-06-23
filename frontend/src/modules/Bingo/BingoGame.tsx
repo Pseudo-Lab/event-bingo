@@ -150,38 +150,37 @@ const BingoGame = () => {
       if (storedId) {
         try {
           setUserId(storedId);
-          // const boardData = await getBingoBoard(storedId);
-          // const boardInteractionData = await getUserInteractionCount(storedId);
-          // setMetPersonNum(boardInteractionData)
-          // if (boardData && boardData.length > 0) {
-          //   setBingoBoard(boardData);
-          //   setInitialSetupOpen(false);
+          const boardData = await getBingoBoard(storedId);
+          const boardInteractionData = await getUserInteractionCount(storedId);
+          setMetPersonNum(boardInteractionData)
+          if (boardData && boardData.length > 0) {
+            setBingoBoard(boardData);
+            setInitialSetupOpen(false);
 
-          //   const selectedKeywords = boardData
-          //     .filter(cell => cell.selected === 1)
-          //     .map(cell => cell.value);
-          //   setMyKeywords(selectedKeywords);
+            const selectedKeywords = boardData
+              .filter(cell => cell.selected === 1)
+              .map(cell => cell.value);
+            setMyKeywords(selectedKeywords);
 
-          //   const getBingoKeywords = boardData
-          //     .filter(cell => cell.status === 1)
-          //     .map(cell => cell.value);
-          //   setCollectedKeywords(getBingoKeywords.length - 1);
-          //   setCollectedKeywords(getBingoKeywords.length - 1);
+            const getBingoKeywords = boardData
+              .filter(cell => cell.status === 1)
+              .map(cell => cell.value);
+            setCollectedKeywords(getBingoKeywords.length - 1);
+            setCollectedKeywords(getBingoKeywords.length - 1);
 
-          //   const interactionData = await getUserLatestInteraction(storedId, 0);
-          //   if (Array.isArray(interactionData) && interactionData.length > 0) {
-          //     const latestSenderId = interactionData[0].send_user_id;
-          //     const latestInteractions = interactionData.filter(
-          //       item => item.send_user_id === latestSenderId
-          //     );
-          //     const receivedKeywords = latestInteractions.flatMap(
-          //       (item) => item.word_id_list ?? []
-          //     );
-          //     setLatestReceivedKeywords(receivedKeywords);
-          //   }
-          // }
-          // else 
-          {
+            const interactionData = await getUserLatestInteraction(storedId, 0);
+            if (Array.isArray(interactionData) && interactionData.length > 0) {
+              const latestSenderId = interactionData[0].send_user_id;
+              const latestInteractions = interactionData.filter(
+                item => item.send_user_id === latestSenderId
+              );
+              const receivedKeywords = latestInteractions.flatMap(
+                (item) => item.word_id_list ?? []
+              );
+              setLatestReceivedKeywords(receivedKeywords);
+            }
+          }
+          else {
             const shuffledValues = shuffleArray(cellValues);
             const initialBoard: BingoCell[] = Array(25).fill(null).map((_, i) => {
               if (i === 12) {
@@ -214,46 +213,46 @@ const BingoGame = () => {
     init();
   }, []);
 
-  // useEffect(() => {
-  //   const interval = setInterval(async () => {
-  //     if (!userId) return;
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (!userId) return;
   
-  //     try {
-  //       const latestBoard = await getBingoBoard(userId);
-  //       const boardInteractionData = await getUserInteractionCount(userId);
-  //       setMetPersonNum(boardInteractionData)
-  //       if (!latestBoard || latestBoard.length === 0 || !bingoBoard) return;
-  //       if (!latestBoard || latestBoard.length === 0 || !bingoBoard) return;
+      try {
+        const latestBoard = await getBingoBoard(userId);
+        const boardInteractionData = await getUserInteractionCount(userId);
+        setMetPersonNum(boardInteractionData)
+        if (!latestBoard || latestBoard.length === 0 || !bingoBoard) return;
+        if (!latestBoard || latestBoard.length === 0 || !bingoBoard) return;
   
-  //       const newlyUpdatedValues: string[] = [];
+        const newlyUpdatedValues: string[] = [];
   
-  //       const updatedBoard = latestBoard.map((newCell, i) => {
-  //         const prevCell = bingoBoard[i];
-  //         if (prevCell.status === 0 && newCell.status === 1) {
-  //           newlyUpdatedValues.push(newCell.value);
-  //         }
-  //         return newCell;
-  //       });
+        const updatedBoard = latestBoard.map((newCell, i) => {
+          const prevCell = bingoBoard[i];
+          if (prevCell.status === 0 && newCell.status === 1) {
+            newlyUpdatedValues.push(newCell.value);
+          }
+          return newCell;
+        });
   
-  //       if (newlyUpdatedValues.length > 0) {
-  //         setBingoBoard(updatedBoard);
-  //         setCollectedKeywords(prev => prev + newlyUpdatedValues.length);
-  //         setLatestReceivedKeywords(newlyUpdatedValues);
-  //         const interactionData = await getUserLatestInteraction(userId, 1);
-  //         if (Array.isArray(interactionData) && interactionData.length > 0) {
-  //           const latestSenderId = interactionData[0].send_user_id;
-  //           const senderUserName = await getUserName(latestSenderId);
-  //           if (senderUserName) showAlert(`"${senderUserName}"님에게 "${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
-  //         }
-  //       }
-  //       // TODO: 키워드 받았지만 변화 없을 때 메시지?
-  //     } catch (err) {
-  //       console.error("Error refreshing bingo board:", err);
-  //     }
-  //   }, 5000);
+        if (newlyUpdatedValues.length > 0) {
+          setBingoBoard(updatedBoard);
+          setCollectedKeywords(prev => prev + newlyUpdatedValues.length);
+          setLatestReceivedKeywords(newlyUpdatedValues);
+          const interactionData = await getUserLatestInteraction(userId, 1);
+          if (Array.isArray(interactionData) && interactionData.length > 0) {
+            const latestSenderId = interactionData[0].send_user_id;
+            const senderUserName = await getUserName(latestSenderId);
+            if (senderUserName) showAlert(`"${senderUserName}"님에게 "${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
+          }
+        }
+        // TODO: 키워드 받았지만 변화 없을 때 메시지?
+      } catch (err) {
+        console.error("Error refreshing bingo board:", err);
+      }
+    }, 5000);
   
-  //   return () => clearInterval(interval);
-  // }, [userId, bingoBoard]);
+    return () => clearInterval(interval);
+  }, [userId, bingoBoard]);
 
   useEffect(() => {
     const fetchExchangeHistory = async () => {
