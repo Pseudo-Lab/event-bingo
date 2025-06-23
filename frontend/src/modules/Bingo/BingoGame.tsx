@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Container, Box, Typography, Button, Grid, Paper, Chip, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
@@ -6,6 +7,7 @@ import {
 } from '@mui/material';
 import { styled } from "@mui/system";
 import PersonIcon from '@mui/icons-material/Person';
+import HomeIcon from '@mui/icons-material/Home';
 import {
   getBingoBoard,
   updateBingoBoard,
@@ -16,10 +18,8 @@ import {
   getUserLatestInteraction,
   getUserName,
   submitReview,
-  getUserUmohId,
 } from "../../api/bingo_api.ts";
-import logo from '../../assets/pseudo_lab_logo.png';
-import newLogo from '../../assets/pseudo-lab-logo-no-text.svg';
+import logo from '../../assets/react.svg';
 import bingoKeywords from '../../data/bingo-keywords.json';
 import { bingoConfig } from '../../config/bingoConfig.ts';
 
@@ -61,9 +61,10 @@ const GradientContainer = styled(Container)(({ theme }) => ({
 }));
 
 const BingoGame = () => {
+  const navigate = useNavigate();
+
   const [username, setUsername] = useState('사용자 이름');
   const [userId, setUserId] = useState<string>('');
-  const [umohId, setUmohId] = useState<string>('');
   const [myKeywords, setMyKeywords] = useState<string[]>([]);
   const shuffleArray = (array: string[]) => {
     return [...array].sort(() => Math.random() - 0.5);
@@ -78,11 +79,10 @@ const BingoGame = () => {
   const [metPersonNum, setMetPersonNum] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
   const [exchangeHistory, setExchangeHistory] = useState<any[]>([]);
-  const [historyFilter, setHistoryFilter] = useState('all');
   const [lastSelectedCell, setLastSelectedCell] = useState<number | null>(null);
   // 새로운 빙고 라인이 발견되었는지 확인하기 위한 상태
   const [newBingoFound, setNewBingoFound] = useState(false);
-  const [initialSetupOpen, setInitialSetupOpen] = useState(false);
+  const [initialSetupOpen, setInitialSetupOpen] = useState(true);
   const [selectedInitialKeywords, setSelectedInitialKeywords] = useState<string[]>([]);
   // 빙고 라인의 셀들을 추적하기 위한 상태
   const [bingoLineCells, setBingoLineCells] = useState<number[]>([]);
@@ -96,7 +96,6 @@ const BingoGame = () => {
   const [hasShownConfetti, setHasShownConfetti] = useState(false);
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'warning' | 'error' | 'info'>('success');
   const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
-  const [showAllBingoModal, setShowAllBingoModal] = useState(false);
   const [remainingTime, setRemainingTime] = useState(() => {
     return bingoConfig.unlockTime - Date.now();
   });
@@ -105,43 +104,23 @@ const BingoGame = () => {
     const isTester = urlParams.get("early") === "true";
     return !isTester && new Date().getTime() < bingoConfig.unlockTime;
   });
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviewStars, setReviewStars] = useState<number | null>(null);
-  const [reviewText, setReviewText] = useState('');
-  const [hideReviewModal, setHideReviewModal] = useState(() =>localStorage.getItem("hideReviewModal") === "true");
   const bingoMissionCount = bingoConfig.bingoMissionCount;
   const keywordCount = bingoConfig.keywordCount;
-  const conferenceEndTime = bingoConfig.conferenceEndTime;
-  const conferenceInfoPage = bingoConfig.conferenceInfoPage;
-  const [userProfileUrl, setUserProfileUrl] = useState(conferenceInfoPage);
-  const conferenceProfileBasePage = bingoConfig.conferenceProfileBasePage;
-  const visibleModal = showAllBingoModal
-    ? "allBingo"
-    : showReviewModal
-    ? "review"
-    : null;
-
-  const getUserProfileUrl = (userId: string | null) => {
-    if (userId) {
-      return `${conferenceProfileBasePage}\\${userId}`;
-    } else {
-      return conferenceInfoPage;
-    }
-  }
+  // const [showReviewModal, setShowReviewModal] = useState(false);
+  // const [reviewStars, setReviewStars] = useState<number | null>(null);
+  // const [reviewText, setReviewText] = useState('');
+  // const [hideReviewModal, setHideReviewModal] = useState(() =>localStorage.getItem("hideReviewModal") === "true");
+  const [showAllBingoModal, setShowAllBingoModal] = useState(false);
+  // const visibleModal = showAllBingoModal
+  //   ? "allBingo"
+  //   : showReviewModal
+  //   ? "review"
+  //   : null;
 
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
     return undefined;
   }
-
-  // useEffect(() => {
-  //   if (Date.now() > conferenceEndTime) {
-  //     localStorage.removeItem("myID");
-  //     localStorage.removeItem("myEmail");
-  //     localStorage.removeItem("myUserName");
-  //     localStorage.removeItem("hideReviewModal");
-  //   }
-  // }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -171,41 +150,38 @@ const BingoGame = () => {
       if (storedId) {
         try {
           setUserId(storedId);
-          const boardData = await getBingoBoard(storedId);
-          const umohId = await getUserUmohId(storedId);
-          setUmohId(umohId);
-          const userProfileUrl = getUserProfileUrl(umohId);
-          setUserProfileUrl(userProfileUrl);
-          const boardInteractionData = await getUserInteractionCount(storedId);
-          setMetPersonNum(boardInteractionData)
-          if (boardData && boardData.length > 0) {
-            setBingoBoard(boardData);
-            setInitialSetupOpen(false);
+          // const boardData = await getBingoBoard(storedId);
+          // const boardInteractionData = await getUserInteractionCount(storedId);
+          // setMetPersonNum(boardInteractionData)
+          // if (boardData && boardData.length > 0) {
+          //   setBingoBoard(boardData);
+          //   setInitialSetupOpen(false);
 
-            const selectedKeywords = boardData
-              .filter(cell => cell.selected === 1)
-              .map(cell => cell.value);
-            setMyKeywords(selectedKeywords);
+          //   const selectedKeywords = boardData
+          //     .filter(cell => cell.selected === 1)
+          //     .map(cell => cell.value);
+          //   setMyKeywords(selectedKeywords);
 
-            const getBingoKeywords = boardData
-              .filter(cell => cell.status === 1)
-              .map(cell => cell.value);
-            setCollectedKeywords(getBingoKeywords.length - 1);
-            setCollectedKeywords(getBingoKeywords.length - 1);
+          //   const getBingoKeywords = boardData
+          //     .filter(cell => cell.status === 1)
+          //     .map(cell => cell.value);
+          //   setCollectedKeywords(getBingoKeywords.length - 1);
+          //   setCollectedKeywords(getBingoKeywords.length - 1);
 
-            const interactionData = await getUserLatestInteraction(storedId, 0);
-            if (Array.isArray(interactionData) && interactionData.length > 0) {
-              const latestSenderId = interactionData[0].send_user_id;
-              const latestInteractions = interactionData.filter(
-                item => item.send_user_id === latestSenderId
-              );
-              const receivedKeywords = latestInteractions.flatMap(
-                (item) => item.word_id_list ?? []
-              );
-              setLatestReceivedKeywords(receivedKeywords);
-            }
-          }
-          else {
+          //   const interactionData = await getUserLatestInteraction(storedId, 0);
+          //   if (Array.isArray(interactionData) && interactionData.length > 0) {
+          //     const latestSenderId = interactionData[0].send_user_id;
+          //     const latestInteractions = interactionData.filter(
+          //       item => item.send_user_id === latestSenderId
+          //     );
+          //     const receivedKeywords = latestInteractions.flatMap(
+          //       (item) => item.word_id_list ?? []
+          //     );
+          //     setLatestReceivedKeywords(receivedKeywords);
+          //   }
+          // }
+          // else 
+          {
             const shuffledValues = shuffleArray(cellValues);
             const initialBoard: BingoCell[] = Array(25).fill(null).map((_, i) => {
               if (i === 12) {
@@ -238,46 +214,46 @@ const BingoGame = () => {
     init();
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      if (!userId) return;
+  // useEffect(() => {
+  //   const interval = setInterval(async () => {
+  //     if (!userId) return;
   
-      try {
-        const latestBoard = await getBingoBoard(userId);
-        const boardInteractionData = await getUserInteractionCount(userId);
-        setMetPersonNum(boardInteractionData)
-        if (!latestBoard || latestBoard.length === 0 || !bingoBoard) return;
-        if (!latestBoard || latestBoard.length === 0 || !bingoBoard) return;
+  //     try {
+  //       const latestBoard = await getBingoBoard(userId);
+  //       const boardInteractionData = await getUserInteractionCount(userId);
+  //       setMetPersonNum(boardInteractionData)
+  //       if (!latestBoard || latestBoard.length === 0 || !bingoBoard) return;
+  //       if (!latestBoard || latestBoard.length === 0 || !bingoBoard) return;
   
-        const newlyUpdatedValues: string[] = [];
+  //       const newlyUpdatedValues: string[] = [];
   
-        const updatedBoard = latestBoard.map((newCell, i) => {
-          const prevCell = bingoBoard[i];
-          if (prevCell.status === 0 && newCell.status === 1) {
-            newlyUpdatedValues.push(newCell.value);
-          }
-          return newCell;
-        });
+  //       const updatedBoard = latestBoard.map((newCell, i) => {
+  //         const prevCell = bingoBoard[i];
+  //         if (prevCell.status === 0 && newCell.status === 1) {
+  //           newlyUpdatedValues.push(newCell.value);
+  //         }
+  //         return newCell;
+  //       });
   
-        if (newlyUpdatedValues.length > 0) {
-          setBingoBoard(updatedBoard);
-          setCollectedKeywords(prev => prev + newlyUpdatedValues.length);
-          setLatestReceivedKeywords(newlyUpdatedValues);
-          const interactionData = await getUserLatestInteraction(userId, 1);
-          if (Array.isArray(interactionData) && interactionData.length > 0) {
-            const latestSenderId = interactionData[0].send_user_id;
-            const senderUserName = await getUserName(latestSenderId);
-            if (senderUserName) showAlert(`"${senderUserName}"님에게 "${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
-          }
-        }
-        // TODO: 키워드 받았지만 변화 없을 때 메시지?
-      } catch (err) {
-        console.error("Error refreshing bingo board:", err);
-      }
-    }, 5000);
+  //       if (newlyUpdatedValues.length > 0) {
+  //         setBingoBoard(updatedBoard);
+  //         setCollectedKeywords(prev => prev + newlyUpdatedValues.length);
+  //         setLatestReceivedKeywords(newlyUpdatedValues);
+  //         const interactionData = await getUserLatestInteraction(userId, 1);
+  //         if (Array.isArray(interactionData) && interactionData.length > 0) {
+  //           const latestSenderId = interactionData[0].send_user_id;
+  //           const senderUserName = await getUserName(latestSenderId);
+  //           if (senderUserName) showAlert(`"${senderUserName}"님에게 "${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
+  //         }
+  //       }
+  //       // TODO: 키워드 받았지만 변화 없을 때 메시지?
+  //     } catch (err) {
+  //       console.error("Error refreshing bingo board:", err);
+  //     }
+  //   }, 5000);
   
-    return () => clearInterval(interval);
-  }, [userId, bingoBoard]);
+  //   return () => clearInterval(interval);
+  // }, [userId, bingoBoard]);
 
   useEffect(() => {
     const fetchExchangeHistory = async () => {
@@ -298,16 +274,12 @@ const BingoGame = () => {
         if (!grouped[groupKey]) {
           const senderName = await getUserName(isSender ? userId : otherUserId);
           const receiverName = await getUserName(isSender ? otherUserId : userId);
-          const senderUmohId = await getUserUmohId(isSender ? userId : otherUserId);
-          const receiverUmohId = await getUserUmohId(isSender ? otherUserId : userId);
   
           grouped[groupKey] = {
             id: Math.random(),
             date: record.created_at.replace(/-/g, '.').replace('T', ' ').slice(0, 16),
             sendPerson: senderName,
-            sendPersonProfileUrl: getUserProfileUrl(senderUmohId),
             receivePerson: receiverName,
-            receivePersonProfileUrl: getUserProfileUrl(receiverUmohId),
             given: [],
           };
         }
@@ -326,7 +298,6 @@ const BingoGame = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // TODO: userId 사용하도록 수정 필요
   const initializeBoard = async (userId: string, selectedInitialKeywords: string[]) => {
     try {
       const boardData: {
@@ -437,9 +408,9 @@ const BingoGame = () => {
         setHasShownConfetti(true);
       }
       
-      if (bingoCount >= 1 && !hideReviewModal) {
-        setShowReviewModal(true);
-      }
+      // if (bingoCount >= 1 && !hideReviewModal) {
+      //   setShowReviewModal(true);
+      // }
   
       // Clear animation after some time
       setTimeout(() => {
@@ -768,14 +739,6 @@ const BingoGame = () => {
           <DialogActions>
             <Button
               onClick={() => (window.location.href = "/")}
-              startIcon={
-                <Box
-                  component="img"
-                  src={newLogo}
-                  alt="Logo"
-                  sx={{ width: 20, height: 20 }}
-                />
-              }
               variant="outlined"
             >
               홈으로
@@ -795,13 +758,11 @@ const BingoGame = () => {
         <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Box component="img" src={logo} alt="Logo" sx={{ width: 24, height: 24, mr: 1 }} />
-              <Typography variant="body1" fontWeight="bold">키워드 교환 빙고</Typography>
+              <Typography variant="body1" fontWeight="bold" sx={{ ml: 1 }}>키워드 교환 빙고</Typography>
             </Box>
             <Button
               sx={{ fontSize: 15, color: 'primary.main' }}
               component="a"
-              href={userProfileUrl}
               target="_blank"
               rel="noopener"
             >
@@ -839,7 +800,7 @@ const BingoGame = () => {
             <Grid item xs={6}>
               <Paper elevation={0} sx={{ bgcolor: 'grey.200', p: 1, borderRadius: 1, height: '100%' }}>
                 <Box sx={{ minHeight: 50 }}>
-                  <Typography variant="caption" color="text.secondary">만난 PseudoCon<br></br>참가자</Typography>
+                  <Typography variant="caption" color="text.secondary">만난 참가자</Typography>
                 </Box>
                 <Typography variant="h6" fontWeight="medium">{metPersonNum}명</Typography>
               </Paper>
@@ -1086,6 +1047,21 @@ const BingoGame = () => {
           >
             교환 기록 {showHistory ? '가리기' : '보기'}
           </Button>
+          <Button 
+            variant="outlined"
+            color="primary"
+            onClick={() => navigate('/')}
+            startIcon={<HomeIcon />}
+            sx={{ 
+              px: 3, 
+              width: '150px', 
+              ml: 1,
+              textTransform: 'none',
+              fontWeight: 500
+            }}
+          >
+            홈으로
+          </Button>
         </Box>
         
         {/* 교환 기록 */}
@@ -1172,7 +1148,7 @@ const BingoGame = () => {
           </Box>
         )}
 
-        <Dialog open={visibleModal === "review"} onClose={() => setShowReviewModal(false)}>
+        {/* <Dialog open={visibleModal === "review"} onClose={() => setShowReviewModal(false)}>
           <DialogContent>
             <Typography mb={2}>빙고 게임에 대한 간단한 피드백을 남겨주세요.</Typography>
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
@@ -1254,7 +1230,7 @@ const BingoGame = () => {
               닫기
             </Button>
           </DialogActions>
-        </Dialog>
+        </Dialog> */}
         
         {/* 알림 */}
         <Snackbar 
