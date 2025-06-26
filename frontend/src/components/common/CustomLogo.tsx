@@ -1,5 +1,5 @@
 import { styled } from "@mui/system";
-import pseudoLabLogo from "../../assets/pseudo_lab_logo.png";
+import logo from "../../assets/react.svg";
 import { Link } from "react-router-dom";
 import React from "react";
 
@@ -9,7 +9,7 @@ type LogoImageProps = {
   marginRight?: string;
 };
 
-const PseudoLabLogo = (props: LogoImageProps) => {
+const CustomLogo = (props: LogoImageProps) => {
   const LogoImageStyle = styled("img")({
     maxWidth: props.maxWidth,
     height: props.height,
@@ -18,9 +18,9 @@ const PseudoLabLogo = (props: LogoImageProps) => {
 
   return (
     <Link to="/">
-      <LogoImageStyle src={pseudoLabLogo} alt="PseudoLab Logo"></LogoImageStyle>
+      <LogoImageStyle src={logo} alt="Custom Logo"></LogoImageStyle>
     </Link>
   );
 };
 
-export default PseudoLabLogo;
+export default CustomLogo;

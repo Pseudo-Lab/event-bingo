@@ -13,7 +13,7 @@ import {
   IconButton,
 } from "@mui/material";
 import { Menu, Close } from "@mui/icons-material";
-import PseudoLabLogo from "../../components/common/PseudoLabLogo";
+import CustomLogo from "../../components/common/CustomLogo";
 import UserProfile from "./UserProfile";
 // import DiscordLoginButton from "../components/common/DiscordLoginButton";
 
@@ -72,7 +72,7 @@ const Header = (props: Props) => {
         <Toolbar
           sx={{ color: "#0077A3", borderBottom: 1, borderColor: "divider" }}
         >
-          <PseudoLabLogo maxWidth="5em" height="5em" />
+          <CustomLogo maxWidth="5em" height="5em" />
 
           <Box
             marginLeft="20px"

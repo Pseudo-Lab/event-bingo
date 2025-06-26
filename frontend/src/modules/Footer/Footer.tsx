@@ -1,7 +1,6 @@
 // import { Link } from "react-router-dom";
 import { Box, Grid, Container, Typography } from "@mui/material";
-import PseudoLabLogo from "../../components/common/PseudoLabLogo";
-import { LinkedIn, GitHub } from "@mui/icons-material";
+import CustomLogo from "../../components/common/CustomLogo";
 import ExternalLink from "../../components/common/ExternalLink";
 
 const Footer = () => {
@@ -16,20 +15,12 @@ const Footer = () => {
     >
       <Container maxWidth="lg">
         <Grid container spacing={1}>
-          <Grid item xs={12} sm={6} md={6}>
-            <PseudoLabLogo
+          <Grid item xs={12} sm={12} md={12}>
+            <CustomLogo
               maxWidth="100px"
               height="auto"
-              marginRight="8px" // 이미지와 텍스트 사이에 간격을 조절
+              marginRight="8px"
             />
-          </Grid>
-          <Grid item xs={12} sm={6} md={6} marginTop={4}>
-            <ExternalLink href="https://www.linkedin.com/company/pseudolab">
-              <LinkedIn />
-            </ExternalLink>
-            <ExternalLink href="https://github.com/Pseudo-Lab">
-              <GitHub />
-            </ExternalLink>
           </Grid>
         </Grid>
         <Box mt={3}>

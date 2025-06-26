@@ -174,16 +174,6 @@ export const getUserName = async (userId: string) => {
   return userName;
 };
 
-export const getUserUmohId = async (userId: string) => {
-  const response = await fetch(`${API_URL}/api/auth/bingo/get-user/${userId}`);
-  if (response.ok === false) {
-    return [];
-  }
-  const data = await response.json();
-  const umohId = data["umoh_id"];
-  return umohId;
-};
-
 export const updateBingoFromQR = async (userId: string, targetId: string) => {
   const response = await fetch(
     `${API_URL}/api/bingo/boards/update/${userId}/${targetId}`,
