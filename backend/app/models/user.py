@@ -9,7 +9,6 @@ from sqlalchemy import Boolean, DateTime, Integer, Sequence, String, JSON, selec
 from sqlalchemy.orm import mapped_column
 
 from models.base import Base
-from integrations.omoh.verification import verify_email_in_attendances
 
 
 
@@ -27,24 +26,6 @@ class BingoUser(Base):
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )
     agreement_at = mapped_column(DateTime(timezone=True),  nullable=True)
-
-    @classmethod
-    async def create(cls, session: AsyncSession, email: str):
-        user_name = verify_email_in_attendances(email) or None
-        is_user = await session.execute(select(cls).where(cls.user_email == email))
-        is_user = is_user.one_or_none()
-        if is_user:
-            raise ValueError(f"{email}은 이미 존재하는 유저입니다. 다른 email을 사용해주세요.")
-        new_user = BingoUser(
-            user_name=user_name, 
-            user_email=email, 
-            privacy_agreed=True,
-            agreement_at=datetime.now(ZoneInfo("Asia/Seoul"))
-        )
-        session.add(new_user)
-        await session.commit()
-        await session.refresh(new_user)
-        return new_user
     
     @classmethod
     async def create_new(cls, session: AsyncSession, email: str, user_name: str):
