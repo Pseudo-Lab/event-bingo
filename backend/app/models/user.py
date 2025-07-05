@@ -28,7 +28,7 @@ class BingoUser(Base):
     agreement_at = mapped_column(DateTime(timezone=True),  nullable=True)
     
     @classmethod
-    async def create_new(cls, session: AsyncSession, email: str, user_name: str):
+    async def create(cls, session: AsyncSession, email: str, user_name: str):
         is_user = await session.execute(select(cls).where(cls.user_email == email))
         is_user = is_user.one_or_none()
         if is_user:
@@ -53,14 +53,6 @@ class BingoUser(Base):
     async def get_user_by_name(cls, session: AsyncSession, user_name: str):
         res = await session.execute(select(cls).where(cls.user_name == user_name))
         user = res.scalars().first()
-        return user
-
-    @classmethod
-    async def get_user_by_id(cls, session: AsyncSession, user_id: int):
-        res = await session.execute(select(cls).where(cls.user_id == user_id))
-        user = res.scalars().first()
-        if not user:
-            raise ValueError(f"{user_id} 의 빙고 유저가 존재하지 않습니다.")
         return user
 
     @classmethod
