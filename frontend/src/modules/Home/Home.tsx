@@ -7,12 +7,9 @@ import {
   Checkbox,
   FormControlLabel,
   Dialog,
-  DialogTitle,
-  DialogContent,
   DialogActions,
   Snackbar,
   Alert,
-  Link,
 } from "@mui/material";
 import { styled } from "@mui/system";
 import { useState, useEffect } from "react";
@@ -49,7 +46,6 @@ const Home = () => {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertSeverity, setAlertSeverity] = useState<'error' | 'success'>('error');
-  const [newLoginModal, setNewLoginModal] = useState(false);
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
 
@@ -82,35 +78,6 @@ const Home = () => {
     localStorage.setItem("myEmail", result.user_email);
     localStorage.setItem("myUserName", result.user_name);
     setIsLoggedIn(true);
-    window.location.href = "/bingo";
-  };
-
-  const handleNewSingupModal = () => {
-    setNewUserEmail(loginEmail);
-    setNewLoginModal(true);
-  }
-
-  const handleNewSignup = async () => {
-    if (!newUserName || !newUserEmail) {
-      setAlertMessage("이름과 이메일을 모두 입력해주세요.");
-      setAlertSeverity("error");
-      setAlertOpen(true);
-      return;
-    }
-  
-    const result = await newSingUpUser(newUserEmail, newUserName);
-    if (!result.ok) {
-      setAlertMessage(result.message || "가입에 실패했습니다.");
-      setAlertSeverity("error");
-      setAlertOpen(true);
-      return;
-    }
-  
-    localStorage.setItem("myID", result.user_id);
-    localStorage.setItem("myEmail", result.user_email);
-    localStorage.setItem("myUserName", result.user_name);
-    setIsLoggedIn(true);
-    setNewLoginModal(false);
     window.location.href = "/bingo";
   };
 
