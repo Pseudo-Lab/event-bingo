@@ -1,7 +1,7 @@
 // import { Link } from "react-router-dom";
 import { Box, Grid, Container, Typography } from "@mui/material";
 import CustomLogo from "../../components/common/CustomLogo";
-import ExternalLink from "../../components/common/ExternalLink";
+// import ExternalLink from "../../components/common/ExternalLink";
 
 const Footer = () => {
   return (
