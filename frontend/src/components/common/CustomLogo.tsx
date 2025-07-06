@@ -1,7 +1,6 @@
 import { styled } from "@mui/system";
 import logo from "../../assets/react.svg";
 import { Link } from "react-router-dom";
-import React from "react";
 
 type LogoImageProps = {
   maxWidth: string;
