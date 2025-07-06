@@ -106,16 +106,16 @@ const BingoGame = () => {
   });
   const bingoMissionCount = bingoConfig.bingoMissionCount;
   const keywordCount = bingoConfig.keywordCount;
-  // const [showReviewModal, setShowReviewModal] = useState(false);
-  // const [reviewStars, setReviewStars] = useState<number | null>(null);
-  // const [reviewText, setReviewText] = useState('');
-  // const [hideReviewModal, setHideReviewModal] = useState(() =>localStorage.getItem("hideReviewModal") === "true");
   const [showAllBingoModal, setShowAllBingoModal] = useState(false);
-  // const visibleModal = showAllBingoModal
-  //   ? "allBingo"
-  //   : showReviewModal
-  //   ? "review"
-  //   : null;
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewStars, setReviewStars] = useState<number | null>(null);
+  const [reviewText, setReviewText] = useState('');
+  const [hideReviewModal, setHideReviewModal] = useState(() =>localStorage.getItem("hideReviewModal") === "true");
+  const visibleModal = showAllBingoModal
+    ? "allBingo"
+    : showReviewModal
+    ? "review"
+    : null;
 
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
@@ -1147,7 +1147,15 @@ const BingoGame = () => {
           </Box>
         )}
 
-        {/* <Dialog open={visibleModal === "review"} onClose={() => setShowReviewModal(false)}>
+        {/* Review Dialog */}
+        <Dialog
+          open={visibleModal === "review"}
+          onClose={(event, reason) => {
+            if (reason !== 'backdropClick') {
+              setShowReviewModal(false);
+            }
+          }}
+        >
           <DialogContent>
             <Typography mb={2}>빙고 게임에 대한 간단한 피드백을 남겨주세요.</Typography>
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
@@ -1175,7 +1183,7 @@ const BingoGame = () => {
                 setShowReviewModal(false);
               }}
             >
-              닫기
+              취소
             </Button>
             <Button
               variant="contained"
@@ -1194,10 +1202,12 @@ const BingoGame = () => {
                 }
               }}
             >
-              제출
+              평가 완료
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Mission Complete Dialog */}
         <Dialog
           open={visibleModal === "allBingo"}
           onClose={() => {
@@ -1208,7 +1218,7 @@ const BingoGame = () => {
           <DialogTitle>3줄 미션 달성 🎉</DialogTitle>
           <DialogContent>
             <Typography>축하합니다! 빙고를 완성했습니다.</Typography>
-            <Typography>Devfactory 부스로 오셔서 소정의 선물 받아가세요!</Typography>
+            {/* <Typography>Devfactory 부스로 오셔서 소정의 선물 받아가세요!</Typography> */}
             <br></br>
             <Typography>
               재미있게 즐기셨다면{' '}
@@ -1229,7 +1239,7 @@ const BingoGame = () => {
               닫기
             </Button>
           </DialogActions>
-        </Dialog> */}
+        </Dialog>
         
         {/* 알림 */}
         <Snackbar 
