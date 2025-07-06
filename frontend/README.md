@@ -1,50 +1,28 @@
-Test
+# 빙고 사용하는 방법
 
-# React + TypeScript + Vite
-
-# 폴더 구조 정리
+### 수정해야할 폴더
 
 ```
-src
-├─assets
-├─components        // 범용성 있는 컴포넌트 모음
-│  └─common
-├─modules           // 각 페이지
-│  ├─Admin
-│  ├─Builder
-│  ├─Header
-│  ├─Home
-│  │  └─components  // 페이지 전용 컴포넌트
-│  └─Runner
-├─styles
-└─utils
+frontend
+├─public        
+│  └─templates // 개인 정보 관련 마크다운 파일
+└─src
+   └─config // 빙고, 행사 관련 정보 입력
 ```
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+### 1. 행사 정보 입력
+config 폴더 내 settings.json에 있는 내용을 변경해서 사용
+(헹사 날짜, 행사 장소, 주최자 등 설정)
 
-Currently, two official plugins are available:
+### 2. 빙고 관련 추가 설정
+config 폴더 내 bingoConfig.ts에 있는 내용을 변경해서 사용
+unlockTime: 빙고 시작 시간, 시작 시간 이전까지는 타이머 페이지만 보임
+keywordCount: 유저가 고를 수 있는 키워드 개수 (default: 3)
+bingoMissionCount: 빙고 완료 조건 개수 (default: 3 빙고)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 3. 빙고 키워드 변경
+config 폴더 내 bingo-keywords.json에 있는 키워드 1~24를 원하는 키워드로 변경해서 사용
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: "latest",
-    sourceType: "module",
-    project: ["./tsconfig.json", "./tsconfig.node.json"],
-    tsconfigRootDir: __dirname,
-  },
-};
-```
-
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+### 4. 개인 정보 동의 관련 내용 변경
+public/templates 폴더 내 consent.md 파일 변경해서 사용
+{host} 부분은 settings.json에 설정된 host값을 그대로 사용하니 그대로 두고 사용하세요.
