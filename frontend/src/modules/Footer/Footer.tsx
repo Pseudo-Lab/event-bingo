@@ -25,7 +25,7 @@ const Footer = () => {
         </Grid>
         <Box mt={3}>
           <Typography variant="body2" color="inherit" align="center">
-            Copyright © {new Date().getFullYear()} 가짜연구소(Pseudo Lab)
+            Copyright © 2024 가짜연구소 DevFactory
           </Typography>
         </Box>
       </Container>
