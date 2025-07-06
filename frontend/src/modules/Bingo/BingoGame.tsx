@@ -20,7 +20,7 @@ import {
   submitReview,
 } from "../../api/bingo_api.ts";
 import logo from '../../assets/react.svg';
-import bingoKeywords from '../../data/bingo-keywords.json';
+import bingoKeywords from '../../config/bingo-keywords.json';
 import { bingoConfig } from '../../config/bingoConfig.ts';
 
 // Define proper interfaces
