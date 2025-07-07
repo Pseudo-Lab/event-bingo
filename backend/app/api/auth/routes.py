@@ -5,13 +5,13 @@ from api.auth.services.bingo_login import LoginUser, GetBingoUserByName, GetBing
 auth_router = APIRouter(prefix="/auth")
 
 
-@auth_router.post("/bingo/sign-up", response_model=BingoUser, description="빙고용 회원가입 API")
-async def bingo_sign_up(email: str, bingo_user: LoginUser = Depends(LoginUser)):
-    res = await bingo_user.execute(email)
-    return res
+# @auth_router.post("/bingo/sign-up", response_model=BingoUser, description="빙고용 회원가입 API")
+# async def bingo_sign_up(email: str, bingo_user: LoginUser = Depends(LoginUser)):
+#     res = await bingo_user.execute(email)
+#     return res
 
 
-@auth_router.post("/bingo/new-sign-up", response_model=BingoUser, description="빙고용 임시 회원가입 API")
+@auth_router.post("/bingo/new-sign-up", response_model=BingoUser, description="빙고 회원가입 API")
 async def bingo_new_sign_up(email: str, username: str, new_bingo_user: NewLoginUser = Depends(NewLoginUser)):
     res = await new_bingo_user.execute(email, username)
     return res
