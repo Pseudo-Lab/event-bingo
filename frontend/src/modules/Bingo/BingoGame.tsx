@@ -137,6 +137,40 @@ const BingoGame = () => {
         window.location.href = "/";
         return;
       }
+      if (storedId) {
+        try {
+          setUserId(storedId);
+          const boardData = await getBingoBoard(storedId);
+          const boardInteractionData = await getUserInteractionCount(storedId);
+          setMetPersonNum(boardInteractionData)
+          if (boardData && boardData.length > 0) {
+            setBingoBoard(boardData);
+            setInitialSetupOpen(false);
+
+            const selectedKeywords = boardData
+              .filter(cell => cell.selected === 1)
+              .map(cell => cell.value);
+            setMyKeywords(selectedKeywords);
+
+            const getBingoKeywords = boardData
+              .filter(cell => cell.status === 1)
+              .map(cell => cell.value);
+            setCollectedKeywords(getBingoKeywords.length - 1);
+            setCollectedKeywords(getBingoKeywords.length - 1);
+
+            const interactionData = await getUserLatestInteraction(storedId, 0);
+            if (Array.isArray(interactionData) && interactionData.length > 0) {
+              const latestSenderId = interactionData[0].send_user_id;
+              const latestInteractions = interactionData.filter(
+                item => item.send_user_id === latestSenderId
+              );
+              const receivedKeywords = latestInteractions.flatMap(
+                (item) => item.word_id_list ?? []
+              );
+              setLatestReceivedKeywords(receivedKeywords);
+            }
+          }
+          else {
             const shuffledValues = shuffleArray(cellValues);
             const initialBoard: BingoCell[] = Array(25).fill(null).map((_, i) => {
               if (i === 12) {
@@ -159,6 +193,12 @@ const BingoGame = () => {
             setBingoBoard(initialBoard);
             setInitialSetupOpen(true);
           }
+        } catch (error) {
+          console.error("Error loading user board:", error);
+        }
+      }
+      if (userName) setUsername(userName);
+    };
 
     init();
   }, []);
