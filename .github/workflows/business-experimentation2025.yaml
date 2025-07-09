@@ -1,0 +1,43 @@
+name: Deploy Docker Compose for business-experimentation2025
+
+on:
+  push:
+    branches:
+      - business-experimentation2025
+  workflow_dispatch:  # 수동 실행도 가능
+
+jobs:
+  docker-compose-up:
+    runs-on: oracle
+    environment: business-experimentation2025
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create .env file
+        run: |
+          set -e
+          cat <<EOF > .env
+          FRONTEND_PORT=${{ secrets.FRONTEND_PORT }}
+          BACKEND_PORT=${{ secrets.BACKEND_PORT }}
+          VITE_API_URL=${{ secrets.VITE_API_URL }}
+          DB_ROOT=${{ secrets.DB_ROOT }}
+          DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          SWAGGER_USERNAME=${{ secrets.SWAGGER_USERNAME }}
+          SWAGGER_PASSWORD=${{ secrets.SWAGGER_PASSWORD }}
+          EOF
+
+      - name: Build and Run with Docker Compose
+        run: |
+          set -e
+          docker compose -p ${{ github.ref_name }} up -d --build
