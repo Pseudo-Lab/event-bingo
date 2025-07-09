@@ -83,7 +83,7 @@ const Home = () => {
       <Typography variant="h3" sx={{ fontWeight: "bold", marginBottom: "1rem", color: "whitesmoke" }}>
         {config.title}
       </Typography>
-      <Typography variant="h4" sx={{ fontWeight: "bold", marginBottom: "0.5rem", color: "whitesmoke" }}>
+      <Typography variant="h5" sx={{ fontWeight: "bold", marginBottom: "0.5rem", color: "whitesmoke" }}>
         {config.subTitle}
       </Typography>
       <Typography variant="h6" sx={{ marginBottom: "1rem", color: "whitesmoke" }}>
