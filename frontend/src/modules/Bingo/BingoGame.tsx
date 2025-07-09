@@ -399,7 +399,7 @@ const BingoGame = () => {
       
       if (bingoCount >= 1 && !hideReviewModal) {
         setShowReviewModal(true);
-      } 
+      }
   
       // Clear animation after some time
       setTimeout(() => {
