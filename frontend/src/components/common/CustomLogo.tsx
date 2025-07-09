@@ -1,5 +1,5 @@
 import { styled } from "@mui/system";
-import logo from "../../assets/react.svg";
+import logo from "../../assets/example.svg";
 import { Link } from "react-router-dom";
 
 type LogoImageProps = {
