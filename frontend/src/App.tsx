@@ -17,7 +17,7 @@ function App() {
         <Container className="App">
           <Routes>
             <Route path="/" Component={Home} />
-            <Route path="/bingo" element={<BingoGame />} />
+            <Route path="/business-experimentation2025" element={<BingoGame />} />
           </Routes>
           <Footer />
         </Container>

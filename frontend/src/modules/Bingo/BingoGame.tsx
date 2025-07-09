@@ -22,6 +22,7 @@ import {
 import logo from '../../assets/react.svg';
 import bingoKeywords from '../../config/bingo-keywords.json';
 import { bingoConfig } from '../../config/bingoConfig.ts';
+import { BackgroundContainer } from '../Home/BackgroundContainter';
 
 // Define proper interfaces
 interface BingoCell {
@@ -48,17 +49,6 @@ interface ExchangeRecord {
 }
 
 const cellValues = bingoKeywords.keywords;
-
-const GradientContainer = styled(Container)(({ theme }) => ({
-  minHeight: "75vh",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  alignItems: "center",
-  background: "linear-gradient(135deg, #FFE5EC, #E0F7FA)",
-  padding: 0,
-  textAlign: "center",
-}));
 
 const BingoGame = () => {
   const navigate = useNavigate();
@@ -147,40 +137,6 @@ const BingoGame = () => {
         window.location.href = "/";
         return;
       }
-      if (storedId) {
-        try {
-          setUserId(storedId);
-          const boardData = await getBingoBoard(storedId);
-          const boardInteractionData = await getUserInteractionCount(storedId);
-          setMetPersonNum(boardInteractionData)
-          if (boardData && boardData.length > 0) {
-            setBingoBoard(boardData);
-            setInitialSetupOpen(false);
-
-            const selectedKeywords = boardData
-              .filter(cell => cell.selected === 1)
-              .map(cell => cell.value);
-            setMyKeywords(selectedKeywords);
-
-            const getBingoKeywords = boardData
-              .filter(cell => cell.status === 1)
-              .map(cell => cell.value);
-            setCollectedKeywords(getBingoKeywords.length - 1);
-            setCollectedKeywords(getBingoKeywords.length - 1);
-
-            const interactionData = await getUserLatestInteraction(storedId, 0);
-            if (Array.isArray(interactionData) && interactionData.length > 0) {
-              const latestSenderId = interactionData[0].send_user_id;
-              const latestInteractions = interactionData.filter(
-                item => item.send_user_id === latestSenderId
-              );
-              const receivedKeywords = latestInteractions.flatMap(
-                (item) => item.word_id_list ?? []
-              );
-              setLatestReceivedKeywords(receivedKeywords);
-            }
-          }
-          else {
             const shuffledValues = shuffleArray(cellValues);
             const initialBoard: BingoCell[] = Array(25).fill(null).map((_, i) => {
               if (i === 12) {
@@ -203,12 +159,6 @@ const BingoGame = () => {
             setBingoBoard(initialBoard);
             setInitialSetupOpen(true);
           }
-        } catch (error) {
-          console.error("Error loading user board:", error);
-        }
-      }
-      if (userName) setUsername(userName);
-    };
 
     init();
   }, []);
@@ -407,9 +357,9 @@ const BingoGame = () => {
         setHasShownConfetti(true);
       }
       
-      // if (bingoCount >= 1 && !hideReviewModal) {
-      //   setShowReviewModal(true);
-      // }
+      if (bingoCount >= 1 && !hideReviewModal) {
+        setShowReviewModal(true);
+      } 
   
       // Clear animation after some time
       setTimeout(() => {
@@ -674,8 +624,8 @@ const BingoGame = () => {
     const seconds = Math.floor((remainingTime / 1000) % 60);
   
     return (
-      <GradientContainer>
-        <Box sx={{ textAlign: 'center' }}>
+      <BackgroundContainer>
+        <Box sx={{ textAlign: 'center', position: 'relative', zIndex: 1, width: '100%', color: "whitesmoke" }}>
           <Typography variant="h4" gutterBottom>빙고 카운트다운!</Typography>
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 4 }}>
             {[{ label: '일', value: days },
@@ -689,16 +639,34 @@ const BingoGame = () => {
                 <Typography variant="subtitle1">{label}</Typography>
               </Box>
             ))}
-          </Box>  
+          </Box>
+          <Button 
+            variant="outlined"
+            color="primary"
+            onClick={() => navigate('/')}
+            startIcon={<HomeIcon />}
+            sx={{
+              color: '#fff',
+              borderColor: '#fff',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderColor: '#fff',
+              },
+              fontWeight: 500,
+              mt: 4
+            }}
+          >
+            홈으로
+          </Button>
         </Box>
-      </GradientContainer>
+      </BackgroundContainer>
     );
   }
 
 
   return (
-    <GradientContainer>
-      <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
+    <BackgroundContainer>
+      <Box sx={{ maxWidth: 600, mx: 'auto', p: 2, position: 'relative', zIndex: 1, width: '100%' }}>
         {/* 초기 키워드 설정 모달 */}
         <Dialog 
           open={initialSetupOpen} 
@@ -739,6 +707,7 @@ const BingoGame = () => {
             <Button
               onClick={() => (window.location.href = "/")}
               variant="outlined"
+              startIcon={<HomeIcon />}
             >
               홈으로
             </Button>
@@ -954,27 +923,31 @@ const BingoGame = () => {
         {/* 기록 보기 버튼 */}
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
           <Button 
-            variant="contained" 
-            color="primary"
-            onClick={() => setShowHistory(!showHistory)}
-            sx={{ px: 3, width: '150px' }}
-          >
-            교환 기록 {showHistory ? '가리기' : '보기'}
-          </Button>
-          <Button 
             variant="outlined"
             color="primary"
             onClick={() => navigate('/')}
             startIcon={<HomeIcon />}
-            sx={{ 
-              px: 3, 
-              width: '150px', 
-              ml: 1,
-              textTransform: 'none',
-              fontWeight: 500
+            sx={{
+              color: '#fff',
+              borderColor: '#fff',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderColor: '#fff',
+              },
+              fontWeight: 500,
+              width: '150px',
+              px: 3
             }}
           >
             홈으로
+          </Button>
+          <Button 
+            variant="contained" 
+            color="primary"
+            onClick={() => setShowHistory(!showHistory)}
+            sx={{ px: 3, width: '150px', ml: 1 }}
+          >
+            교환 기록 {showHistory ? '가리기' : '보기'}
           </Button>
         </Box>
         
@@ -982,7 +955,7 @@ const BingoGame = () => {
         {showHistory && (
           <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-              <Typography variant="h6" fontWeight="bold">키워드 교환 기록</Typography>
+              <Typography variant="body1" fontWeight="bold">키워드 교환 기록</Typography>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {exchangeHistory.map((history) => (
@@ -1168,7 +1141,7 @@ const BingoGame = () => {
           </Alert>
         </Snackbar>
       </Box>
-    </GradientContainer>
+    </BackgroundContainer>
   );
 };
 

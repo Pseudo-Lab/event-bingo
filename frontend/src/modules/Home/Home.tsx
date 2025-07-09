@@ -1,6 +1,5 @@
 import {
   Box,
-  Container,
   Typography,
   Input,
   Button,
@@ -17,17 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { newSingUpUser } from "../../api/bingo_api";
 import config from '../../config/settings.json';
 import ConsentDialog from './ConsentDialog';
-
-const GradientContainer = styled(Container)(({ theme }) => ({
-  minHeight: "75vh",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  alignItems: "center",
-  background: "linear-gradient(135deg, #FFE5EC, #E0F7FA)",
-  padding: theme.spacing(4),
-  textAlign: "center",
-}));
+import { BackgroundContainer } from './BackgroundContainter';
 
 const StyledInput = styled(Input)({
   marginTop: "1rem",
@@ -78,7 +67,7 @@ const Home = () => {
     localStorage.setItem("myEmail", result.user_email);
     localStorage.setItem("myUserName", result.user_name);
     setIsLoggedIn(true);
-    window.location.href = "/bingo";
+    window.location.href = "/business-experimentation2025";
   };
 
   const handleLogout = () => {
@@ -89,14 +78,15 @@ const Home = () => {
   };
 
   return (
-    <GradientContainer>
-      <Typography variant="h3" sx={{ fontWeight: "bold", marginBottom: "1rem" }}>
+    <BackgroundContainer>
+      <Box sx={{ position: 'relative', zIndex: 1, width: '100%' }}>
+      <Typography variant="h3" sx={{ fontWeight: "bold", marginBottom: "1rem", color: "whitesmoke" }}>
         {config.title}
       </Typography>
-      <Typography variant="h4" sx={{ fontWeight: "bold", marginBottom: "0.5rem" }}>
+      <Typography variant="h4" sx={{ fontWeight: "bold", marginBottom: "0.5rem", color: "whitesmoke" }}>
         {config.subTitle}
       </Typography>
-      <Typography variant="h6" sx={{ marginBottom: "1rem", color: "#555" }}>
+      <Typography variant="h6" sx={{ marginBottom: "1rem", color: "whitesmoke" }}>
         {config.date} | {config.place}
       </Typography>
       {!isLoggedIn ? (
@@ -119,15 +109,23 @@ const Home = () => {
                   if (!isAgreed) setAgreeOpen(true);
                   else setIsAgreed(false);
                 }}
+                sx={{ color: "whitesmoke" }}
               />
             }
             label="개인정보 처리 동의(필수)"
-            sx={{ mt: 1 }}
+            sx={{ mt: 1, color: "whitesmoke" }}
           />
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: "5px" }}>
             <Button
               variant="contained"
-              sx={{ marginRight: '10px', backgroundColor: '#698BFF' }}
+              sx={{ 
+                marginRight: '10px',
+                backgroundColor: 'primary',
+                '&.Mui-disabled': {
+                  backgroundColor: 'rgba(105, 139, 255, 0.4)',
+                  color: '#eee',
+                },
+              }}
               onClick={handLogin}
               disabled={!isAgreed || loginEmail === ""}
             >
@@ -137,16 +135,29 @@ const Home = () => {
         </>
       ) : (
         <>
-          <Typography variant="h6" sx={{ fontWeight: "bold", marginTop: "1rem", color: "#333" }}>
+          <Typography variant="h6" sx={{ fontWeight: "bold", marginTop: "1rem", color: "whitesmoke" }}>
             {loginEmail || localStorage.getItem("myEmail")}
           </Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'center', marginTop: "5px" }}>
-            <Button variant="contained" onClick={handleLogout} sx={{ marginRight: "10px", backgroundColor: '#698BFF' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1.5 }}>
+            <Button
+              variant="outlined"
+              onClick={handleLogout}
+              sx={{
+                marginRight: "10px",
+                color: '#fff',
+                borderColor: '#fff',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  borderColor: '#fff',
+                },
+              }}
+            >
               로그아웃
             </Button>
             <Button 
-              variant="outlined" 
-              onClick={() => navigate('/bingo')}
+              variant="contained" 
+              onClick={() => navigate('/business-experimentation2025')}
+              sx={{ backgroundColor: 'primary' }}
             >
               빙고로 이동
             </Button>
@@ -186,7 +197,8 @@ const Home = () => {
           ))}
         </Alert>
       </Snackbar>
-    </GradientContainer>
+      </Box>
+    </BackgroundContainer>
   );
 };
 
