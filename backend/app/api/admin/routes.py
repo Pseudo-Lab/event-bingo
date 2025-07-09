@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from core.db import AsyncSessionDepends
-from api.admin.services import set_test_bingo_board
+from .services import set_test_bingo_board
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 

@@ -32,6 +32,8 @@ async def set_test_bingo_board(db: AsyncSession, user_id: int, bingo_count: int)
                 if str(idx) in data:
                     data[str(idx)]["status"] = 1
 
+    board.bingo_count = bingo_count
+
     # 3. DB에 저장
     flag_modified(board, "board_data")
     await db.commit()
