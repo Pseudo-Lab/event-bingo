@@ -407,9 +407,9 @@ const BingoGame = () => {
         setHasShownConfetti(true);
       }
       
-      // if (bingoCount >= 1 && !hideReviewModal) {
-      //   setShowReviewModal(true);
-      // }
+      if (bingoCount >= 1 && !hideReviewModal) {
+        setShowReviewModal(true);
+      }
   
       // Clear animation after some time
       setTimeout(() => {
