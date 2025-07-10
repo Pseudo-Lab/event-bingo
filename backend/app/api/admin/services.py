@@ -1,7 +1,9 @@
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import select
 from core.db import AsyncSession
+from models.user import BingoUser
 from models.bingo.bingo_boards import BingoBoards
+from typing import List
 
 
 async def set_test_bingo_board(db: AsyncSession, user_id: int, bingo_count: int) -> BingoBoards:
@@ -40,3 +42,21 @@ async def set_test_bingo_board(db: AsyncSession, user_id: int, bingo_count: int)
     await db.refresh(board)
 
     return board
+
+
+async def get_all_users(db: AsyncSession) -> List[BingoUser]:
+    """
+    모든 유저 정보를 조회합니다.
+    """
+    result = await db.execute(select(BingoUser))
+    users = result.scalars().all()
+    return users
+
+
+async def get_all_bingo_boards(db: AsyncSession) -> List[BingoBoards]:
+    """
+    모든 유저의 빙고 보드 정보를 조회합니다.
+    """
+    result = await db.execute(select(BingoBoards))
+    boards = result.scalars().all()
+    return boards
