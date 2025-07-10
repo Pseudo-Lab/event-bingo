@@ -869,20 +869,18 @@ const BingoGame = () => {
                     <Typography 
                       variant="caption" 
                       sx={{ 
-                        fontSize:
-                          cell.value.length <= 7
-                            ? 'clamp(0.6rem, 3vw, 1rem)'
-                            : cell.value.length <= 14
-                            ? 'clamp(0.6rem, 2.8vw, 0.85rem)'
-                            : 'clamp(0.5rem, 2.5vw, 0.7rem)',
+                        fontSize: '30px',
                         fontWeight: 'bold',
                         textAlign: 'center',
-                        display: '-webkit-box',
                         WebkitLineClamp: 2,
                         WebkitBoxOrient: 'vertical',
                         overflow: 'hidden', 
                         textOverflow: 'ellipsis', 
                         width: '100%',
+                        overflowWrap: 'break-word',
+                        wordBreak: 'keep-all',
+                        whiteSpace: 'normal',
+                        display: 'block',
                         color: cell.status ? 
                           (animatedCells.includes(index) ? 'white' : 
                           (isCellInCompletedLine(index) ? 'amber.800' : 'primary.800')) 
