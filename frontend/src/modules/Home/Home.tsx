@@ -83,6 +83,9 @@ const Home = () => {
       <Typography variant="h3" sx={{ fontWeight: "bold", marginBottom: "1rem", color: "whitesmoke" }}>
         {config.title}
       </Typography>
+      <Typography variant="h3" sx={{ fontWeight: "bold", marginBottom: "1rem", color: "whitesmoke" }}>
+        {config.title2}
+      </Typography>
       <Typography variant="h5" sx={{ fontWeight: "bold", marginBottom: "0.5rem", color: "whitesmoke" }}>
         {config.subTitle}
       </Typography>
@@ -156,7 +159,7 @@ const Home = () => {
             </Button>
             <Button 
               variant="contained" 
-              onClick={() => navigate('/business-experimentation2025')}
+              onClick={() => navigate('/business-experimentation2025/bingo')}
               sx={{ backgroundColor: 'primary' }}
             >
               빙고로 이동

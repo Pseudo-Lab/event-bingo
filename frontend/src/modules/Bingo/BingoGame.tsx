@@ -134,7 +134,7 @@ const BingoGame = () => {
       const userName = localStorage.getItem("myUserName");
 
       if (!storedId) {
-        window.location.href = "/";
+        window.location.href = "/business-experimentation2025";
         return;
       }
       if (storedId) {
@@ -683,7 +683,7 @@ const BingoGame = () => {
           <Button 
             variant="outlined"
             color="primary"
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/business-experimentation2025")}
             startIcon={<HomeIcon />}
             sx={{
               color: '#fff',
@@ -745,7 +745,7 @@ const BingoGame = () => {
           </DialogContent>
           <DialogActions>
             <Button
-              onClick={() => (window.location.href = "/")}
+              onClick={() => (window.location.href = "/business-experimentation2025")}
               variant="outlined"
               startIcon={<HomeIcon />}
             >
@@ -965,7 +965,7 @@ const BingoGame = () => {
           <Button 
             variant="outlined"
             color="primary"
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/business-experimentation2025")}
             startIcon={<HomeIcon />}
             sx={{
               color: '#fff',
