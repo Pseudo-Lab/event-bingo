@@ -869,7 +869,11 @@ const BingoGame = () => {
                     <Typography 
                       variant="caption" 
                       sx={{ 
-                        fontSize: '30px',
+                        fontSize: {
+                          xs: '1.2rem',   // 모바일 기준 약 19px
+                          sm: '1.5rem',   // 작은 태블릿 ~24px
+                          md: '1.875rem', // 웹 기준 약 30px (16 * 1.875)
+                        },
                         fontWeight: 'bold',
                         textAlign: 'center',
                         WebkitLineClamp: 2,
