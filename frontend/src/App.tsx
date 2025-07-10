@@ -14,7 +14,7 @@ function App() {
     <ThemeProvider theme={defaultTheme}>
       <BrowserRouter>
         <CssBaseline />
-        <Container className="App">
+        <Container className="App" disableGutters maxWidth={false}>
           <Routes>
             <Route path="/business-experimentation2025" Component={Home} />
             <Route path="/business-experimentation2025/bingo" element={<BingoGame />} />

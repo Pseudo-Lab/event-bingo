@@ -174,7 +174,7 @@ const BingoGame = () => {
             const initialBoard: BingoCell[] = Array(bingoLineLength**2).fill(null).map((_, i) => {
               return {
                 id: i,
-                value: shuffledValues[i < 12 ? i : i - 1],
+                value: shuffledValues[i] ?? '???',
                 selected: 0,
                 status: 0,
                 note: getCellNote(i),
@@ -649,7 +649,7 @@ const BingoGame = () => {
       <BackgroundContainer>
         <Box sx={{ textAlign: 'center', position: 'relative', zIndex: 1, width: '100%', color: "whitesmoke" }}>
           <Typography variant="h4" gutterBottom>빙고 카운트다운!</Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 4 }}>
             {[{ label: '일', value: days },
               { label: '시간', value: hours },
               { label: '분', value: minutes },
@@ -688,7 +688,7 @@ const BingoGame = () => {
 
   return (
     <BackgroundContainer>
-      <Box sx={{ maxWidth: 600, mx: 'auto', p: 2, position: 'relative', zIndex: 1, width: '100%' }}>
+      <Box sx={{ maxWidth: '100%', px: 1, position: 'relative', zIndex: 1, width: '100%' }}>
         {/* 초기 키워드 설정 모달 */}
         <Dialog 
           open={initialSetupOpen} 
@@ -857,13 +857,13 @@ const BingoGame = () => {
         </Paper>
         
         {/* 빙고 보드 */}
-        <Box sx={{ mb: 2, position: 'relative' }}>
+        <Box sx={{ mb: 1, position: 'relative', px: 1 }}>
           <Grid container spacing={0.5}>
             {bingoBoard?.map((cell, index) => (
-              <Grid item xs={12/bingoLineLength} sm={12/bingoLineLength} key={cell.id}>
+              <Grid item xs={Math.floor(12 / bingoLineLength)} sm={Math.floor(12 / bingoLineLength)} key={cell.id}>
                 <Paper
                   elevation={cell.status ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
-                  sx={getCellStyle(index)}
+                  sx={{...getCellStyle(index), p: 0.5}}
                 >
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography 
