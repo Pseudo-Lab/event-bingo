@@ -648,7 +648,7 @@ const BingoGame = () => {
     const seconds = Math.floor((remainingTime / 1000) % 60);
   
     return (
-      <BackgroundContainer>
+      <BackgroundContainer maxWidth={false} disableGutters>
         <Box sx={{ textAlign: 'center', position: 'relative', zIndex: 1, width: '100%', color: "whitesmoke" }}>
           <Typography variant="h4" gutterBottom>빙고 카운트다운!</Typography>
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 4 }}>
@@ -689,7 +689,7 @@ const BingoGame = () => {
 
 
   return (
-    <BackgroundContainer>
+    <BackgroundContainer maxWidth={false} disableGutters>
       <Box sx={{ maxWidth: 600, mx: 'auto', p: 2, position: 'relative', zIndex: 1, width: '100%' }}>
         {/* 초기 키워드 설정 모달 */}
         <Dialog 

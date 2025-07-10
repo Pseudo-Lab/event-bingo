@@ -14,6 +14,8 @@ export const GradientContainer = styled(Container)(({ theme }) => ({
 
 
 export const BackgroundContainer = styled(Container)(({ theme }) => ({
+	width: '100%',
+	margin: 0,
 	position: "relative",
 	minHeight: "75vh",
 	display: "flex",
