@@ -688,7 +688,7 @@ const BingoGame = () => {
 
   return (
     <BackgroundContainer>
-      <Box sx={{ maxWidth: '100%', px: 1, position: 'relative', zIndex: 1, width: '100%' }}>
+      <Box sx={{ maxWidth: '97vw', px: 1, position: 'relative', zIndex: 1, width: '97vw' }}>
         {/* 초기 키워드 설정 모달 */}
         <Dialog 
           open={initialSetupOpen} 
