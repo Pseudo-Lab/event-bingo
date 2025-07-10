@@ -870,7 +870,7 @@ const BingoGame = () => {
                       variant="caption" 
                       sx={{ 
                         fontSize: {
-                          xs: '1.2rem',   // 모바일 기준 약 19px
+                          xs: '0.8rem',   // 모바일 기준 약 19px
                           sm: '1.5rem',   // 작은 태블릿 ~24px
                           md: '1.875rem', // 웹 기준 약 30px (16 * 1.875)
                         },
