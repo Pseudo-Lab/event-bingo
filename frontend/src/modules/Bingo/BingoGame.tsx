@@ -19,7 +19,6 @@ import {
   getUserName,
   submitReview,
 } from "../../api/bingo_api.ts";
-import logo from '../../assets/react.svg';
 import bingoKeywords from '../../config/bingo-keywords.json';
 import { bingoConfig } from '../../config/bingoConfig.ts';
 import { BackgroundContainer } from '../Home/BackgroundContainter';
@@ -648,7 +647,7 @@ const BingoGame = () => {
     const seconds = Math.floor((remainingTime / 1000) % 60);
   
     return (
-      <BackgroundContainer maxWidth={false} disableGutters>
+      <BackgroundContainer>
         <Box sx={{ textAlign: 'center', position: 'relative', zIndex: 1, width: '100%', color: "whitesmoke" }}>
           <Typography variant="h4" gutterBottom>빙고 카운트다운!</Typography>
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 4 }}>
@@ -689,7 +688,7 @@ const BingoGame = () => {
 
 
   return (
-    <BackgroundContainer maxWidth={false} disableGutters>
+    <BackgroundContainer>
       <Box sx={{ maxWidth: 600, mx: 'auto', p: 2, position: 'relative', zIndex: 1, width: '100%' }}>
         {/* 초기 키워드 설정 모달 */}
         <Dialog 

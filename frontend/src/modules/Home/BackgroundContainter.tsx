@@ -13,18 +13,19 @@ export const GradientContainer = styled(Container)(({ theme }) => ({
 }));
 
 
-export const BackgroundContainer = styled(Container)(({ theme }) => ({
+export const BackgroundContainer = styled('div')(({ theme }) => ({
 	width: '100%',
-	margin: 0,
+	minHeight: "100vh",
+	overflowX: 'hidden',
 	position: "relative",
-	minHeight: "75vh",
 	display: "flex",
 	flexDirection: "column",
 	justifyContent: "center",
 	alignItems: "center",
 	padding: theme.spacing(4),
+	boxSizing: 'border-box',
 	textAlign: "center",
-	overflow: "hidden",
+	backgroundColor: "#f9f9f9",
 
 	"::before": {
 		content: '""',
