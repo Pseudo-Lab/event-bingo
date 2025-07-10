@@ -286,18 +286,10 @@ const BingoGame = () => {
       } = {};
 
       bingoBoard?.forEach((item, index) => {
-        if (index === 12) {
-          boardData[index] = {
-            value: 'Logo',
-            status: 1,
-            selected: 0,
-          };
-        } else {
-          boardData[index] = {
-            value: item.value,
-            status: 0,
-            selected: selectedInitialKeywords.includes(item.value) ? 1 : 0,
-          };
+        boardData[index] = {
+          value: item.value,
+          status: 0,
+          selected: selectedInitialKeywords.includes(item.value) ? 1 : 0,
         }
       });
       
