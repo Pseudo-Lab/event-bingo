@@ -15,7 +15,7 @@ export const GradientContainer = styled(Container)(({ theme }) => ({
 
 export const BackgroundContainer = styled('div')(({ theme }) => ({
 	width: '100%',
-	minHeight: "100vh",
+	minHeight: "75vh",
 	overflowX: 'hidden',
 	position: "relative",
 	display: "flex",

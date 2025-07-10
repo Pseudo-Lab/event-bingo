@@ -155,8 +155,7 @@ const BingoGame = () => {
             const getBingoKeywords = boardData
               .filter(cell => cell.status === 1)
               .map(cell => cell.value);
-            setCollectedKeywords(getBingoKeywords.length - 1);
-            setCollectedKeywords(getBingoKeywords.length - 1);
+            setCollectedKeywords(getBingoKeywords.length);
 
             const interactionData = await getUserLatestInteraction(storedId, 0);
             if (Array.isArray(interactionData) && interactionData.length > 0) {
@@ -785,7 +784,7 @@ const BingoGame = () => {
                 <Box sx={{ minHeight: 50 }}>
                   <Typography variant="caption" color="text.secondary">수집한 키워드</Typography>
                 </Box>
-                <Typography variant="h6" fontWeight="medium">{collectedKeywords}/24</Typography>
+                <Typography variant="h6" fontWeight="medium">{collectedKeywords}/{bingoLineLength**2}</Typography>
               </Paper>  
             </Grid>
             <Grid item xs={6}>
@@ -852,7 +851,7 @@ const BingoGame = () => {
                 }
               }}
             >
-              내 키워드 보내기
+              키워드 보내기
             </Button>
           </Box>
         </Paper>
