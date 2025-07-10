@@ -111,6 +111,7 @@ const BingoGame = () => {
   function getCellNote(index: number): string | undefined {
     return undefined;
   }
+  const bingoLineLength = 4;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -172,16 +173,7 @@ const BingoGame = () => {
           }
           else {
             const shuffledValues = shuffleArray(cellValues);
-            const initialBoard: BingoCell[] = Array(25).fill(null).map((_, i) => {
-              if (i === 12) {
-                return {
-                  id: i,
-                  value: 'Logo',
-                  selected: 0,
-                  status: 1,
-                  note: undefined,
-                };
-              }
+            const initialBoard: BingoCell[] = Array(bingoLineLength**2).fill(null).map((_, i) => {
               return {
                 id: i,
                 value: shuffledValues[i < 12 ? i : i - 1],
@@ -349,20 +341,20 @@ const BingoGame = () => {
     const cells: number[] = [];
     
     if (type === 'row') {
-      for (let col = 0; col < 5; col++) {
-        cells.push(index * 5 + col);
+      for (let col = 0; col < bingoLineLength; col++) {
+        cells.push(index * bingoLineLength + col);
       }
     } else if (type === 'col') {
-      for (let row = 0; row < 5; row++) {
-        cells.push(row * 5 + index);
+      for (let row = 0; row < bingoLineLength; row++) {
+        cells.push(row * bingoLineLength + index);
       }
     } else if (type === 'diagonal' && index === 1) {
-      for (let i = 0; i < 5; i++) {
-        cells.push(i * 5 + i);
+      for (let i = 0; i < bingoLineLength; i++) {
+        cells.push(i * bingoLineLength + i);
       }
     } else if (type === 'diagonal' && index === 2) {
-      for (let i = 0; i < 5; i++) {
-        cells.push(i * 5 + (4 - i));
+      for (let i = 0; i < bingoLineLength; i++) {
+        cells.push(i * bingoLineLength + (bingoLineLength - 1 - i));
       }
     }
     
@@ -422,7 +414,7 @@ const BingoGame = () => {
   }, [completedLines, bingoCount]);
   
   useEffect(() => {
-    if (bingoBoard?.length === 25) {
+    if (bingoBoard?.length === bingoLineLength**2) {
       checkBingoLines();
     }
   }, [bingoBoard]);
@@ -437,10 +429,10 @@ const BingoGame = () => {
     if (!bingoBoard) return;
 
     // 가로 줄 체크
-    for (let row = 0; row < 5; row++) {
+    for (let row = 0; row < bingoLineLength; row++) {
       let rowComplete = true;
-      for (let col = 0; col < 5; col++) {
-        if (!bingoBoard[row * 5 + col].status) {
+      for (let col = 0; col < bingoLineLength; col++) {
+        if (!bingoBoard[row * bingoLineLength + col].status) {
           rowComplete = false;
           break;
         }
@@ -453,10 +445,10 @@ const BingoGame = () => {
     }
     
     // 세로 줄 체크
-    for (let col = 0; col < 5; col++) {
+    for (let col = 0; col < bingoLineLength; col++) {
       let colComplete = true;
-      for (let row = 0; row < 5; row++) {
-        if (!bingoBoard[row * 5 + col].status) {
+      for (let row = 0; row < bingoLineLength; row++) {
+        if (!bingoBoard[row * bingoLineLength + col].status) {
           colComplete = false;
           break;
         }
@@ -470,8 +462,8 @@ const BingoGame = () => {
     
     // 대각선 체크 (좌상단 -> 우하단)
     let diagonal1Complete = true;
-    for (let i = 0; i < 5; i++) {
-      if (!bingoBoard[i * 5 + i].status) {
+    for (let i = 0; i < bingoLineLength; i++) {
+      if (!bingoBoard[i * bingoLineLength + i].status) {
         diagonal1Complete = false;
         break;
       }
@@ -484,8 +476,8 @@ const BingoGame = () => {
     
     // 대각선 체크 (우상단 -> 좌하단)
     let diagonal2Complete = true;
-    for (let i = 0; i < 5; i++) {
-      if (!bingoBoard[i * 5 + (4 - i)].status) {
+    for (let i = 0; i < bingoLineLength; i++) {
+      if (!bingoBoard[i * bingoLineLength + (bingoLineLength - 1 - i)].status) {
         diagonal2Complete = false;
         break;
       }
@@ -562,14 +554,14 @@ const BingoGame = () => {
 
   // 셀이 빙고 라인에 포함되어 있는지 확인
   const isCellInCompletedLine = (index: number) => {
-    const row = Math.floor(index / 5);
-    const col = index % 5;
+    const row = Math.floor(index / bingoLineLength);
+    const col = index % bingoLineLength;
     
     return completedLines.some(line => {
       if (line.type === 'row' && line.index === row) return true;
       if (line.type === 'col' && line.index === col) return true;
       if (line.type === 'diagonal' && line.index === 1 && row === col) return true;
-      if (line.type === 'diagonal' && line.index === 2 && col === 4 - row) return true;
+      if (line.type === 'diagonal' && line.index === 2 && col === bingoLineLength - 1 - row) return true;
       return false;
     });
   };
@@ -878,26 +870,12 @@ const BingoGame = () => {
         <Box sx={{ mb: 2, position: 'relative' }}>
           <Grid container spacing={0.5}>
             {bingoBoard?.map((cell, index) => (
-              <Grid item xs={2.4} sm={2.4} key={cell.id}>
+              <Grid item xs={12/bingoLineLength} sm={12/bingoLineLength} key={cell.id}>
                 <Paper
                   elevation={cell.status ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
                   sx={getCellStyle(index)}
                 >
                   <Box sx={{ textAlign: 'center' }}>
-                  {index === 12 ? (
-                    <Box
-                      component="img"
-                      src={logo}
-                      alt="Center Logo"
-                      sx={{
-                        width: '100%',
-                        height: 'auto',
-                        mx: 'auto',
-                        display: 'block',
-                        opacity: 0.9,
-                      }}
-                    />
-                  ) : (
                     <Typography 
                       variant="caption" 
                       sx={{ 
@@ -923,7 +901,6 @@ const BingoGame = () => {
                     >
                       {cell.value}
                     </Typography>
-                  )}
                   </Box>
                   
                   {/* 노트 표시 */}
