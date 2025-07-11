@@ -2,7 +2,6 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import asyncio
 import random
-import math
 
 from sqlalchemy.orm import mapped_column
 from sqlalchemy import Integer, DateTime, JSON, select, desc
@@ -71,7 +70,7 @@ class BingoBoards(Base):
 
         board_data = board.board_data
         num_cells = len(board_data) + 1
-        size = int(math.sqrt(num_cells))
+        size = int(num_cells ** 0.5)
         bingo = 0
         bingo_board = [[board_data[str(i * size + j)]["status"] for j in range(size)] for i in range(size)]
 
