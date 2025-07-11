@@ -106,7 +106,6 @@ const BingoGame = () => {
     : showReviewModal
     ? "review"
     : null;
-  const [lastSenderIdAlerted, setLastSenderIdAlerted] = useState<number | null>(null);
 
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
@@ -225,16 +224,6 @@ const BingoGame = () => {
             const latestSenderId = interactionData[0].send_user_id;
             const senderUserName = await getUserName(latestSenderId);
             if (senderUserName) showAlert(`"${senderUserName}"님에게 "${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
-          }
-        } else {
-          const interactionData = await getUserLatestInteraction(userId, 1);
-          const latestSenderId = interactionData[0].send_user_id;
-          if (latestSenderId !== lastSenderIdAlerted) {
-            const senderUserName = await getUserName(latestSenderId);
-            if (senderUserName) {
-              showAlert(`"${senderUserName}"님이 공유한 모든 키워드를 이미 보유 중입니다.`);
-              setLastSenderIdAlerted(latestSenderId);
-            }
           }
         }
       } catch (err) {
