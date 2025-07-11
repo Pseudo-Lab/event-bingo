@@ -225,8 +225,12 @@ const BingoGame = () => {
             const senderUserName = await getUserName(latestSenderId);
             if (senderUserName) showAlert(`"${senderUserName}"님에게 "${newlyUpdatedValues.join('", "')}" 키워드를 공유 받았습니다.`);
           }
+        } else {
+          const interactionData = await getUserLatestInteraction(userId, 1);
+          const latestSenderId = interactionData[0].send_user_id;
+          const senderUserName = await getUserName(latestSenderId);
+          if (senderUserName) showAlert(`"${senderUserName}"님이 공유한 모든 키워드를 이미 보유 중입니다.`);
         }
-        // TODO: 키워드 받았지만 변화 없을 때 메시지?
       } catch (err) {
         console.error("Error refreshing bingo board:", err);
       }
