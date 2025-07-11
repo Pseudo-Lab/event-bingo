@@ -27,8 +27,8 @@ async def set_test_bingo_board(db: AsyncSession, user_id: int, bingo_count: int)
     # bingo_count만큼 가로줄 완성
     if bingo_count > 0:
         for i in range(bingo_count):
-            for j in range(5):
-                idx = i * 5 + j
+            for j in range(4):
+                idx = i * 4 + j
                 if str(idx) in data:
                     data[str(idx)]["status"] = 1
 
