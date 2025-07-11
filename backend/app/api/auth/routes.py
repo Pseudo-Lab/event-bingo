@@ -14,13 +14,6 @@ auth_router = APIRouter(prefix="/auth")
 
 @auth_router.post("/bingo/new-sign-up", response_model=BingoUser, description="빙고 회원가입 API")
 async def bingo_new_sign_up(email: str, username: str, new_bingo_user: NewLoginUser = Depends(NewLoginUser)):
-    # email 형식 확인
-    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
-        raise HTTPException(status_code=400, detail="이메일 형식이 올바르지 않습니다.")
-    username = username.strip()
-    if not username:
-        raise HTTPException(status_code=400, detail="이름을 입력해주세요.")
-    
     res = await new_bingo_user.execute(email, username)
     return res
 
