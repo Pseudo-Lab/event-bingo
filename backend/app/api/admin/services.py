@@ -18,17 +18,21 @@ async def set_test_bingo_board(db: AsyncSession, user_id: int, bingo_count: int)
 
     data = board.board_data
 
+    # 빙고판 크기 동적 계산
+    num_cells = len(data)
+    row_size = int(num_cells ** 0.5)
+
     # 2. 빙고판 초기화 및 재설정
     # 모든 status를 0으로 초기화
-    for i in range(25):
+    for i in range(num_cells):
         if str(i) in data:
             data[str(i)]["status"] = 0
 
     # bingo_count만큼 가로줄 완성
     if bingo_count > 0:
         for i in range(bingo_count):
-            for j in range(4):
-                idx = i * 4 + j
+            for j in range(row_size):
+                idx = i * row_size + j
                 if str(idx) in data:
                     data[str(idx)]["status"] = 1
 
