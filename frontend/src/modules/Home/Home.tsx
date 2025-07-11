@@ -36,7 +36,6 @@ const Home = () => {
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertSeverity, setAlertSeverity] = useState<'error' | 'success'>('error');
   const [newUserName, setNewUserName] = useState("");
-  const [newUserEmail, setNewUserEmail] = useState("");
 
   const navigate = useNavigate();
 
@@ -75,6 +74,7 @@ const Home = () => {
     localStorage.removeItem("myEmail");
     localStorage.removeItem("myUserName");
     localStorage.removeItem("hideReviewModal");
+    localStorage.removeItem("hideFinishModal");
     setIsLoggedIn(false);
   };
 
@@ -131,7 +131,7 @@ const Home = () => {
                 },
               }}
               onClick={handLogin}
-              disabled={!isAgreed || loginEmail === ""}
+              disabled={!isAgreed || loginEmail === "" || newUserName === ""}
             >
               로그인
             </Button>
