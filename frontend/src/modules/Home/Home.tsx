@@ -89,7 +89,7 @@ const Home = () => {
       <Typography variant="h5" sx={{ fontWeight: "bold", marginBottom: "0.5rem", color: "whitesmoke" }}>
         {config.subTitle}
       </Typography>
-      <Typography variant="h6" sx={{ marginBottom: "1rem", color: "whitesmoke" }}>
+      <Typography variant="body1" sx={{ marginBottom: "1rem", color: "whitesmoke" }}>
         {config.date} | {config.place}
       </Typography>
       {!isLoggedIn ? (

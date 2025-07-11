@@ -373,7 +373,7 @@ const BingoGame = () => {
       setNewBingoCells(uniqueNewCells);
       setAnimatedCells(uniqueNewCells);
       setNewBingoFound(true);
-      showAlert('빙고 한 줄을 완성했습니다! 🎉');
+      showAlert(`빙고 ${bingoCount}줄을 완성했습니다! 🎉`);
       if (!hasShownConfetti && bingoCount >= bingoMissionCount) {
         setShowConfetti(true);
         setHasShownConfetti(true);
