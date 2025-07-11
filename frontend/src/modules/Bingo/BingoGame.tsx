@@ -99,7 +99,8 @@ const BingoGame = () => {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewStars, setReviewStars] = useState<number | null>(null);
   const [reviewText, setReviewText] = useState('');
-  const [hideReviewModal, setHideReviewModal] = useState(() =>localStorage.getItem("hideReviewModal") === "true");
+  const [hideReviewModal, setHideReviewModal] = useState(() => localStorage.getItem("hideReviewModal") === "true");
+  const [hideFinishModal, setHideFinishModal] = useState(() => localStorage.getItem("hideFinishModal") === "true");
   const visibleModal = showAllBingoModal
     ? "allBingo"
     : showReviewModal
@@ -1106,7 +1107,7 @@ const BingoGame = () => {
 
         {/* Mission Complete Dialog */}
         <Dialog
-          open={visibleModal === "allBingo"}
+          open={visibleModal === "allBingo" && !hideFinishModal}
           onClose={() => {
             setShowAllBingoModal(false);
           }}
@@ -1131,7 +1132,12 @@ const BingoGame = () => {
             <Typography>여러분의 관심이 큰 힘이 됩니다 😊</Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setShowAllBingoModal(false)} color="primary">
+            <Button
+              onClick={() => {
+                localStorage.setItem("hideFinishModal", "true");
+                setShowAllBingoModal(false);
+              }}
+              color="primary">
               닫기
             </Button>
           </DialogActions>
