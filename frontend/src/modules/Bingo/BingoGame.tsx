@@ -1109,7 +1109,6 @@ const BingoGame = () => {
           open={visibleModal === "allBingo"}
           onClose={() => {
             setShowAllBingoModal(false);
-            if (showReviewModal) setTimeout(() => setShowReviewModal(true), 100);
           }}
         >
           <DialogTitle>3줄 미션 달성 🎉</DialogTitle>
