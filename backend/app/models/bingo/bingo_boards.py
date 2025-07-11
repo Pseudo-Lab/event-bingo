@@ -69,8 +69,10 @@ class BingoBoards(Base):
         board = await cls.get_board_by_userid(session, user_id)
 
         board_data = board.board_data
+        num_cells = len(board_data) + 1
+        size = int(num_cells ** 0.5)
         bingo = 0
-        bingo_board = [[board_data[str(i * 5 + j)]["status"] for j in range(5)] for i in range(5)]
+        bingo_board = [[board_data[str(i * size + j)]["status"] for j in range(size)] for i in range(size)]
 
         for row in bingo_board:  # 가로
             if all(status == 1 for status in row):
@@ -80,10 +82,10 @@ class BingoBoards(Base):
             if all(status == 1 for status in col):
                 bingo += 1
 
-        if all(bingo_board[i][i] == 1 for i in range(5)):  # 대각선 왼 -> 오
+        if all(bingo_board[i][i] == 1 for i in range(size)):  # 대각선 왼 -> 오
             bingo += 1
 
-        if all(bingo_board[i][4 - i] == 1 for i in range(5)):  # 대각선 오 -> 왼
+        if all(bingo_board[i][size - 1 - i] == 1 for i in range(size)):  # 대각선 오 -> 왼
             bingo += 1
 
         board.bingo_count = bingo
