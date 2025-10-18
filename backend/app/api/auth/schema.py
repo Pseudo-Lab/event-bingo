@@ -9,6 +9,8 @@ class BingoUser(BaseSchema):
     user_email: Optional[str] = Field(title="빙고 유저 Email", default=None)
     user_name: Optional[str] = Field(title="빙고 유저 이름", default=None)
     umoh_id: Optional[int] = Field(title="우모 ID", default=None)
+    review: Optional[str] = Field(title="리뷰", default=None)
+    rating: Optional[int] = Field(title="평점", default=None)
     privacy_agreed: Optional[bool] = Field(title="개인정보 동의 여부", default=False)
 
 
