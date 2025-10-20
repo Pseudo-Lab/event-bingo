@@ -10,6 +10,6 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 
 export default defineConfig({
-  base: './business-experimentation2025', 
+  base: './product-dna-open-forum', 
   plugins: [react()]
 })
