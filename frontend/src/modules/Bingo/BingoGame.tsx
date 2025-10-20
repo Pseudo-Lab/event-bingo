@@ -526,7 +526,6 @@ const BingoGame = () => {
     if (reviewStars === null) return;
   
     try {
-      // (옵션) 실제 API 호출이 있다면 여기서 하세요.
       await submitReview(userId, reviewStars, reviewText);
   
       // 로컬 상태 업데이트: 가운데 셀을 선택된 상태로 변경
@@ -542,7 +541,6 @@ const BingoGame = () => {
         return next;
       });
   
-      // 수집 카운트 증가(이미 count 처리 로직이 따로 있다면 중복 주의)
       setCollectedKeywords(prev => prev + 1);
   
       showAlert("피드백이 제출되었습니다. 감사합니다! 🎉", 'success');
