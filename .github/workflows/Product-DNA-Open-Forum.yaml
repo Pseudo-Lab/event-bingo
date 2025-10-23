@@ -25,15 +25,15 @@ jobs:
         run: |
           set -e
           cat <<EOF > .env
-          FRONTEND_PORT=${{ secrets.FRONTEND_PORT }}
-          BACKEND_PORT=${{ secrets.BACKEND_PORT }}
-          VITE_API_URL=${{ secrets.VITE_API_URL }}
-          DB_ROOT=${{ secrets.DB_ROOT }}
+          FRONTEND_PORT=${{ vars.FRONTEND_PORT }}
+          BACKEND_PORT=${{ vars.BACKEND_PORT }}
+          VITE_API_URL=${{ vars.VITE_API_URL }}
+          DB_ROOT=${{ vars.DB_ROOT }}
           DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
           DB_USER=${{ secrets.DB_USER }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DB_PORT=${{ secrets.DB_PORT }}
-          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_PORT=${{ vars.DB_PORT }}
+          DB_DATABASE=${{ vars.DB_DATABASE }}
           SWAGGER_USERNAME=${{ secrets.SWAGGER_USERNAME }}
           SWAGGER_PASSWORD=${{ secrets.SWAGGER_PASSWORD }}
           COMPOSE_PROJECT_NAME=product_DNA
