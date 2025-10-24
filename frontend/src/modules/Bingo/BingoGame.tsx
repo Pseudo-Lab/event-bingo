@@ -1235,7 +1235,7 @@ const BingoGame = () => {
           <DialogTitle variant='h5'>피드백 남기기</DialogTitle>
           <DialogContent>
             <Typography variant="h6" color="text.secondary" mb={1.5} sx={{fontWeight: 'bold'  }}>
-              네트워킹 이벤트에 소중한 피드백을 남겨주세요! (10자 이상)
+              네트워킹 이벤트에 소중한 피드백을 남겨주세요!
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
               <Rating
@@ -1249,7 +1249,7 @@ const BingoGame = () => {
               fullWidth
               multiline
               minRows={3}
-              placeholder="이벤트에 대한 의견이나 개선사항을 자유롭게 작성해주세요..."
+              placeholder="이벤트에 대한 의견이나 개선사항을 자유롭게 작성해주세요. (10자 이상)"
               value={reviewText}
               onChange={(e) => setReviewText(e.target.value)}
             />
