@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Container, Box, Typography, Button, Grid, Paper, Chip, LinearProgress,
+  Box, Typography, Button, Grid, Paper, Chip, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   Snackbar, Alert, Divider, Rating, Link
 } from '@mui/material';
-import { styled } from "@mui/system";
 import PersonIcon from '@mui/icons-material/Person';
 import HomeIcon from '@mui/icons-material/Home';
 import {
@@ -21,7 +20,7 @@ import {
 } from "../../api/bingo_api.ts";
 import bingoKeywords from '../../config/bingo-keywords.json';
 import { bingoConfig } from '../../config/bingoConfig.ts';
-import { BackgroundContainer } from '../Home/BackgroundContainter';
+import { GradientContainer } from '../Home/BackgroundContainter';
 
 // Define proper interfaces
 interface BingoCell {
@@ -96,22 +95,17 @@ const BingoGame = () => {
   const bingoMissionCount = bingoConfig.bingoMissionCount;
   const keywordCount = bingoConfig.keywordCount;
   const [showAllBingoModal, setShowAllBingoModal] = useState(false);
-  const [showReviewModal, setShowReviewModal] = useState(false);
+  // const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewStars, setReviewStars] = useState<number | null>(null);
   const [reviewText, setReviewText] = useState('');
-  const [hideReviewModal, setHideReviewModal] = useState(() => localStorage.getItem("hideReviewModal") === "true");
-  const [hideFinishModal, setHideFinishModal] = useState(() => localStorage.getItem("hideFinishModal") === "true");
-  const visibleModal = showAllBingoModal
-    ? "allBingo"
-    : showReviewModal
-    ? "review"
-    : null;
+  const [centerModalOpen, setCenterModalOpen] = useState(false);
+  const isReviewSubmitEnabled = reviewText.trim().length >= 10 && reviewStars !== null;
 
   // 셀 노트 가져오기
   function getCellNote(index: number): string | undefined {
     return undefined;
   }
-  const bingoLineLength = 4;
+  const bingoLineLength = 5;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -135,7 +129,7 @@ const BingoGame = () => {
       const userName = localStorage.getItem("myUserName");
 
       if (!storedId) {
-        window.location.href = "/business-experimentation2025";
+        window.location.href = "/product-dna-open-forum";
         return;
       }
       if (storedId) {
@@ -173,6 +167,15 @@ const BingoGame = () => {
           else {
             const shuffledValues = shuffleArray(cellValues);
             const initialBoard: BingoCell[] = Array(bingoLineLength**2).fill(null).map((_, i) => {
+              if (i === 12) {
+                return {
+                  id: i,
+                  value: '빙고 피드백',
+                  selected: 0,
+                  status: 0,
+                  note: undefined,
+                };
+              }
               return {
                 id: i,
                 value: shuffledValues[i] ?? '???',
@@ -379,10 +382,6 @@ const BingoGame = () => {
         setHasShownConfetti(true);
       }
       
-      if (bingoCount >= 1 && !hideReviewModal) {
-        setShowReviewModal(true);
-      }
-  
       // Clear animation after some time
       setTimeout(() => {
         setAnimatedCells([]);
@@ -501,6 +500,58 @@ const BingoGame = () => {
     }, 3000);
   };
 
+  const handleCellClick = (index: number) => {
+    if (index === 12) {
+      // 가운데 셀이 이미 서버/로컬에서 선택된 상태면 안내
+      if (bingoBoard && bingoBoard[12]?.status === 1) {
+        showAlert("이미 제출된 피드백입니다.", 'info');
+        return;
+      }
+  
+      // 활성화 조건(만난 사람 수)
+      if (metPersonNum < 3) {
+        showAlert("만난 참가자가 3명 이상일 때 활성화됩니다.", 'info');
+        return;
+      }
+  
+      // 활성화 상태면 모달 오픈
+      setCenterModalOpen(true);
+      return;
+    }
+  };
+
+  const handleCenterSubmit = async () => {
+    if (!isReviewSubmitEnabled) return;
+    if (!userId) return;
+    if (reviewStars === null) return;
+  
+    try {
+      await submitReview(userId, reviewStars, reviewText);
+  
+      // 로컬 상태 업데이트: 가운데 셀을 선택된 상태로 변경
+      setBingoBoard(prev => {
+        if (!prev) return prev;
+        const next = [...prev];
+        // selected도 필요하면 1로 세팅(필요 시)
+        next[12] = {
+          ...next[12],
+          status: 1,
+          selected: 1,
+        };
+        return next;
+      });
+  
+      setCollectedKeywords(prev => prev + 1);
+  
+      showAlert("피드백이 제출되었습니다. 감사합니다! 🎉", 'success');
+      setCenterModalOpen(false);
+      setReviewText('');
+    } catch (err) {
+      console.error("Center feedback submit error:", err);
+      showAlert("피드백 제출 중 오류가 발생했습니다.", 'error');
+    }
+  };
+
   // 키워드 교환 처리
   const handleExchange = async () => {
     if (!opponentId) {
@@ -560,14 +611,12 @@ const BingoGame = () => {
   const getCellStyle = (index: number) => {
     if (!bingoBoard) return {};
 
-    if (!bingoBoard) return {};
-
     const isMarked = bingoBoard[index].status;
     const isInCompletedLine = isCellInCompletedLine(index);
     const isLastSelected = index === lastSelectedCell;
     const isNewBingoCell = newBingoCells.includes(index);
     const isLatestReceived = latestReceivedKeywords.includes(bingoBoard[index].value);
-    const orangeBorder = '2px solid #FF9E21 ';
+    const orangeBorder = '2px solid #FF9E21';
     const baseBorder = '0.5px solid grey';
     const greenBorder = '2px solid #2E7D32';
     
@@ -587,6 +636,48 @@ const BingoGame = () => {
         bgcolor: isMarked ? undefined : 'grey.100'
       }
     };
+
+    if (index === 12) {
+      const centerActive = metPersonNum >= 3;
+      // 만약 이미 선택된 상태라면 일반 선택된 스타일 우선 적용
+      if (isMarked) {
+        return {
+          ...baseStyle,
+          backgroundColor: '#FFF9C4',
+          border: baseBorder,
+          // border: isLatestReceived ? greenBorder : baseBorder,
+          color: 'white',
+          fontWeight: 'bold',
+          boxShadow: isLastSelected ? 3 : 1,
+          zIndex: 3,
+        };
+      }
+  
+      // 활성화되었지만 아직 제출되지 않은 '활성 표현' 스타일
+      if (centerActive) {
+        return {
+          ...baseStyle,
+          backgroundColor: '#FFFFFF',
+          border: baseBorder,
+          boxShadow: '0 0 0 0 rgba(255,167,38, 0.7), inset 0 0 0 2px rgba(255,167,38,1)',
+          animation: 'centerGlow 1.6s ease-out infinite',
+          zIndex: 2,
+          cursor: 'pointer',
+          '&:hover': { backgroundColor: '#FFF9E6' },    // 살짝 hover만
+          // 접근성: 모션 줄이기 선호 시 애니메이션 제거
+          className: 'reduce-motion',
+        };
+      }
+  
+      // 비활성 (미충족)
+      return {
+        ...baseStyle,
+        backgroundColor: 'white',
+        border: baseBorder,
+        cursor: 'default',
+        color: 'text.primary',
+      };
+    }
     
     if (isNewBingoCell) {
       baseStyle.animation = 'fadeBg 3s ease forwards, pulse 1.5s infinite';
@@ -646,7 +737,7 @@ const BingoGame = () => {
     const seconds = Math.floor((remainingTime / 1000) % 60);
   
     return (
-      <BackgroundContainer>
+      <GradientContainer>
         <Box sx={{ textAlign: 'center', position: 'relative', zIndex: 1, width: '100%', color: "whitesmoke" }}>
           <Typography variant="h4" gutterBottom>빙고 카운트다운!</Typography>
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 4 }}>
@@ -665,7 +756,7 @@ const BingoGame = () => {
           <Button 
             variant="outlined"
             color="primary"
-            onClick={() => navigate("/business-experimentation2025")}
+            onClick={() => navigate("/product-dna-open-forum")}
             startIcon={<HomeIcon />}
             sx={{
               color: '#fff',
@@ -681,13 +772,13 @@ const BingoGame = () => {
             홈으로
           </Button>
         </Box>
-      </BackgroundContainer>
+      </GradientContainer>
     );
   }
 
 
   return (
-    <BackgroundContainer>
+    <GradientContainer>
       <Box sx={{ maxWidth: '97vw', px: 1, position: 'relative', zIndex: 1, width: '97vw' }}>
         {/* 초기 키워드 설정 모달 */}
         <Dialog 
@@ -727,7 +818,7 @@ const BingoGame = () => {
           </DialogContent>
           <DialogActions>
             <Button
-              onClick={() => (window.location.href = "/business-experimentation2025")}
+              onClick={() => (window.location.href = "/product-dna-open-forum")}
               variant="outlined"
               startIcon={<HomeIcon />}
             >
@@ -835,13 +926,17 @@ const BingoGame = () => {
               placeholder="상대방 ID 입력"
               size="small"
             />
-            <Button 
-              variant="contained" 
-              color="warning"
+            <Button
+              variant="contained"
               onClick={handleExchange}
               sx={{
                 px: 1,
                 width: '50%',
+                backgroundColor: 'rgba(31, 52, 83, 0.9)',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'rgba(31, 52, 83)',
+                },
                 '&:focus': {
                   outline: 'none',
                 },
@@ -860,39 +955,109 @@ const BingoGame = () => {
         <Box sx={{ mb: 1, position: 'relative', px: 1 }}>
           <Grid container spacing={0.5}>
             {bingoBoard?.map((cell, index) => (
-              <Grid item xs={Math.floor(12 / bingoLineLength)} sm={Math.floor(12 / bingoLineLength)} key={cell.id}>
+              <Grid item xs={12 / bingoLineLength} sm={12 / bingoLineLength} key={cell.id}>
                 <Paper
                   elevation={cell.status ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
                   sx={{...getCellStyle(index), p: 0.5}}
+                  onClick={() => handleCellClick(index)}
                 >
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        fontSize: {
-                          xs: '0.8rem',   // 모바일 기준 약 19px
-                          sm: '1.5rem',   // 작은 태블릿 ~24px
-                          md: '1.875rem', // 웹 기준 약 30px (16 * 1.875)
-                        },
-                        fontWeight: 'bold',
-                        textAlign: 'center',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis', 
-                        width: '100%',
-                        overflowWrap: 'break-word',
-                        wordBreak: 'keep-all',
-                        whiteSpace: 'normal',
-                        display: 'block',
-                        color: cell.status ? 
-                          (animatedCells.includes(index) ? 'white' : 
-                          (isCellInCompletedLine(index) ? 'amber.800' : 'primary.800')) 
-                          : 'text.primary'
-                      }}
-                    >
-                      {cell.value}
-                    </Typography>
+                  <Box className="cellInner">
+                    {index === 12 ? (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          textAlign: 'center',
+                          width: '100%',
+                          height: '100%',
+                        }}
+                      >
+                        <Typography
+                          variant="body2"
+                          align="center"
+                          sx={{
+                            fontWeight: 'bold',
+                            lineHeight: 1.1,
+                            fontSize: {
+                              xs: '0.7rem',  // 모바일
+                              sm: '0.8rem',
+                              md: '0.9rem',
+                            },
+                            wordBreak: 'keep-all',
+                            overflowWrap: 'break-word',
+                            whiteSpace: 'normal',
+                            textOverflow: 'ellipsis',
+                            maxWidth: '90%',
+                            display: '-webkit-box',
+                            WebkitBoxOrient: 'vertical',
+                            WebkitLineClamp: 2,
+                            textAlign: 'center',
+                            color: metPersonNum >= 3 ? '#2E2E2E' : 'text.primary',
+                          }}
+                        >
+                          {cell.value}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          align="center"
+                          sx={{
+                            mt: 0.3,
+                            lineHeight: 1.1,
+                            fontSize: {
+                              xs: '0.55rem', // 모바일 더 작게
+                              sm: '0.7rem',
+                            },
+                            color: metPersonNum >= 3 ? 'text.secondary' : 'text.disabled',
+                          }}
+                        >
+                          네트워킹<br />{Math.min(metPersonNum, 3)}/3명
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Box
+                        sx={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          textAlign: 'center',
+                          p: 1,
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: {
+                              xs: '0.8rem',
+                              sm: '1rem',
+                              md: '1.1rem',
+                            },
+                            fontWeight: 'bold',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            width: '100%',
+                            overflowWrap: 'break-word',
+                            wordBreak: 'keep-all',
+                            whiteSpace: 'normal',
+                            display: '-webkit-box',
+                            color: cell.status
+                              ? animatedCells.includes(index)
+                                ? 'white'
+                                : isCellInCompletedLine(index)
+                                ? 'amber.800'
+                                : 'primary.800'
+                              : 'text.primary',
+                          }}
+                        >
+                          {cell.value}
+                        </Typography>
+                      </Box>
+                    )}
                   </Box>
                   
                   {/* 노트 표시 */}
@@ -927,6 +1092,14 @@ const BingoGame = () => {
             0% { transform: translateY(0) rotate(0deg); opacity: 1; }
             100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
           }
+          @keyframes centerGlow {
+            0%   { box-shadow: 0 0 0 0 rgba(255,167,38, 0.7), inset 0 0 0 2px rgba(255,167,38,1); }
+            60%  { box-shadow: 0 0 0 10px rgba(255,167,38, 0), inset 0 0 0 2px rgba(255,167,38,1); }
+            100% { box-shadow: 0 0 0 0 rgba(255,167,38, 0), inset 0 0 0 2px rgba(255,167,38,1); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .reduce-motion { animation: none !important; }
+          }
         `}</style>
         
         {/* 기록 보기 버튼 */}
@@ -934,7 +1107,7 @@ const BingoGame = () => {
           <Button 
             variant="outlined"
             color="primary"
-            onClick={() => navigate("/business-experimentation2025")}
+            onClick={() => navigate("/product-dna-open-forum")}
             startIcon={<HomeIcon />}
             sx={{
               color: '#fff',
@@ -952,9 +1125,17 @@ const BingoGame = () => {
           </Button>
           <Button 
             variant="contained" 
-            color="primary"
             onClick={() => setShowHistory(!showHistory)}
-            sx={{ px: 3, width: '150px', ml: 1 }}
+            sx={{
+              backgroundColor: 'rgba(31, 52, 83, 0.9)',
+              color: 'white',
+              '&:hover': {
+                backgroundColor: 'rgba(31, 52, 83)',
+              },
+              px: 3,
+              width: '150px',
+              ml: 1
+            }}
           >
             교환 기록 {showHistory ? '가리기' : '보기'}
           </Button>
@@ -1046,15 +1227,16 @@ const BingoGame = () => {
 
         {/* Review Dialog */}
         <Dialog
-          open={visibleModal === "review"}
-          onClose={(event, reason) => {
-            if (reason !== 'backdropClick') {
-              setShowReviewModal(false);
-            }
-          }}
+          open={centerModalOpen}
+          fullWidth
+          maxWidth="sm"
+          onClose={() => setCenterModalOpen(false)}
         >
+          <DialogTitle variant='h5'>피드백 남기기</DialogTitle>
           <DialogContent>
-            <Typography mb={2}>빙고 게임에 대한 간단한 피드백을 남겨주세요.</Typography>
+            <Typography variant="h6" color="text.secondary" mb={1.5} sx={{fontWeight: 'bold'  }}>
+              네트워킹 이벤트에 소중한 피드백을 남겨주세요!
+            </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
               <Rating
                 name="review-stars"
@@ -1066,46 +1248,26 @@ const BingoGame = () => {
             <TextField
               fullWidth
               multiline
-              rows={3}
-              placeholder="간단한 리뷰를 작성해주세요"
+              minRows={3}
+              placeholder="이벤트에 대한 의견이나 개선사항을 자유롭게 작성해주세요. (10자 이상)"
               value={reviewText}
               onChange={(e) => setReviewText(e.target.value)}
             />
           </DialogContent>
           <DialogActions>
-            <Button
-              variant="text"
-              onClick={() => {
-                localStorage.setItem("hideReviewModal", "true");
-                setShowReviewModal(false);
-              }}
-            >
-              취소
-            </Button>
+            <Button onClick={() => setCenterModalOpen(false)}>취소</Button>
             <Button
               variant="contained"
-              onClick={async () => {
-                if (userId && reviewStars !== null) {
-                  try {
-                    await submitReview(userId, reviewStars, reviewText);
-                    showAlert("소중한 리뷰 감사합니다!");
-                    localStorage.setItem("hideReviewModal", "true"); // 유저 리뷰 get하는 함수 사용하면 삭제
-                    setShowReviewModal(false); // 유저 리뷰 get하는 함수 사용하면 삭제
-                  } catch (err) {
-                    showAlert("리뷰 제출 중 문제가 발생했습니다.", 'error');
-                  }
-                } else {
-                  showAlert("별점을 입력해주세요.", 'warning');
-                }
-              }}
+              disabled={!isReviewSubmitEnabled}
+              onClick={handleCenterSubmit}
             >
-              평가 완료
+              제출
             </Button>
           </DialogActions>
         </Dialog>
 
         {/* Mission Complete Dialog */}
-        <Dialog
+        {/* <Dialog
           open={visibleModal === "allBingo" && !hideFinishModal}
           onClose={() => {
             setShowAllBingoModal(false);
@@ -1114,7 +1276,6 @@ const BingoGame = () => {
           <DialogTitle>3줄 미션 달성 🎉</DialogTitle>
           <DialogContent>
             <Typography>축하합니다! 빙고를 완성했습니다.</Typography>
-            {/* <Typography>Devfactory 부스로 오셔서 소정의 선물 받아가세요!</Typography> */}
             <br></br>
             <Typography>
               재미있게 즐기셨다면{' '}
@@ -1140,7 +1301,7 @@ const BingoGame = () => {
               닫기
             </Button>
           </DialogActions>
-        </Dialog>
+        </Dialog> */}
         
         {/* 알림 */}
         <Snackbar 
@@ -1154,7 +1315,7 @@ const BingoGame = () => {
           </Alert>
         </Snackbar>
       </Box>
-    </BackgroundContainer>
+    </GradientContainer>
   );
 };
 

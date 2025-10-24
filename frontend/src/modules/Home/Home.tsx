@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { newSingUpUser } from "../../api/bingo_api";
 import config from '../../config/settings.json';
 import ConsentDialog from './ConsentDialog';
-import { BackgroundContainer } from './BackgroundContainter';
+import { GradientContainer } from './BackgroundContainter';
 
 const StyledInput = styled(Input)({
   marginTop: "1rem",
@@ -66,7 +66,7 @@ const Home = () => {
     localStorage.setItem("myEmail", result.user_email);
     localStorage.setItem("myUserName", result.user_name);
     setIsLoggedIn(true);
-    window.location.href = "/business-experimentation2025";
+    window.location.href = "/product-dna-open-forum";
   };
 
   const handleLogout = () => {
@@ -79,7 +79,7 @@ const Home = () => {
   };
 
   return (
-    <BackgroundContainer>
+    <GradientContainer>
       <Box sx={{ position: 'relative', zIndex: 1, width: '100%' }}>
       <Typography variant="h3" sx={{ fontWeight: "bold", marginBottom: "1rem", color: "whitesmoke" }}>
         {config.title}
@@ -113,7 +113,12 @@ const Home = () => {
                   if (!isAgreed) setAgreeOpen(true);
                   else setIsAgreed(false);
                 }}
-                sx={{ color: "whitesmoke" }}
+                sx={{
+                  color: "whitesmoke",
+                  '&.Mui-checked': {
+                    color: 'rgba(31, 52, 83)',
+                  },
+                }}
               />
             }
             label="개인정보 처리 동의(필수)"
@@ -124,10 +129,14 @@ const Home = () => {
               variant="contained"
               sx={{ 
                 marginRight: '10px',
-                backgroundColor: 'primary',
                 '&.Mui-disabled': {
                   backgroundColor: 'rgba(105, 139, 255, 0.4)',
                   color: '#eee',
+                },
+                backgroundColor: 'rgba(31, 52, 83, 0.9)',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'rgba(31, 52, 83)',
                 },
               }}
               onClick={handLogin}
@@ -160,8 +169,14 @@ const Home = () => {
             </Button>
             <Button 
               variant="contained" 
-              onClick={() => navigate('/business-experimentation2025/bingo')}
-              sx={{ backgroundColor: 'primary' }}
+              onClick={() => navigate('/product-dna-open-forum/bingo')}
+              sx={{
+                backgroundColor: 'rgba(31, 52, 83, 0.9)',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'rgba(31, 52, 83)',
+                },
+              }}
             >
               빙고로 이동
             </Button>
@@ -202,7 +217,7 @@ const Home = () => {
         </Alert>
       </Snackbar>
       </Box>
-    </BackgroundContainer>
+    </GradientContainer>
   );
 };
 

@@ -7,10 +7,11 @@ export const GradientContainer = styled(Container)(({ theme }) => ({
 	flexDirection: "column",
 	justifyContent: "center",
 	alignItems: "center",
-	background: "linear-gradient(135deg, #FFE5EC, #E0F7FA)",
+	background: "linear-gradient(135deg, rgb(61, 118, 91) 0%, rgb(46, 86, 66) 100%)", // 초록-청록 계열
 	padding: theme.spacing(4),
 	textAlign: "center",
-}));
+	color: "#FFFFFF",
+  }));
 
 
 export const BackgroundContainer = styled('div')(({ theme }) => ({
