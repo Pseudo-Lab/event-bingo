@@ -1017,105 +1017,84 @@ const BingoGame = () => {
               <Grid item xs={12 / bingoLineLength} sm={12 / bingoLineLength} key={cell.id}>
                 <Paper
                   elevation={cell.status ? (isCellInCompletedLine(index) ? 3 : 1) : 0}
-                  sx={{...getCellStyle(index), p: 0.5}}
+                  sx={{
+                    ...getCellStyle(index),
+                    width: '100%',
+                    aspectRatio: { xs: '0.7', sm: '0.8', md: '0.9' },
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    overflow: 'hidden',
+                    position: 'relative',
+                  }}
                   onClick={() => handleCellClick(index)}
                 >
-                  <Box className="cellInner">
+                  <Box
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      p: 0.5,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                  >
                     {index === 12 ? (
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          textAlign: 'center',
-                          width: '100%',
-                          height: '100%',
-                        }}
-                      >
+                      <>
                         <Typography
                           variant="body2"
-                          align="center"
                           sx={{
                             fontWeight: 'bold',
-                            lineHeight: 1.1,
-                            fontSize: {
-                              xs: '0.7rem',  // 모바일
-                              sm: '0.8rem',
-                              md: '0.9rem',
-                            },
+                            fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.9rem' },
+                            lineHeight: 1.2,
+                            textAlign: 'center',
                             wordBreak: 'keep-all',
-                            overflowWrap: 'break-word',
-                            whiteSpace: 'normal',
-                            textOverflow: 'ellipsis',
-                            maxWidth: '90%',
+                            overflow: 'hidden',
                             display: '-webkit-box',
                             WebkitBoxOrient: 'vertical',
                             WebkitLineClamp: 2,
-                            textAlign: 'center',
-                            color: metPersonNum >= 3 ? (cell.status ? 'white' : 'black') : 'text.primary',
+                            color: cell.status ? 'white' : 'black',
                           }}
                         >
                           {cell.value}
                         </Typography>
                         <Typography
                           variant="caption"
-                          align="center"
                           sx={{
                             mt: 0.3,
-                            lineHeight: 1.1,
-                            fontSize: {
-                              xs: '0.55rem', // 모바일 더 작게
-                              sm: '0.7rem',
-                            },
+                            fontSize: { xs: '0.55rem', sm: '0.7rem' },
                             color: metPersonNum >= 3 ? 'text.secondary' : 'text.disabled',
                           }}
                         >
                           네트워킹<br />{Math.min(metPersonNum, 3)}/3명
                         </Typography>
-                      </Box>
+                      </>
                     ) : (
-                      <Box
+                      <Typography
+                        variant="caption"
                         sx={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          fontSize: { xs: '0.8rem', sm: '0.9rem', md: '1rem' },
+                          fontWeight: 'bold',
+                          lineHeight: 1.1,
                           textAlign: 'center',
-                          p: 1,
+                          overflow: 'hidden',
+                          display: '-webkit-box',
+                          WebkitBoxOrient: 'vertical',
+                          WebkitLineClamp: 3,
+                          wordBreak: 'keep-all',
+                          color: cell.status
+                            ? animatedCells.includes(index)
+                              ? 'white'
+                              : isCellInCompletedLine(index)
+                              ? 'amber.800'
+                              : 'primary.800'
+                            : 'text.primary',
                         }}
                       >
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: {
-                              xs: '0.8rem',
-                              sm: '1rem',
-                              md: '1.1rem',
-                            },
-                            fontWeight: 'bold',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            width: '100%',
-                            overflowWrap: 'break-word',
-                            wordBreak: 'keep-all',
-                            whiteSpace: 'normal',
-                            display: '-webkit-box',
-                            color: cell.status
-                              ? animatedCells.includes(index)
-                                ? 'white'
-                                : isCellInCompletedLine(index)
-                                ? 'amber.800'
-                                : 'primary.800'
-                              : 'text.primary',
-                          }}
-                        >
-                          {cell.value}
-                        </Typography>
-                      </Box>
+                        {cell.value}
+                      </Typography>
                     )}
                   </Box>
                   
