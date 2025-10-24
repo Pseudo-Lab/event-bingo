@@ -318,8 +318,36 @@ const BingoGame = () => {
     }
   };
 
+  // 연사자 히든 선택을 위한 변수
+  const [hiddenKeywordClickCount, setHiddenKeywordClickCount] = useState(0);
+  const hiddenKeyword = cellValues[cellValues.length - 1]; // 마지막 키워드
+
   // 초기 키워드 선택 토글
   const toggleInitialKeyword = (keyword: string) => {
+    // 마지막 키워드(비밀 키워드)
+    if (keyword === hiddenKeyword) {
+      setHiddenKeywordClickCount((prev) => {
+        const next = prev + 1;
+  
+        // 5번 클릭 시 선택 토글 (시각적 변화 없이)
+        if (next >= 5) {
+          if (selectedInitialKeywords.includes(keyword)) {
+            setSelectedInitialKeywords(selectedInitialKeywords.filter(k => k !== keyword));
+          } else {
+            setSelectedInitialKeywords([...selectedInitialKeywords, keyword]);
+          }
+          return 0; // 다시 초기화
+        }
+  
+        return next;
+      });
+      return; // 클릭 횟수만 증가시키고 종료
+    }
+  
+    // 일반 키워드 클릭 시 비밀 키워드 클릭 카운트 리셋
+    setHiddenKeywordClickCount(0);
+  
+    // 기존 로직
     if (selectedInitialKeywords.includes(keyword)) {
       setSelectedInitialKeywords(selectedInitialKeywords.filter(k => k !== keyword));
     } else {
@@ -805,6 +833,11 @@ const BingoGame = () => {
                     color={selectedInitialKeywords.includes(keyword) ? "primary" : "default"}
                     onClick={() => toggleInitialKeyword(keyword)}
                     variant={selectedInitialKeywords.includes(keyword) ? "filled" : "outlined"}
+                    sx={
+                      keyword === hiddenKeyword
+                        ? { opacity: 0.4, cursor: "not-allowed" } // 비활성처럼 보이게
+                        : {}
+                    }
                   />
                 ))}
               </Box>
