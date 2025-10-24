@@ -17,6 +17,7 @@ import {
   getUserLatestInteraction,
   getUserName,
   submitReview,
+  saveBingoBoard,
 } from "../../api/bingo_api.ts";
 import bingoKeywords from '../../config/bingo-keywords.json';
 import { bingoConfig } from '../../config/bingoConfig.ts';
@@ -555,20 +556,32 @@ const BingoGame = () => {
   
     try {
       await submitReview(userId, reviewStars, reviewText);
-  
-      // 로컬 상태 업데이트: 가운데 셀을 선택된 상태로 변경
-      setBingoBoard(prev => {
-        if (!prev) return prev;
-        const next = [...prev];
-        // selected도 필요하면 1로 세팅(필요 시)
-        next[12] = {
-          ...next[12],
-          status: 1,
-          selected: 1,
-        };
-        return next;
+
+      const updatedBoard = bingoBoard!.map((cell, index) => {
+        if (index === 12) {
+          return {
+            ...cell,
+            status: 1,
+            selected: 1,
+          };
+        }
+        return cell;
       });
-  
+
+      const boardDataForApi: { [key: string]: { value: string; status: number; selected: number } } = {};
+      updatedBoard.forEach((item, index) => {
+        boardDataForApi[index] = {
+          value: item.value,
+          status: item.status,
+          selected: item.selected,
+        };
+      });
+
+      await saveBingoBoard(userId, boardDataForApi);
+
+      // 로컬 상태 업데이트: 가운데 셀을 선택된 상태로 변경
+      setBingoBoard(updatedBoard);
+
       setCollectedKeywords(prev => prev + 1);
   
       showAlert("피드백이 제출되었습니다. 감사합니다! 🎉", 'success');

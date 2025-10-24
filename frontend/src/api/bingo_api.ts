@@ -74,6 +74,22 @@ export const getBingoBoard = async (userId: string) => {
   return items;
 };
 
+export const saveBingoBoard = async (
+  userId: string,
+  boardData: {
+    [key: string]: { value: string; status: number; selected: number };
+  }
+) => {
+  const response = await fetch(`${API_URL}/api/bingo/boards/${userId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ board_data: boardData, user_id: parseInt(userId) }),
+  });
+  return response.ok;
+};
+
 export const getUserInteractionCount = async (userId: string) => {
   const response = await fetch(`${API_URL}/api/bingo/boards/${userId}`);
   if (response.ok === false) {
