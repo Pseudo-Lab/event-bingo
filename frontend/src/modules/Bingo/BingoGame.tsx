@@ -682,6 +682,19 @@ const BingoGame = () => {
       const centerActive = metPersonNum >= 3;
       // 만약 이미 선택된 상태라면 일반 선택된 스타일 우선 적용
       if (isMarked) {
+        // 빙고 줄 안에 포함되어 있다면 초록색으로 표시
+        if (isCellInCompletedLine(index)) {
+          return {
+            ...baseStyle,
+            bgcolor: '#4CAF50',
+            border: baseBorder,
+            color: 'white',
+            fontWeight: 'bold',
+            boxShadow: isLastSelected ? 3 : 1,
+            zIndex: 3,
+          };
+        }
+        // 빙고 줄이 아니면 기존 노란색 유지
         return {
           ...baseStyle,
           backgroundColor: '#FFF9C4',
@@ -1040,7 +1053,7 @@ const BingoGame = () => {
                             WebkitBoxOrient: 'vertical',
                             WebkitLineClamp: 2,
                             textAlign: 'center',
-                            color: metPersonNum >= 3 ? '#2E2E2E' : 'text.primary',
+                            color: metPersonNum >= 3 ? (cell.status ? 'white' : 'black') : 'text.primary',
                           }}
                         >
                           {cell.value}
