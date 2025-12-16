@@ -1,7 +1,12 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum
-from sqlalchemy.orm import relationship
-from models.base import Base
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from typing import Optional
 import enum
+
+from sqlalchemy import String, Integer, ForeignKey, Enum, select, func
+from sqlalchemy.orm import mapped_column
+from core.db import AsyncSession
+from models.base import Base
 
 
 class TeamColor(enum.Enum):
@@ -12,7 +17,84 @@ class TeamColor(enum.Enum):
 class Team(Base):
     __tablename__ = "teams"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(50), nullable=False)
-    event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
-    color = Column(Enum(TeamColor), nullable=False)
+    id: int = mapped_column(Integer, primary_key=True, nullable=False)
+    name: str = mapped_column(String(50), nullable=False)
+    event_id: int = mapped_column(Integer, ForeignKey("events.id"), nullable=False)
+    color: TeamColor = mapped_column(Enum(TeamColor), nullable=False)
+    created_at: datetime = mapped_column(
+        default=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
+        nullable=False
+    )
+
+    @classmethod
+    async def create(
+        cls,
+        session: AsyncSession,
+        name: str,
+        event_id: int,
+        color: TeamColor
+    ):
+        """팀 생성"""
+        # Event 존재 확인
+        from models.event import Event
+        await Event.get_by_id(session, event_id)
+        
+        new_team = Team(
+            name=name,
+            event_id=event_id,
+            color=color
+        )
+        session.add(new_team)
+        await session.commit()
+        await session.refresh(new_team)
+        return new_team
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, team_id: int) -> Optional["Team"]:
+        """ID로 팀 조회"""
+        result = await session.get(cls, team_id)
+        if not result:
+            raise ValueError(f"Team ID {team_id}가 존재하지 않습니다.")
+        return result
+
+    @classmethod
+    async def get_by_event(cls, session: AsyncSession, event_id: int):
+        """이벤트별 팀 조회"""
+        result = await session.execute(
+            select(cls).where(cls.event_id == event_id)
+        )
+        return result.scalars().all()
+
+    @classmethod
+    async def get_team_members(cls, session: AsyncSession, team_id: int):
+        """팀 소속 참가자 목록"""
+        from models.event_attendee import EventAttendee
+        result = await session.execute(
+            select(EventAttendee).where(EventAttendee.team_id == team_id)
+        )
+        return result.scalars().all()
+
+    @classmethod
+    async def get_team_bingo_sum(cls, session: AsyncSession, team_id: int) -> int:
+        """팀 소속 유저들의 총 빙고 개수 합산"""
+        from models.event_attendee import EventAttendee
+        from models.bingo import BingoBoards
+        
+        # 팀의 모든 참가자 user_id 가져오기
+        attendees_result = await session.execute(
+            select(EventAttendee.user_id).where(EventAttendee.team_id == team_id)
+        )
+        user_ids = [row[0] for row in attendees_result.all()]
+        
+        if not user_ids:
+            return 0
+        
+        # 해당 user_id들의 빙고 개수 합산
+        result = await session.execute(
+            select(func.sum(BingoBoards.bingo_count)).where(
+                BingoBoards.user_id.in_(user_ids)
+            )
+        )
+        total = result.scalar()
+        return total or 0
+
