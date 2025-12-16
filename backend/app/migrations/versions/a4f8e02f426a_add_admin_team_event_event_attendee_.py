@@ -23,21 +23,27 @@ def upgrade() -> None:
     op.create_table('admins',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('email', sa.String(length=100), nullable=False),
-    sa.Column('password', sa.String(length=100), nullable=False),
+    sa.Column('password', sa.String(length=255), nullable=False),  # 100 -> 255로 변경
     sa.Column('name', sa.String(length=100), nullable=False),
     sa.Column('role', sa.Enum('ADMIN', 'EVENT_MANAGER', name='adminrole'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('NOW()')),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('NOW()')),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email')
     )
     op.create_table('events',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=100), nullable=False),
-    sa.Column('start_time', sa.DateTime(), nullable=False),
-    sa.Column('end_time', sa.DateTime(), nullable=False),
+    sa.Column('start_time', sa.DateTime(timezone=True), nullable=False),  # timezone=True 추가
+    sa.Column('end_time', sa.DateTime(timezone=True), nullable=False),  # timezone=True 추가
+    sa.Column('admin_id', sa.Integer(), nullable=False),  # admin_id FK 추가
     sa.Column('admin_email', sa.String(length=100), nullable=False),
     sa.Column('bingo_size', sa.Integer(), nullable=False),
     sa.Column('success_condition', sa.Integer(), nullable=False),
     sa.Column('keywords', sa.JSON(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('NOW()')),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('NOW()')),
+    sa.ForeignKeyConstraint(['admin_id'], ['admins.id'], ),  # FK 추가
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('teams',
@@ -45,6 +51,7 @@ def upgrade() -> None:
     sa.Column('name', sa.String(length=50), nullable=False),
     sa.Column('event_id', sa.Integer(), nullable=False),
     sa.Column('color', sa.Enum('BLUE', 'RED', name='teamcolor'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('NOW()')),  # created_at 추가
     sa.ForeignKeyConstraint(['event_id'], ['events.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
