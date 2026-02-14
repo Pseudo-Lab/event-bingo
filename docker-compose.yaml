@@ -6,12 +6,20 @@ services:
       context: ./frontend
       args:
         - VITE_API_URL=${VITE_API_URL}
-    ports:
-      - "${FRONTEND_PORT}:80"
     environment:
       - VITE_API_URL=${VITE_API_URL}
     depends_on:
       - backend
+    networks:
+      - traefik
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bingo-frontend.rule=Host(`bingo.pseudolab-devfactory.com`)"
+      - "traefik.http.routers.bingo-frontend.entrypoints=websecure"
+      - "traefik.http.routers.bingo-frontend.tls.certresolver=le"
+      - "traefik.http.services.bingo-frontend.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik"
 
   backend:
     build:
@@ -24,13 +32,23 @@ services:
       DB_URL: mysql+aiomysql://${DB_ROOT}:${DB_ROOT_PASSWORD}@db:${DB_PORT}/${DB_DATABASE}
       SWAGGER_USERNAME: ${SWAGGER_USERNAME}
       SWAGGER_PASSWORD: ${SWAGGER_PASSWORD}
-    ports:
-      - "${BACKEND_PORT}:8000"
     command: >
       /bin/sh -c "
         alembic upgrade head;
         python app/start.py
       "
+    networks:
+      - traefik
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bingo-backend.rule=Host(`bingo.pseudolab-devfactory.com`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.bingo-backend.entrypoints=websecure"
+      - "traefik.http.routers.bingo-backend.tls.certresolver=le"
+      - "traefik.http.middlewares.bingo-strip-api.stripprefix.prefixes=/api"
+      - "traefik.http.routers.bingo-backend.middlewares=bingo-strip-api"
+      - "traefik.http.services.bingo-backend.loadbalancer.server.port=8000"
+      - "traefik.docker.network=traefik"
 
   db:
     image: mysql:latest
@@ -48,6 +66,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+networks:
+  traefik:
+    external: true
 
 volumes:
   mysql-data:
