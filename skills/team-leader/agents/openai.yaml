@@ -1,0 +1,5 @@
+interface:
+  display_name: "Team Leader"
+  short_description: "Cross-role delivery leadership"
+  default_prompt: "Use $team-leader to coordinate delivery risks and unblock teams for the service-page release."
+

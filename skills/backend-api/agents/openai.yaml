@@ -1,0 +1,5 @@
+interface:
+  display_name: "Backend API"
+  short_description: "FastAPI endpoints and backend rules"
+  default_prompt: "Use $backend-api to implement or update FastAPI endpoints for the bingo service flow first."
+

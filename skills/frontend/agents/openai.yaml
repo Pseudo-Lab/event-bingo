@@ -1,0 +1,5 @@
+interface:
+  display_name: "Frontend"
+  short_description: "React service-page implementation"
+  default_prompt: "Use $frontend to build or refine React screens for the bingo service page and integrate APIs safely."
+
