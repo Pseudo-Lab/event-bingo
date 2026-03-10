@@ -1,0 +1,5 @@
+interface:
+  display_name: "QA"
+  short_description: "Functional validation and defect reporting"
+  default_prompt: "Use $qa to build and run a service-page-first test checklist and summarize release readiness."
+

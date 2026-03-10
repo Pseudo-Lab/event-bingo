@@ -1,0 +1,5 @@
+interface:
+  display_name: "Product Planner"
+  short_description: "Roadmap and execution planning"
+  default_prompt: "Use $product-planner to convert bingo goals into a service-page-first MVP plan with milestones."
+

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Design + FE"
+  short_description: "UX design and React build together"
+  default_prompt: "Use $design-fe to design and implement a user-facing bingo screen with clear UX states."
+

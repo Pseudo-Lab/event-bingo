@@ -1,0 +1,5 @@
+interface:
+  display_name: "Product Owner"
+  short_description: "Scope and value direction"
+  default_prompt: "Use $product-owner to evaluate feature scope and confirm acceptance criteria for the next bingo release."
+
