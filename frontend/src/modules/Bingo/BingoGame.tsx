@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container, Box, Typography, Button, Grid, Paper, Chip, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Snackbar, Alert, Divider, Rating, Link
+  Snackbar, Alert, Divider, Rating, Link, type SxProps, type Theme
 } from '@mui/material';
 import { styled } from "@mui/system";
 import PersonIcon from '@mui/icons-material/Person';
@@ -22,6 +22,7 @@ import {
 import logo from '../../assets/react.svg';
 import bingoKeywords from '../../config/bingo-keywords.json';
 import { bingoConfig } from '../../config/bingoConfig.ts';
+import "./BingoGame.css";
 
 // Define proper interfaces
 interface BingoCell {
@@ -47,9 +48,17 @@ interface ExchangeRecord {
   given?: string[];
 }
 
-const cellValues = bingoKeywords.keywords;
+interface InteractionRecord {
+  send_user_id: number;
+  receive_user_id: number;
+  created_at: string;
+  word_id_list: string[] | string;
+}
 
-const GradientContainer = styled(Container)(({ theme }) => ({
+const cellValues = bingoKeywords.keywords;
+const SETUP_BRAND_TITLE = "Bingo Networking";
+
+const GradientContainer = styled(Container)(() => ({
   minHeight: "75vh",
   display: "flex",
   flexDirection: "column",
@@ -78,8 +87,7 @@ const BingoGame = () => {
   const [collectedKeywords, setCollectedKeywords] = useState(0);
   const [metPersonNum, setMetPersonNum] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
-  const [exchangeHistory, setExchangeHistory] = useState<any[]>([]);
-  const [lastSelectedCell, setLastSelectedCell] = useState<number | null>(null);
+  const [exchangeHistory, setExchangeHistory] = useState<ExchangeRecord[]>([]);
   // 새로운 빙고 라인이 발견되었는지 확인하기 위한 상태
   const [newBingoFound, setNewBingoFound] = useState(false);
   const [initialSetupOpen, setInitialSetupOpen] = useState(true);
@@ -110,7 +118,10 @@ const BingoGame = () => {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewStars, setReviewStars] = useState<number | null>(null);
   const [reviewText, setReviewText] = useState('');
-  const [hideReviewModal, setHideReviewModal] = useState(() =>localStorage.getItem("hideReviewModal") === "true");
+  const [hideReviewModal, setHideReviewModal] = useState(
+    () => localStorage.getItem("hideReviewModal") === "true"
+  );
+  const [isInitializingBoard, setIsInitializingBoard] = useState(false);
   const visibleModal = showAllBingoModal
     ? "allBingo"
     : showReviewModal
@@ -118,7 +129,7 @@ const BingoGame = () => {
     : null;
 
   // 셀 노트 가져오기
-  function getCellNote(index: number): string | undefined {
+  function getCellNote(): string | undefined {
     return undefined;
   }
 
@@ -197,7 +208,7 @@ const BingoGame = () => {
                 value: shuffledValues[i < 12 ? i : i - 1],
                 selected: 0,
                 status: 0,
-                note: getCellNote(i),
+                note: getCellNote(),
               };
             });
             setBingoBoard(initialBoard);
@@ -264,15 +275,15 @@ const BingoGame = () => {
   
       const grouped: { [key: string]: ExchangeRecord } = {};
   
-      for (const record of rawHistory.interactions) {
+      for (const record of rawHistory.interactions as InteractionRecord[]) {
         const isSender = record.send_user_id === parseInt(userId);
         const otherUserId = isSender ? record.receive_user_id : record.send_user_id;
   
         const groupKey = `${record.send_user_id}-${record.receive_user_id}`;
   
         if (!grouped[groupKey]) {
-          const senderName = await getUserName(isSender ? userId : otherUserId);
-          const receiverName = await getUserName(isSender ? otherUserId : userId);
+          const senderName = await getUserName(String(isSender ? userId : otherUserId));
+          const receiverName = await getUserName(String(isSender ? otherUserId : userId));
   
           grouped[groupKey] = {
             id: Math.random(),
@@ -297,7 +308,7 @@ const BingoGame = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const initializeBoard = async (userId: string, selectedInitialKeywords: string[]) => {
+  const initializeBoard = async (selectedInitialKeywords: string[]) => {
     try {
       const boardData: {
         [key: string]: { value: string; status: number; selected: number };
@@ -321,37 +332,63 @@ const BingoGame = () => {
       
       const storedId = localStorage.getItem("myID");
       if (storedId) {
-        await createBingoBoard(storedId, boardData);
+        const isCreated = await createBingoBoard(storedId, boardData);
+        if (!isCreated) {
+          return false;
+        }
         setUserId(storedId);
+        return true;
       }
     } catch (error) {
       console.error("Failed to initialize bingo board:", error);
     }
+
+    return false;
   };
 
   // 첫 화면에서 키워드 선택 후 저장
   const handleInitialSetup = async () => {
+    if (selectedInitialKeywords.length !== keywordCount) {
+      showAlert(`관심사는 ${keywordCount}개 선택해 주세요.`, 'warning');
+      return;
+    }
+
     try {
+      setIsInitializingBoard(true);
       if (selectedInitialKeywords.length > 0) {
         setMyKeywords(selectedInitialKeywords);
       }
+
+      const isInitialized = await initializeBoard(selectedInitialKeywords);
+      if (!isInitialized) {
+        showAlert('키워드 저장 중 문제가 발생했습니다.', 'error');
+        return;
+      }
+
       setInitialSetupOpen(false);
       showAlert('키워드가 설정되었습니다!');
-      await initializeBoard(userId, selectedInitialKeywords);
     } catch (err) {
       console.error("Failed initial setup:", err);
+      showAlert('초기 설정 중 문제가 발생했습니다.', 'error');
+    } finally {
+      setIsInitializingBoard(false);
     }
   };
 
   // 초기 키워드 선택 토글
   const toggleInitialKeyword = (keyword: string) => {
-    if (selectedInitialKeywords.includes(keyword)) {
-      setSelectedInitialKeywords(selectedInitialKeywords.filter(k => k !== keyword));
-    } else {
-      if (selectedInitialKeywords.length < keywordCount) {
-        setSelectedInitialKeywords([...selectedInitialKeywords, keyword]);
+    setSelectedInitialKeywords(previousKeywords => {
+      if (previousKeywords.includes(keyword)) {
+        return previousKeywords.filter(item => item !== keyword);
       }
-    }
+
+      if (previousKeywords.length >= keywordCount) {
+        showAlert(`관심사는 ${keywordCount}개까지만 선택할 수 있습니다.`, 'warning');
+        return previousKeywords;
+      }
+
+      return [...previousKeywords, keyword];
+    });
   };
 
   // 빙고 라인에 해당하는 모든 셀의 인덱스 배열을 반환하는 함수
@@ -379,66 +416,7 @@ const BingoGame = () => {
     return cells;
   };
 
-  // 빙고 라인 체크
-  useEffect(() => {
-    // Calculate new bingo lines (not previously completed)
-    const newLines = completedLines.filter(
-      newLine =>
-        !bingoLineCells.some(cell =>
-          getCellsInLine(newLine.type, newLine.index).every(lineCell => bingoLineCells.includes(lineCell))
-        )
-    );
-  
-    // Collect cells from the new lines only
-    const newCells: number[] = [];
-    newLines.forEach(line => {
-      newCells.push(...getCellsInLine(line.type, line.index));
-    });
-  
-    const uniqueNewCells = [...new Set(newCells)];
-    
-    if (uniqueNewCells.length > 0) {
-      setNewBingoCells(uniqueNewCells);
-      setAnimatedCells(uniqueNewCells);
-      setNewBingoFound(true);
-      showAlert('빙고 한 줄을 완성했습니다! 🎉');
-      if (!hasShownConfetti && bingoCount >= bingoMissionCount) {
-        setShowConfetti(true);
-        setHasShownConfetti(true);
-      }
-      
-      if (bingoCount >= 1 && !hideReviewModal) {
-        setShowReviewModal(true);
-      }
-  
-      // Clear animation after some time
-      setTimeout(() => {
-        setAnimatedCells([]);
-        setNewBingoCells([]);
-        setNewBingoFound(false);
-        setShowConfetti(false);
-        setShowConfetti(false);
-      }, 3000);
-    }
-  
-    // Update all cells in bingo lines
-    const allCellsFromLines: number[] = [];
-    completedLines.forEach(line => {
-      allCellsFromLines.push(...getCellsInLine(line.type, line.index));
-    });
-  
-    const uniqueAllCells = [...new Set(allCellsFromLines)];
-    setBingoLineCells(uniqueAllCells);
-  }, [completedLines, bingoCount]);
-  
-  useEffect(() => {
-    if (bingoBoard?.length === 25) {
-      checkBingoLines();
-    }
-  }, [bingoBoard]);
-
-  // 빙고 라인 체크 함수
-  const checkBingoLines = () => {
+  const checkBingoLines = useCallback(() => {
     const newCompletedLines: CompletedLine[] = [];
     let newBingoCount = 0;
 
@@ -511,15 +489,82 @@ const BingoGame = () => {
     if (newBingoCount >= bingoMissionCount) {
       setShowAllBingoModal(true);
     }
-  };
+  }, [bingoBoard, bingoMissionCount]);
+
+  // 빙고 라인 체크
+  useEffect(() => {
+    // Calculate new bingo lines (not previously completed)
+    const newLines = completedLines.filter(
+      newLine =>
+        !getCellsInLine(newLine.type, newLine.index).every(lineCell =>
+          bingoLineCells.includes(lineCell)
+        )
+    );
+  
+    // Collect cells from the new lines only
+    const newCells: number[] = [];
+    newLines.forEach(line => {
+      newCells.push(...getCellsInLine(line.type, line.index));
+    });
+  
+    const uniqueNewCells = [...new Set(newCells)];
+    
+    if (uniqueNewCells.length > 0) {
+      setNewBingoCells(uniqueNewCells);
+      setAnimatedCells(uniqueNewCells);
+      setNewBingoFound(true);
+      showAlert('빙고 한 줄을 완성했습니다! 🎉');
+      if (!hasShownConfetti && bingoCount >= bingoMissionCount) {
+        setShowConfetti(true);
+        setHasShownConfetti(true);
+      }
+      
+      if (bingoCount >= 1 && !hideReviewModal) {
+        setShowReviewModal(true);
+      }
+  
+      // Clear animation after some time
+      setTimeout(() => {
+        setAnimatedCells([]);
+        setNewBingoCells([]);
+        setNewBingoFound(false);
+        setShowConfetti(false);
+        setShowConfetti(false);
+      }, 3000);
+    }
+  
+    // Update all cells in bingo lines
+    const allCellsFromLines: number[] = [];
+    completedLines.forEach(line => {
+      allCellsFromLines.push(...getCellsInLine(line.type, line.index));
+    });
+  
+    const uniqueAllCells = [...new Set(allCellsFromLines)];
+    const hasSameCells =
+      uniqueAllCells.length === bingoLineCells.length &&
+      uniqueAllCells.every((cell, index) => cell === bingoLineCells[index]);
+
+    if (!hasSameCells) {
+      setBingoLineCells(uniqueAllCells);
+    }
+  }, [completedLines, bingoCount, bingoLineCells, bingoMissionCount, hasShownConfetti, hideReviewModal]);
+  
+  useEffect(() => {
+    if (bingoBoard?.length === 25) {
+      checkBingoLines();
+    }
+  }, [bingoBoard, checkBingoLines]);
 
   // 알림 닫기 함수
-  const handleCloseAlert = () => {
+  function handleCloseAlert() {
     setAlertOpen(false);
-  };
+  }
 
   // 알림 표시 함수
-  const showAlert = (message: string, severity: 'success' | 'warning' | 'error' | 'info' = 'success') => {
+  function showAlert(
+    message: string,
+    severity: 'success' | 'warning' | 'error' | 'info' = 'success'
+  ) {
     setAlertMessage(message);
     setAlertSeverity(severity);
     setAlertOpen(true);
@@ -527,7 +572,7 @@ const BingoGame = () => {
     setTimeout(() => {
       setAlertOpen(false);
     }, 3000);
-  };
+  }
 
   // 키워드 교환 처리
   const handleExchange = async () => {
@@ -592,7 +637,6 @@ const BingoGame = () => {
 
     const isMarked = bingoBoard[index].status;
     const isInCompletedLine = isCellInCompletedLine(index);
-    const isLastSelected = index === lastSelectedCell;
     const isNewBingoCell = newBingoCells.includes(index);
     const isLatestReceived = latestReceivedKeywords.includes(bingoBoard[index].value);
     const orangeBorder = '2px solid #FF9E21 ';
@@ -600,7 +644,7 @@ const BingoGame = () => {
     const greenBorder = '2px solid #2E7D32';
     
     // Base styles
-    const baseStyle: any = {
+    const baseStyle: SxProps<Theme> = {
       position: 'relative',
       aspectRatio: '1/1',
       display: 'flex',
@@ -645,7 +689,7 @@ const BingoGame = () => {
           border: isLatestReceived? greenBorder : baseBorder,
           color: 'white',
           fontWeight: 'bold',
-          boxShadow: isLastSelected ? 3 : 1,
+          boxShadow: 1,
         };
       } else {
         // Regular selected cells
@@ -654,7 +698,7 @@ const BingoGame = () => {
           bgcolor: '#FFF8E0',
           // border: '2px #FF9E21 solid',
           border: isLatestReceived? orangeBorder : baseBorder,
-          boxShadow: isLastSelected ? 2 : 0,
+          boxShadow: 0,
         };
       }
     } else {
@@ -695,64 +739,78 @@ const BingoGame = () => {
     );
   }
 
+  if (initialSetupOpen) {
+    return (
+      <div className="keyword-setup-page">
+        <div className="keyword-setup-page__mesh" aria-hidden="true" />
+        <main className="keyword-setup-shell">
+          <p className="keyword-setup-brand">{SETUP_BRAND_TITLE}</p>
+
+          <header className="keyword-setup-header">
+            <div className="keyword-setup-header__title">
+              <span className="keyword-setup-header__spark keyword-setup-header__spark--left" />
+              <h1>관심사 선택</h1>
+              <span className="keyword-setup-header__spark keyword-setup-header__spark--right" />
+            </div>
+            <p>
+              당신의 관심사를 잘 표현할 수 있는 키워드를 {keywordCount}개 선택하세요.
+            </p>
+          </header>
+
+          <section className="keyword-setup-card" aria-label="interest keyword selection">
+            <div className="keyword-setup-card__scroller">
+              <div className="keyword-setup-grid">
+                {cellValues.map((keyword) => {
+                  const isSelected = selectedInitialKeywords.includes(keyword);
+
+                  return (
+                    <button
+                      key={keyword}
+                      type="button"
+                      className={`keyword-chip ${isSelected ? "is-selected" : ""}`}
+                      onClick={() => toggleInitialKeyword(keyword)}
+                      aria-pressed={isSelected}
+                    >
+                      {keyword}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="keyword-setup-card__footer">
+              <button
+                type="button"
+                className="keyword-setup-submit"
+                onClick={handleInitialSetup}
+                disabled={
+                  selectedInitialKeywords.length !== keywordCount || isInitializingBoard
+                }
+              >
+                {isInitializingBoard ? "준비 중..." : "빙고 시작하기"}
+              </button>
+            </div>
+          </section>
+        </main>
+
+        <Snackbar
+          open={alertOpen}
+          autoHideDuration={3000}
+          onClose={handleCloseAlert}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert onClose={handleCloseAlert} severity={alertSeverity} sx={{ width: '100%' }}>
+            {alertMessage}
+          </Alert>
+        </Snackbar>
+      </div>
+    );
+  }
+
 
   return (
     <GradientContainer>
       <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
-        {/* 초기 키워드 설정 모달 */}
-        <Dialog 
-          open={initialSetupOpen} 
-          fullWidth 
-          maxWidth="sm"
-          disableEscapeKeyDown
-          onClose={(event, reason) => {
-            if (reason !== 'backdropClick') {
-              setInitialSetupOpen(false);
-            }
-          }}
-        >
-          <DialogTitle>빙고 게임 시작하기</DialogTitle>
-          <DialogContent>
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body1" mb={1}>나의 키워드를 선택하세요 ({keywordCount}개):</Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {cellValues.map((keyword, index) => (
-                  <Chip
-                    key={index}
-                    label={keyword}
-                    clickable
-                    color={selectedInitialKeywords.includes(keyword) ? "primary" : "default"}
-                    onClick={() => toggleInitialKeyword(keyword)}
-                    variant={selectedInitialKeywords.includes(keyword) ? "filled" : "outlined"}
-                  />
-                ))}
-              </Box>
-            </Box>
-            
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                {selectedInitialKeywords.length}/{keywordCount} 선택됨
-              </Typography>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => (window.location.href = "/")}
-              variant="outlined"
-            >
-              홈으로
-            </Button>
-            <Button 
-              onClick={handleInitialSetup}
-              variant="contained"
-              color="primary"
-              disabled={selectedInitialKeywords.length !== keywordCount}
-            >
-              게임 시작하기
-            </Button>
-          </DialogActions>
-        </Dialog>
-        
         {/* 헤더 섹션 */}
         <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -1002,7 +1060,7 @@ const BingoGame = () => {
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                  {history.given.map((word: string, i: string) => (
+                  {history.given?.map((word, i) => (
                     <Chip key={i} label={word} size="small" variant="outlined" sx={{ bgcolor: 'grey.100' }} />
                   ))}
                 </Box>
@@ -1095,6 +1153,7 @@ const BingoGame = () => {
               variant="text"
               onClick={() => {
                 localStorage.setItem("hideReviewModal", "true");
+                setHideReviewModal(true);
                 setShowReviewModal(false);
               }}
             >
@@ -1108,6 +1167,7 @@ const BingoGame = () => {
                     await submitReview(userId, reviewStars, reviewText);
                     showAlert("소중한 리뷰 감사합니다!");
                     localStorage.setItem("hideReviewModal", "true"); // 유저 리뷰 get하는 함수 사용하면 삭제
+                    setHideReviewModal(true);
                     setShowReviewModal(false); // 유저 리뷰 get하는 함수 사용하면 삭제
                   } catch (err) {
                     showAlert("리뷰 제출 중 문제가 발생했습니다.", 'error');
