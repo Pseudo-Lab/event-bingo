@@ -1,23 +1,29 @@
 import {
+  mockClearMode,
   mockCreateBingoBoard,
   mockCreateUserBingoInteraction,
   mockGetBingoBoard,
+  mockGetOrCreateTesterUsers,
   mockGetSelectedWords,
   mockGetUserAllInteraction,
   mockGetUserByName,
   mockGetUserInteractionCount,
   mockGetUserLatestInteraction,
   mockGetUserName,
+  mockIsModeEnabled,
   mockNewSingUpUser,
+  mockResetState,
   mockSingUpUser,
   mockSubmitReview,
   mockUpdateBingoBoard,
   mockUpdateBingoFromQR,
 } from "./mockBingoApi";
+import type { MockTesterUser } from "./mockBingoApi";
 
 const API_URL = import.meta.env.VITE_API_URL?.trim();
 
 const hasApiUrl = Boolean(API_URL);
+const shouldUseMockApi = () => !hasApiUrl || mockIsModeEnabled();
 
 const createApiUrl = (path: string, params?: Record<string, string>) => {
   if (!API_URL) {
@@ -33,8 +39,32 @@ const createApiUrl = (path: string, params?: Record<string, string>) => {
   return url.toString();
 };
 
+export type { MockTesterUser };
+
+export const isLocalMockTesterEnabled = () => import.meta.env.DEV || shouldUseMockApi();
+
+export const getLocalMockTesterUsers = async (): Promise<MockTesterUser[]> => {
+  if (!isLocalMockTesterEnabled()) {
+    return [];
+  }
+
+  return mockGetOrCreateTesterUsers();
+};
+
+export const loginWithLocalMockTester = async (accessCode: string, userName: string) => {
+  return mockNewSingUpUser(accessCode, userName);
+};
+
+export const clearLocalMockMode = () => {
+  mockClearMode();
+};
+
+export const resetLocalMockTesterData = () => {
+  mockResetState();
+};
+
 export const singUpUser = async (userEmail: string) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockSingUpUser(userEmail);
   }
 
@@ -57,7 +87,7 @@ export const singUpUser = async (userEmail: string) => {
 };
 
 export const newSingUpUser = async (userEmail: string, userName: string) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockNewSingUpUser(userEmail, userName);
   }
 
@@ -84,7 +114,7 @@ export const newSingUpUser = async (userEmail: string, userName: string) => {
 
 // Deprecated
 export const getUser = async (username: string) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockGetUserByName(username);
   }
 
@@ -109,7 +139,7 @@ export const createBingoBoard = async (
     [key: string]: { value: string; status: number; selected: number };
   }
 ) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockCreateBingoBoard(userId, boardData);
   }
 
@@ -129,7 +159,7 @@ export const createBingoBoard = async (
 };
 
 export const getBingoBoard = async (userId: string) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockGetBingoBoard(userId);
   }
 
@@ -156,7 +186,7 @@ export const getBingoBoard = async (userId: string) => {
 };
 
 export const getUserInteractionCount = async (userId: string) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockGetUserInteractionCount(userId);
   }
 
@@ -179,7 +209,7 @@ export const getUserInteractionCount = async (userId: string) => {
 };
 
 export const getSelectedWords = async (userId: string) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockGetSelectedWords(userId);
   }
 
@@ -203,7 +233,7 @@ export const updateBingoBoard = async (
   send_user_id: string,
   receive_user_id: string
 ) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockUpdateBingoBoard(send_user_id, receive_user_id);
   }
 
@@ -225,7 +255,7 @@ export const updateBingoBoard = async (
 };
 
 export const submitReview = async (userId: string, rating: number, review: string) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockSubmitReview(userId, rating, review);
   }
 
@@ -251,7 +281,7 @@ export const createUserBingoInteraction = async (
   send_user_id: number,
   receive_user_id: number
 ) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockCreateUserBingoInteraction(
       word_id_list,
       send_user_id,
@@ -279,7 +309,7 @@ export const createUserBingoInteraction = async (
 };
 
 export const getUserLatestInteraction = async (userId: string, limit: number = 0) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockGetUserLatestInteraction(userId, limit);
   }
 
@@ -298,7 +328,7 @@ export const getUserLatestInteraction = async (userId: string, limit: number = 0
 };
 
 export const getUserAllInteraction = async (userId: string) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockGetUserAllInteraction(userId);
   }
 
@@ -317,7 +347,7 @@ export const getUserAllInteraction = async (userId: string) => {
 };
 
 export const getUserName = async (userId: string) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockGetUserName(userId);
   }
 
@@ -336,7 +366,7 @@ export const getUserName = async (userId: string) => {
 };
 
 export const updateBingoFromQR = async (userId: string, targetId: string) => {
-  if (!hasApiUrl) {
+  if (shouldUseMockApi()) {
     return mockUpdateBingoFromQR(userId, targetId);
   }
 

@@ -1,3 +1,5 @@
+import { bingoConfig, boardKeywordPool } from "../config/bingoConfig.ts";
+
 type MockBoardCell = {
   value: string;
   status: number;
@@ -35,8 +37,29 @@ type LoginResponse = MockUser & {
   message: string;
 };
 
+export type MockTesterUser = {
+  userId: string;
+  userEmail: string;
+  userName: string;
+  accessCode: string;
+  hasBoard: boolean;
+};
+
 const STORAGE_KEY = "bingo.mockApiState.v1";
 const MODE_KEY = "bingo.mockApiMode";
+const SHARED_TEST_WORD_POOL = boardKeywordPool;
+const DEFAULT_TEST_USERS = [
+  { accessCode: "mint01", userName: "테스트 민트" },
+  { accessCode: "lime02", userName: "테스트 라임" },
+  { accessCode: "wave03", userName: "테스트 웨이브" },
+  { accessCode: "leaf04", userName: "테스트 리프" },
+  { accessCode: "glow05", userName: "테스트 글로우" },
+  { accessCode: "coral06", userName: "테스트 코랄" },
+  { accessCode: "stone07", userName: "테스트 스톤" },
+  { accessCode: "solar08", userName: "테스트 솔라" },
+  { accessCode: "berry09", userName: "테스트 베리" },
+  { accessCode: "cloud10", userName: "테스트 클라우드" },
+] as const;
 
 const createDefaultState = (): MockState => ({
   nextUserId: 1,
@@ -74,7 +97,33 @@ const writeState = (state: MockState) => {
 };
 
 const markMockMode = () => {
-  localStorage.setItem(MODE_KEY, "true");
+  sessionStorage.setItem(MODE_KEY, "true");
+};
+
+export const mockIsModeEnabled = () => {
+  const sessionMode = sessionStorage.getItem(MODE_KEY);
+  if (sessionMode) {
+    return sessionMode === "true";
+  }
+
+  const legacyMode = localStorage.getItem(MODE_KEY);
+  if (legacyMode) {
+    sessionStorage.setItem(MODE_KEY, legacyMode);
+    localStorage.removeItem(MODE_KEY);
+  }
+
+  return legacyMode === "true";
+};
+
+export const mockClearMode = () => {
+  sessionStorage.removeItem(MODE_KEY);
+  localStorage.removeItem(MODE_KEY);
+};
+
+export const mockResetState = () => {
+  localStorage.removeItem(STORAGE_KEY);
+  sessionStorage.removeItem(MODE_KEY);
+  localStorage.removeItem(MODE_KEY);
 };
 
 const sortInteractionsDesc = (interactions: MockInteraction[]) =>
@@ -82,6 +131,93 @@ const sortInteractionsDesc = (interactions: MockInteraction[]) =>
     (left, right) =>
       new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
   );
+
+const rotateWords = (words: string[], offset: number) => {
+  if (words.length === 0) {
+    return words;
+  }
+
+  const normalizedOffset = offset % words.length;
+  return [...words.slice(normalizedOffset), ...words.slice(0, normalizedOffset)];
+};
+
+const buildSeedKeywords = (userIndex: number) => {
+  return Array.from({ length: bingoConfig.exchangeKeywordCount }, (_, index) => {
+    const keywordIndex = (userIndex * 4 + index * 7) % SHARED_TEST_WORD_POOL.length;
+    return SHARED_TEST_WORD_POOL[keywordIndex];
+  });
+};
+
+const buildSeedBoard = (userIndex: number): MockBoardData => {
+  const boardWords = rotateWords(SHARED_TEST_WORD_POOL, userIndex * 3);
+  const selectedKeywords = new Set(buildSeedKeywords(userIndex));
+  return Array.from({ length: bingoConfig.boardCellCount }).reduce<MockBoardData>(
+    (board, _, index) => {
+      const value = boardWords[index % boardWords.length];
+
+      board[String(index)] = {
+        value,
+        selected: selectedKeywords.has(value) ? 1 : 0,
+        status: 0,
+      };
+      return board;
+    },
+    {}
+  );
+};
+
+const getAccessCodeForUserId = (state: MockState, userId: string) => {
+  return (
+    Object.entries(state.accessCodeToUserId).find(([, mappedUserId]) => mappedUserId === userId)?.[0] ??
+    state.users[userId]?.user_email ??
+    ""
+  );
+};
+
+const toTesterUsers = (state: MockState): MockTesterUser[] => {
+  return Object.values(state.users)
+    .sort((left, right) => left.user_id - right.user_id)
+    .map((user) => ({
+      userId: String(user.user_id),
+      userEmail: user.user_email,
+      userName: user.user_name,
+      accessCode: getAccessCodeForUserId(state, String(user.user_id)),
+      hasBoard: Boolean(state.boards[String(user.user_id)]),
+    }));
+};
+
+const ensureDefaultTestUsers = (state: MockState) => {
+  DEFAULT_TEST_USERS.forEach((tester, index) => {
+    const existingUserId = state.accessCodeToUserId[tester.accessCode];
+    const userId = existingUserId ?? String(state.nextUserId);
+
+    if (!existingUserId) {
+      state.users[userId] = {
+        user_id: state.nextUserId,
+        user_email: tester.accessCode,
+        user_name: tester.userName,
+        privacy_agreed: true,
+      };
+      state.accessCodeToUserId[tester.accessCode] = userId;
+      state.nextUserId += 1;
+    }
+
+    if (!state.boards[userId]) {
+      state.boards[userId] = buildSeedBoard(index);
+    }
+  });
+};
+
+const hasDirectionalInteraction = (
+  interactions: MockInteraction[],
+  sendUserId: number,
+  receiveUserId: number
+) => {
+  return interactions.some((interaction) => {
+    return interaction.send_user_id === sendUserId &&
+      interaction.receive_user_id === receiveUserId;
+  });
+};
 
 export const mockSingUpUser = async (userEmail: string): Promise<LoginResponse> => {
   return mockNewSingUpUser(userEmail, userEmail);
@@ -123,6 +259,14 @@ export const mockNewSingUpUser = async (
     ok: true,
     message: "로컬 모드로 로그인되었습니다.",
   };
+};
+
+export const mockGetOrCreateTesterUsers = async (): Promise<MockTesterUser[]> => {
+  const state = readState();
+  ensureDefaultTestUsers(state);
+  writeState(state);
+
+  return toTesterUsers(state);
 };
 
 export const mockGetUserByName = async (username: string) => {
@@ -206,10 +350,16 @@ export const mockUpdateBingoBoard = async (
   markMockMode();
 
   const state = readState();
+  const numericSenderId = Number(sendUserId);
+  const numericReceiverId = Number(receiveUserId);
   const senderBoard = state.boards[sendUserId];
   const receiverBoard = state.boards[receiveUserId];
 
   if (!senderBoard || !receiverBoard) {
+    return false;
+  }
+
+  if (hasDirectionalInteraction(state.interactions, numericSenderId, numericReceiverId)) {
     return false;
   }
 
@@ -266,6 +416,10 @@ export const mockCreateUserBingoInteraction = async (
   markMockMode();
 
   const state = readState();
+  if (hasDirectionalInteraction(state.interactions, sendUserId, receiveUserId)) {
+    return false;
+  }
+
   state.interactions.push({
     send_user_id: sendUserId,
     receive_user_id: receiveUserId,

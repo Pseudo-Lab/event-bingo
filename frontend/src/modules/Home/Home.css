@@ -478,6 +478,155 @@
   background: #effaf6;
 }
 
+.login-dev-panel {
+  margin-top: 1.2rem;
+  padding: 1.1rem;
+  border-radius: 1.35rem;
+  background:
+    linear-gradient(180deg, rgba(240, 255, 250, 0.96) 0%, rgba(231, 250, 243, 0.96) 100%);
+  border: 1px solid rgba(47, 157, 123, 0.16);
+}
+
+.login-dev-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.login-dev-panel__tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.login-dev-panel__eyebrow {
+  margin: 0;
+  color: #2f9d7b;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.login-dev-panel__header h3 {
+  margin: 0.3rem 0 0;
+  color: #143b31;
+  font-size: 1.25rem;
+  line-height: 1.25;
+  letter-spacing: -0.03em;
+}
+
+.login-dev-panel__refresh {
+  flex-shrink: 0;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid rgba(31, 132, 103, 0.16);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1e8564;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.login-dev-panel__reset {
+  min-height: 2.6rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid rgba(133, 176, 76, 0.24);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f7ffd8 0%, #e9f9b8 100%);
+  color: #446a21;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.login-dev-panel__refresh:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.login-dev-panel__reset:disabled,
+.login-dev-user__button:disabled {
+  opacity: 0.58;
+  cursor: wait;
+  box-shadow: none;
+}
+
+.login-dev-panel__description {
+  margin: 0.75rem 0 0;
+  color: #5f736d;
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.login-dev-panel__list {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.95rem;
+}
+
+.login-dev-user {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  padding: 0.9rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(47, 157, 123, 0.12);
+}
+
+.login-dev-user.is-active {
+  border-color: rgba(47, 157, 123, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(47, 157, 123, 0.14);
+}
+
+.login-dev-user__meta {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.login-dev-user__meta strong {
+  color: #143b31;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.login-dev-user__meta span {
+  color: #61726c;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.login-dev-user__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-self: center;
+}
+
+.login-dev-user__button {
+  min-width: 6.8rem;
+  min-height: 2.65rem;
+  padding: 0.55rem 0.95rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #64d1b4 0%, #43b991 100%);
+  color: #f8fffb;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.login-dev-user__button.is-secondary {
+  border: 1px solid rgba(31, 132, 103, 0.16);
+  background: #effaf6;
+  color: #1e8564;
+}
+
 .login-consent-dialog {
   overflow: hidden;
   border-radius: 1.6rem;
@@ -585,7 +734,7 @@
 
 .consent-sheet__sections {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 0.85rem;
   margin-top: 0.95rem;
   padding-bottom: 1.1rem;
@@ -605,7 +754,6 @@
 }
 
 .consent-sheet__section--notice {
-  grid-column: 1 / -1;
   background: linear-gradient(180deg, rgba(245, 255, 250, 0.98) 0%, rgba(233, 255, 245, 0.98) 100%);
   border-color: rgba(45, 149, 117, 0.18);
 }
@@ -836,6 +984,40 @@
   .login-secondary {
     min-height: 3.65rem;
     font-size: 1.2rem;
+  }
+
+  .login-dev-panel {
+    padding: 1rem 0.9rem;
+  }
+
+  .login-dev-panel__header {
+    flex-direction: column;
+  }
+
+  .login-dev-panel__tools {
+    width: 100%;
+  }
+
+  .login-dev-panel__refresh {
+    width: 100%;
+  }
+
+  .login-dev-panel__reset {
+    width: 100%;
+  }
+
+  .login-dev-user {
+    grid-template-columns: 1fr;
+  }
+
+  .login-dev-user__actions {
+    flex-direction: row;
+    align-self: stretch;
+  }
+
+  .login-dev-user__button {
+    min-width: 0;
+    flex: 1;
   }
 
   .login-consent-dialog {

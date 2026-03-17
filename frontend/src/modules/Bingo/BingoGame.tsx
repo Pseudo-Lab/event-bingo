@@ -1,15 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Rating,
-  Snackbar,
-} from "@mui/material";
+import { Dialog } from "@mui/material";
 import {
   createBingoBoard,
   createUserBingoInteraction,
@@ -18,11 +9,11 @@ import {
   getUserInteractionCount,
   getUserLatestInteraction,
   getUserName,
-  submitReview,
+  isLocalMockTesterEnabled,
   updateBingoBoard,
 } from "../../api/bingo_api.ts";
-import bingoKeywords from "../../config/bingo-keywords.json";
-import { bingoConfig } from "../../config/bingoConfig.ts";
+import { bingoConfig, boardKeywordPool } from "../../config/bingoConfig.ts";
+import { getAuthSession } from "../../utils/authSession";
 import "./BingoGame.css";
 
 interface BingoCell {
@@ -63,7 +54,15 @@ interface InteractionRecord {
   word_id_list: string[] | string;
 }
 
+type BoardPreviewPreset = "one-line" | "two-lines" | "three-lines" | "full";
+
 type AlertSeverity = "success" | "warning" | "error" | "info";
+type AlertPayload = {
+  title?: string;
+  keywords?: string[];
+  label?: string;
+  durationMs?: number;
+};
 
 type HistoryPanelProps = {
   title: string;
@@ -73,11 +72,25 @@ type HistoryPanelProps = {
   participantKey: "sendPerson" | "receivePerson";
 };
 
-const cellValues = bingoKeywords.keywords;
+const cellValues = boardKeywordPool;
 const SETUP_BRAND_TITLE = "Bingo Networking";
-const TOTAL_PLAYABLE_CELLS = 24;
-const BOARD_CENTERS = [10, 30, 50, 70, 90];
+const BOARD_SIZE = bingoConfig.boardSize;
+const BOARD_CELL_COUNT = bingoConfig.boardCellCount;
+const BOARD_CENTERS = Array.from(
+  { length: BOARD_SIZE },
+  (_, index) => ((index + 0.5) * 100) / BOARD_SIZE
+);
+const BOARD_EDGE_START = BOARD_CENTERS[0] ?? 0;
+const BOARD_EDGE_END = BOARD_CENTERS[BOARD_CENTERS.length - 1] ?? 100;
 const BOARD_PLACEHOLDER_LABEL = "PseudoLab";
+const INTERACTION_BATCH_WINDOW_MS = 1500;
+const RECENT_INTERACTION_LIMIT = 12;
+const BOARD_PREVIEW_OPTIONS: Array<{ id: BoardPreviewPreset; label: string }> = [
+  { id: "one-line", label: "1줄 완성" },
+  { id: "two-lines", label: "2줄 완성" },
+  { id: "three-lines", label: "3줄 완성" },
+  { id: "full", label: "올클리어" },
+];
 
 const shuffleArray = (array: string[]) => {
   return [...array].sort(() => Math.random() - 0.5);
@@ -87,11 +100,104 @@ const formatHistoryDate = (value: string) => {
   return value.replace(/-/g, ".").replace("T", " ").slice(0, 16);
 };
 
+const getUniqueKeywords = (keywords: string[]) => [...new Set(keywords.filter(Boolean))];
+
+const serializeInteractionKeywords = (keywords: string[]) =>
+  JSON.stringify(getUniqueKeywords(keywords));
+
+const parseInteractionKeywords = (payload: string[] | string) => {
+  if (Array.isArray(payload)) {
+    return getUniqueKeywords(payload);
+  }
+
+  const normalizedPayload = payload.trim();
+  if (!normalizedPayload) {
+    return [];
+  }
+
+  if (normalizedPayload.startsWith("[")) {
+    try {
+      const parsedPayload = JSON.parse(normalizedPayload) as unknown;
+      if (Array.isArray(parsedPayload)) {
+        return getUniqueKeywords(
+          parsedPayload.filter(
+            (item): item is string => typeof item === "string" && item.trim().length > 0
+          )
+        );
+      }
+    } catch (error) {
+      console.warn("Failed to parse interaction keyword payload:", error);
+    }
+  }
+
+  return [normalizedPayload];
+};
+
+const getInteractionKeywords = (record: InteractionRecord) =>
+  parseInteractionKeywords(record.word_id_list);
+
+const getPendingKeywordsForBoard = (board: BingoCell[], sourceKeywords: string[]) => {
+  const sourceKeywordSet = new Set(sourceKeywords);
+
+  return getUniqueKeywords(
+    board
+      .filter((cell) => sourceKeywordSet.has(cell.value) && cell.status !== 1)
+      .map((cell) => cell.value)
+  );
+};
+
+const getLatestIncomingBatch = (interactions: InteractionRecord[]) => {
+  if (!Array.isArray(interactions) || interactions.length === 0) {
+    return null;
+  }
+
+  const sortedInteractions = [...interactions].sort(
+    (left, right) =>
+      new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+  );
+  const latestInteraction = sortedInteractions[0];
+  const latestTimestamp = new Date(latestInteraction.created_at).getTime();
+  const batchInteractions = sortedInteractions.filter((interaction) => {
+    return (
+      interaction.send_user_id === latestInteraction.send_user_id &&
+      latestTimestamp - new Date(interaction.created_at).getTime() <=
+        INTERACTION_BATCH_WINDOW_MS
+    );
+  });
+
+  const keywords = getUniqueKeywords(
+    batchInteractions.flatMap((interaction) => getInteractionKeywords(interaction))
+  );
+
+  return {
+    senderId: String(latestInteraction.send_user_id),
+    createdAt: latestInteraction.created_at,
+    keywords,
+    signature: `${latestInteraction.send_user_id}:${latestInteraction.created_at}:${keywords.join("|")}`,
+  };
+};
+
+const getDefaultAlertTitle = (severity: AlertSeverity) => {
+  if (severity === "success") {
+    return "완료되었어요";
+  }
+
+  if (severity === "warning") {
+    return "확인해 주세요";
+  }
+
+  if (severity === "error") {
+    return "문제가 발생했어요";
+  }
+
+  return "안내";
+};
+
 const createBoardConnectionLines = (): BoardLineCoordinates[] => {
   const lines: BoardLineCoordinates[] = [];
 
-  for (let row = 0; row < BOARD_CENTERS.length; row += 1) {
-    for (let col = 0; col < BOARD_CENTERS.length - 1; col += 1) {
+  for (let row = 0; row < BOARD_SIZE; row += 1) {
+    for (let col = 0; col < BOARD_SIZE - 1; col += 1) {
       lines.push({
         x1: BOARD_CENTERS[col],
         y1: BOARD_CENTERS[row],
@@ -107,7 +213,7 @@ const createBoardConnectionLines = (): BoardLineCoordinates[] => {
     }
   }
 
-  for (let index = 0; index < BOARD_CENTERS.length - 1; index += 1) {
+  for (let index = 0; index < BOARD_SIZE - 1; index += 1) {
     lines.push({
       x1: BOARD_CENTERS[index],
       y1: BOARD_CENTERS[index],
@@ -115,9 +221,9 @@ const createBoardConnectionLines = (): BoardLineCoordinates[] => {
       y2: BOARD_CENTERS[index + 1],
     });
     lines.push({
-      x1: BOARD_CENTERS[BOARD_CENTERS.length - 1 - index],
+      x1: BOARD_CENTERS[BOARD_SIZE - 1 - index],
       y1: BOARD_CENTERS[index],
-      x2: BOARD_CENTERS[BOARD_CENTERS.length - 2 - index],
+      x2: BOARD_CENTERS[BOARD_SIZE - 2 - index],
       y2: BOARD_CENTERS[index + 1],
     });
   }
@@ -130,19 +236,29 @@ const BOARD_CONNECTION_LINES = createBoardConnectionLines();
 const getLineCoordinates = (line: CompletedLine): BoardLineCoordinates => {
   if (line.type === "row") {
     const y = BOARD_CENTERS[line.index];
-    return { x1: 10, y1: y, x2: 90, y2: y };
+    return { x1: BOARD_EDGE_START, y1: y, x2: BOARD_EDGE_END, y2: y };
   }
 
   if (line.type === "col") {
     const x = BOARD_CENTERS[line.index];
-    return { x1: x, y1: 10, x2: x, y2: 90 };
+    return { x1: x, y1: BOARD_EDGE_START, x2: x, y2: BOARD_EDGE_END };
   }
 
   if (line.type === "diagonal" && line.index === 1) {
-    return { x1: 10, y1: 10, x2: 90, y2: 90 };
+    return {
+      x1: BOARD_EDGE_START,
+      y1: BOARD_EDGE_START,
+      x2: BOARD_EDGE_END,
+      y2: BOARD_EDGE_END,
+    };
   }
 
-  return { x1: 90, y1: 10, x2: 10, y2: 90 };
+  return {
+    x1: BOARD_EDGE_END,
+    y1: BOARD_EDGE_START,
+    x2: BOARD_EDGE_START,
+    y2: BOARD_EDGE_END,
+  };
 };
 
 function NetworkingIllustration() {
@@ -299,12 +415,15 @@ const BingoGame = () => {
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
   const [bingoCount, setBingoCount] = useState(0);
   const [alertOpen, setAlertOpen] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
+  const [alertKeywords, setAlertKeywords] = useState<string[]>([]);
+  const [alertLabel, setAlertLabel] = useState("STATUS");
   const [collectedKeywords, setCollectedKeywords] = useState(0);
   const [metPersonNum, setMetPersonNum] = useState(0);
   const [exchangeHistory, setExchangeHistory] = useState<ExchangeRecord[]>([]);
   const [newBingoFound, setNewBingoFound] = useState(false);
-  const [initialSetupOpen, setInitialSetupOpen] = useState(true);
+  const [initialSetupOpen, setInitialSetupOpen] = useState(false);
   const [selectedInitialKeywords, setSelectedInitialKeywords] = useState<string[]>([]);
   const [bingoLineCells, setBingoLineCells] = useState<number[]>([]);
   const [animatedCells, setAnimatedCells] = useState<number[]>([]);
@@ -313,6 +432,8 @@ const BingoGame = () => {
   const [hasShownConfetti, setHasShownConfetti] = useState(false);
   const [alertSeverity, setAlertSeverity] = useState<AlertSeverity>("success");
   const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
+  const [boardPreviewPreset, setBoardPreviewPreset] = useState<BoardPreviewPreset | null>(null);
+  const [boardPreviewBase, setBoardPreviewBase] = useState<BingoCell[] | null>(null);
   const [remainingTime, setRemainingTime] = useState(() => {
     return bingoConfig.unlockTime - Date.now();
   });
@@ -322,35 +443,28 @@ const BingoGame = () => {
     return !isTester && new Date().getTime() < bingoConfig.unlockTime;
   });
   const [showAllBingoModal, setShowAllBingoModal] = useState(false);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviewStars, setReviewStars] = useState<number | null>(null);
-  const [reviewText, setReviewText] = useState("");
-  const [hideReviewModal, setHideReviewModal] = useState(
-    () => localStorage.getItem("hideReviewModal") === "true"
-  );
   const [isInitializingBoard, setIsInitializingBoard] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [lastProcessedIncomingSignature, setLastProcessedIncomingSignature] = useState("");
+  const alertTimeoutRef = useRef<number | null>(null);
 
   const bingoMissionCount = bingoConfig.bingoMissionCount;
-  const keywordCount = bingoConfig.keywordCount;
-
-  const visibleModal = showAllBingoModal
-    ? "allBingo"
-    : showReviewModal
-      ? "review"
-      : null;
+  const exchangeKeywordCount = bingoConfig.exchangeKeywordCount;
+  const showBoardPreviewTools = useMemo(() => isLocalMockTesterEnabled(), []);
+  const isBoardPreviewActive = boardPreviewPreset !== null;
 
   const markedKeywordCount = useMemo(() => {
     if (!bingoBoard) {
       return collectedKeywords;
     }
 
-    return bingoBoard.filter((cell, index) => index !== 12 && cell.status === 1).length;
+    return bingoBoard.filter((cell) => cell.status === 1).length;
   }, [bingoBoard, collectedKeywords]);
 
   const completionRate = useMemo(() => {
     return Math.min(
       100,
-      Math.round((markedKeywordCount / TOTAL_PLAYABLE_CELLS) * 100)
+      Math.round((markedKeywordCount / BOARD_CELL_COUNT) * 100)
     );
   }, [markedKeywordCount]);
 
@@ -406,11 +520,12 @@ const BingoGame = () => {
         };
       }
 
-      const wordList = Array.isArray(record.word_id_list)
-        ? record.word_id_list
-        : [record.word_id_list];
+      const wordList = getInteractionKeywords(record);
 
-      grouped[groupKey].given = [...grouped[groupKey].given, ...wordList];
+      grouped[groupKey].given = getUniqueKeywords([
+        ...grouped[groupKey].given,
+        ...wordList,
+      ]);
 
       if (
         new Date(record.created_at).getTime() >
@@ -428,6 +543,21 @@ const BingoGame = () => {
       )
     );
   }, []);
+
+  const hasExistingDirectionalExchange = useCallback(
+    async (activeUserId: string, targetUserId: string) => {
+      const rawHistory = await getUserAllInteraction(activeUserId);
+      if (!rawHistory || !Array.isArray(rawHistory.interactions)) {
+        return false;
+      }
+
+      return (rawHistory.interactions as InteractionRecord[]).some((interaction) => {
+        return interaction.send_user_id === Number(activeUserId) &&
+          interaction.receive_user_id === Number(targetUserId);
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -447,9 +577,10 @@ const BingoGame = () => {
 
   useEffect(() => {
     const init = async () => {
-      const storedId = localStorage.getItem("myID");
-      const storedName = localStorage.getItem("myUserName");
-      const storedContact = localStorage.getItem("myEmail");
+      const authSession = getAuthSession();
+      const storedId = authSession?.userId ?? "";
+      const storedName = authSession?.userName ?? "";
+      const storedContact = authSession?.userEmail ?? "";
 
       if (!storedId) {
         navigate("/", { replace: true });
@@ -457,6 +588,7 @@ const BingoGame = () => {
       }
 
       try {
+        setIsBootstrapping(true);
         setUserId(storedId);
         if (storedName) {
           setUsername(storedName);
@@ -479,44 +611,28 @@ const BingoGame = () => {
           setMyKeywords(selectedKeywords);
 
           const activatedKeywords = boardData.filter(
-            (cell, index) => index !== 12 && cell.status === 1
+            (cell) => cell.status === 1
           );
           setCollectedKeywords(activatedKeywords.length);
 
           const interactionData = await getUserLatestInteraction(storedId, 0);
           if (Array.isArray(interactionData) && interactionData.length > 0) {
-            const latestSenderId = interactionData[0].send_user_id;
-            const latestInteractions = interactionData.filter(
-              (item) => item.send_user_id === latestSenderId
-            );
-            const receivedKeywords = latestInteractions.flatMap((item) =>
-              Array.isArray(item.word_id_list)
-                ? item.word_id_list
-                : [item.word_id_list]
-            );
-            setLatestReceivedKeywords(receivedKeywords);
+            const latestIncomingBatch = getLatestIncomingBatch(interactionData);
+            if (latestIncomingBatch) {
+              setLatestReceivedKeywords(latestIncomingBatch.keywords);
+              setLastProcessedIncomingSignature(latestIncomingBatch.signature);
+            }
           }
         } else {
           const shuffledValues = shuffleArray(cellValues);
-          const initialBoard: BingoCell[] = Array(25)
+          const initialBoard: BingoCell[] = Array(BOARD_CELL_COUNT)
             .fill(null)
-            .map((_, index) => {
-              if (index === 12) {
-                return {
-                  id: index,
-                  value: "Logo",
-                  selected: 0,
-                  status: 1,
-                };
-              }
-
-              return {
-                id: index,
-                value: shuffledValues[index < 12 ? index : index - 1],
-                selected: 0,
-                status: 0,
-              };
-            });
+            .map((_, index) => ({
+              id: index,
+              value: shuffledValues[index % shuffledValues.length],
+              selected: 0,
+              status: 0,
+            }));
 
           setBingoBoard(initialBoard);
           setInitialSetupOpen(true);
@@ -524,6 +640,9 @@ const BingoGame = () => {
         }
       } catch (error) {
         console.error("Error loading user board:", error);
+        showAlert("보드 정보를 불러오는 중 문제가 발생했습니다.", "error");
+      } finally {
+        setIsBootstrapping(false);
       }
     };
 
@@ -544,6 +663,10 @@ const BingoGame = () => {
   }, [fetchExchangeHistory, userId]);
 
   useEffect(() => {
+    if (isBoardPreviewActive) {
+      return;
+    }
+
     const interval = setInterval(async () => {
       if (!userId || !bingoBoard) {
         return;
@@ -558,6 +681,13 @@ const BingoGame = () => {
           return;
         }
 
+        const recentInteractions = await getUserLatestInteraction(
+          userId,
+          RECENT_INTERACTION_LIMIT
+        );
+        const latestIncomingBatch = Array.isArray(recentInteractions)
+          ? getLatestIncomingBatch(recentInteractions)
+          : null;
         const newlyUpdatedValues: string[] = [];
 
         const updatedBoard = latestBoard.map((newCell, index) => {
@@ -572,18 +702,42 @@ const BingoGame = () => {
           setBingoBoard(updatedBoard);
           setCollectedKeywords((prev) => prev + newlyUpdatedValues.length);
           setLatestReceivedKeywords(newlyUpdatedValues);
+        }
 
-          const interactionData = await getUserLatestInteraction(userId, 1);
-          if (Array.isArray(interactionData) && interactionData.length > 0) {
-            const latestSenderId = interactionData[0].send_user_id;
-            const senderUserName = await getUserName(String(latestSenderId));
-            if (senderUserName) {
-              showAlert(
-                `"${senderUserName}"님에게 "${newlyUpdatedValues.join(
-                  '", "'
-                )}" 키워드를 공유 받았습니다.`
-              );
-            }
+        if (
+          latestIncomingBatch &&
+          latestIncomingBatch.signature !== lastProcessedIncomingSignature
+        ) {
+          const senderUserName = await getUserName(latestIncomingBatch.senderId);
+          const displaySenderName =
+            senderUserName || `참가자 ${latestIncomingBatch.senderId}`;
+
+          setLastProcessedIncomingSignature(latestIncomingBatch.signature);
+
+          if (newlyUpdatedValues.length > 0) {
+            const receivedTitle =
+              newlyUpdatedValues.length === latestIncomingBatch.keywords.length
+                ? "새 키워드를 받았어요"
+                : "새 키워드만 반영했어요";
+            const receivedMessage =
+              newlyUpdatedValues.length === latestIncomingBatch.keywords.length
+                ? `"${displaySenderName}"님이 키워드를 보내줬어요.`
+                : `"${displaySenderName}"님이 보낸 키워드 중 새로운 항목만 반영했어요.`;
+
+            showAlert(receivedMessage, "success", {
+              title: receivedTitle,
+              keywords: newlyUpdatedValues,
+              label: "KEYWORD EXCHANGE",
+            });
+          } else {
+            showAlert(
+              `"${displaySenderName}"님이 보낸 키워드는 이미 모두 가지고 있어요.`,
+              "info",
+              {
+                title: "이미 키워드가 다 있어요",
+                label: "KEYWORD EXCHANGE",
+              }
+            );
           }
         }
       } catch (error) {
@@ -592,7 +746,7 @@ const BingoGame = () => {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [bingoBoard, userId]);
+  }, [bingoBoard, isBoardPreviewActive, lastProcessedIncomingSignature, userId]);
 
   const initializeBoard = async (selectedKeywords: string[]) => {
     try {
@@ -603,21 +757,6 @@ const BingoGame = () => {
 
       const nextBoard =
         bingoBoard?.map((item, index) => {
-          if (index === 12) {
-            boardData[index] = {
-              value: "Logo",
-              status: 1,
-              selected: 0,
-            };
-
-            return {
-              ...item,
-              value: "Logo",
-              status: 1,
-              selected: 0,
-            };
-          }
-
           const isSelected = selectedKeywords.includes(item.value);
           boardData[index] = {
             value: item.value,
@@ -632,7 +771,7 @@ const BingoGame = () => {
           };
         }) ?? [];
 
-      const storedId = localStorage.getItem("myID");
+      const storedId = getAuthSession()?.userId;
       if (!storedId) {
         return false;
       }
@@ -653,8 +792,8 @@ const BingoGame = () => {
   };
 
   const handleInitialSetup = async () => {
-    if (selectedInitialKeywords.length !== keywordCount) {
-      showAlert(`관심사는 ${keywordCount}개 선택해 주세요.`, "warning");
+    if (selectedInitialKeywords.length !== exchangeKeywordCount) {
+      showAlert(`관심사는 ${exchangeKeywordCount}개 선택해 주세요.`, "warning");
       return;
     }
 
@@ -686,9 +825,9 @@ const BingoGame = () => {
         return previousKeywords.filter((item) => item !== keyword);
       }
 
-      if (previousKeywords.length >= keywordCount) {
+      if (previousKeywords.length >= exchangeKeywordCount) {
         showAlert(
-          `관심사는 ${keywordCount}개까지만 선택할 수 있습니다.`,
+          `관심사는 ${exchangeKeywordCount}개까지만 선택할 수 있습니다.`,
           "warning"
         );
         return previousKeywords;
@@ -702,24 +841,105 @@ const BingoGame = () => {
     const cells: number[] = [];
 
     if (type === "row") {
-      for (let col = 0; col < 5; col += 1) {
-        cells.push(index * 5 + col);
+      for (let col = 0; col < BOARD_SIZE; col += 1) {
+        cells.push(index * BOARD_SIZE + col);
       }
     } else if (type === "col") {
-      for (let row = 0; row < 5; row += 1) {
-        cells.push(row * 5 + index);
+      for (let row = 0; row < BOARD_SIZE; row += 1) {
+        cells.push(row * BOARD_SIZE + index);
       }
     } else if (type === "diagonal" && index === 1) {
-      for (let diagonal = 0; diagonal < 5; diagonal += 1) {
-        cells.push(diagonal * 5 + diagonal);
+      for (let diagonal = 0; diagonal < BOARD_SIZE; diagonal += 1) {
+        cells.push(diagonal * BOARD_SIZE + diagonal);
       }
     } else if (type === "diagonal" && index === 2) {
-      for (let diagonal = 0; diagonal < 5; diagonal += 1) {
-        cells.push(diagonal * 5 + (4 - diagonal));
+      for (let diagonal = 0; diagonal < BOARD_SIZE; diagonal += 1) {
+        cells.push(diagonal * BOARD_SIZE + (BOARD_SIZE - 1 - diagonal));
       }
     }
 
     return cells;
+  };
+
+  const buildPreviewBoard = (sourceBoard: BingoCell[], preset: BoardPreviewPreset) => {
+    if (preset === "full") {
+      return sourceBoard.map((cell) => ({
+        ...cell,
+        status: 1,
+      }));
+    }
+
+    const presetLines: CompletedLine[] = [
+      { type: "row", index: 0 },
+      { type: "col", index: 0 },
+      { type: "diagonal", index: 1 },
+    ];
+    const lineCountByPreset: Record<Exclude<BoardPreviewPreset, "full">, number> = {
+      "one-line": 1,
+      "two-lines": 2,
+      "three-lines": 3,
+    };
+    const activeCellIds = new Set<number>();
+
+    presetLines
+      .slice(0, lineCountByPreset[preset])
+      .forEach((line) => {
+        getCellsInLine(line.type, line.index).forEach((cellId) => {
+          activeCellIds.add(cellId);
+        });
+      });
+
+    return sourceBoard.map((cell, index) => ({
+      ...cell,
+      status: activeCellIds.has(index) ? 1 : 0,
+    }));
+  };
+
+  const applyBoardPreview = (preset: BoardPreviewPreset) => {
+    if (!bingoBoard || bingoBoard.length === 0) {
+      return;
+    }
+
+    const sourceBoard = boardPreviewBase ?? bingoBoard;
+    const baseBoard = sourceBoard.map((cell) => ({ ...cell }));
+
+    if (!boardPreviewBase) {
+      setBoardPreviewBase(baseBoard);
+    }
+
+    setBoardPreviewPreset(preset);
+    setShowAllBingoModal(false);
+    setShowConfetti(false);
+    setHasShownConfetti(false);
+    setNewBingoFound(false);
+    setAnimatedCells([]);
+    setNewBingoCells([]);
+    setLatestReceivedKeywords([]);
+    setBingoBoard(buildPreviewBoard(baseBoard, preset));
+    showAlert("보드 프리뷰를 적용했습니다.", "info", {
+      title: "테스트 프리뷰",
+      label: "BOARD PREVIEW",
+    });
+  };
+
+  const clearBoardPreview = () => {
+    if (!boardPreviewBase) {
+      return;
+    }
+
+    setBoardPreviewPreset(null);
+    setShowAllBingoModal(false);
+    setShowConfetti(false);
+    setNewBingoFound(false);
+    setAnimatedCells([]);
+    setNewBingoCells([]);
+    setLatestReceivedKeywords([]);
+    setBingoBoard(boardPreviewBase.map((cell) => ({ ...cell })));
+    setBoardPreviewBase(null);
+    showAlert("실제 보드 상태로 돌아왔습니다.", "info", {
+      title: "프리뷰 해제",
+      label: "BOARD PREVIEW",
+    });
   };
 
   const checkBingoLines = useCallback(() => {
@@ -730,10 +950,10 @@ const BingoGame = () => {
     const newCompletedLines: CompletedLine[] = [];
     let newBingoCount = 0;
 
-    for (let row = 0; row < 5; row += 1) {
+    for (let row = 0; row < BOARD_SIZE; row += 1) {
       let rowComplete = true;
-      for (let col = 0; col < 5; col += 1) {
-        if (!bingoBoard[row * 5 + col].status) {
+      for (let col = 0; col < BOARD_SIZE; col += 1) {
+        if (!bingoBoard[row * BOARD_SIZE + col].status) {
           rowComplete = false;
           break;
         }
@@ -745,10 +965,10 @@ const BingoGame = () => {
       }
     }
 
-    for (let col = 0; col < 5; col += 1) {
+    for (let col = 0; col < BOARD_SIZE; col += 1) {
       let colComplete = true;
-      for (let row = 0; row < 5; row += 1) {
-        if (!bingoBoard[row * 5 + col].status) {
+      for (let row = 0; row < BOARD_SIZE; row += 1) {
+        if (!bingoBoard[row * BOARD_SIZE + col].status) {
           colComplete = false;
           break;
         }
@@ -761,8 +981,8 @@ const BingoGame = () => {
     }
 
     let diagonal1Complete = true;
-    for (let index = 0; index < 5; index += 1) {
-      if (!bingoBoard[index * 5 + index].status) {
+    for (let index = 0; index < BOARD_SIZE; index += 1) {
+      if (!bingoBoard[index * BOARD_SIZE + index].status) {
         diagonal1Complete = false;
         break;
       }
@@ -774,8 +994,8 @@ const BingoGame = () => {
     }
 
     let diagonal2Complete = true;
-    for (let index = 0; index < 5; index += 1) {
-      if (!bingoBoard[index * 5 + (4 - index)].status) {
+    for (let index = 0; index < BOARD_SIZE; index += 1) {
+      if (!bingoBoard[index * BOARD_SIZE + (BOARD_SIZE - 1 - index)].status) {
         diagonal2Complete = false;
         break;
       }
@@ -819,10 +1039,6 @@ const BingoGame = () => {
         setHasShownConfetti(true);
       }
 
-      if (bingoCount >= 1 && !hideReviewModal) {
-        setShowReviewModal(true);
-      }
-
       setTimeout(() => {
         setAnimatedCells([]);
         setNewBingoCells([]);
@@ -850,36 +1066,103 @@ const BingoGame = () => {
     bingoMissionCount,
     completedLines,
     hasShownConfetti,
-    hideReviewModal,
   ]);
 
   useEffect(() => {
-    if (bingoBoard?.length === 25) {
+    if (bingoBoard?.length === BOARD_CELL_COUNT) {
       checkBingoLines();
     }
   }, [bingoBoard, checkBingoLines]);
 
+  useEffect(() => {
+    return () => {
+      if (alertTimeoutRef.current) {
+        window.clearTimeout(alertTimeoutRef.current);
+      }
+    };
+  }, []);
+
   function handleCloseAlert() {
+    if (alertTimeoutRef.current) {
+      window.clearTimeout(alertTimeoutRef.current);
+      alertTimeoutRef.current = null;
+    }
+
     setAlertOpen(false);
   }
 
-  function showAlert(message: string, severity: AlertSeverity = "success") {
+  function showAlert(
+    message: string,
+    severity: AlertSeverity = "success",
+    payload: AlertPayload = {}
+  ) {
+    if (alertTimeoutRef.current) {
+      window.clearTimeout(alertTimeoutRef.current);
+    }
+
+    setAlertTitle(payload.title ?? getDefaultAlertTitle(severity));
     setAlertMessage(message);
     setAlertSeverity(severity);
+    setAlertKeywords(payload.keywords ?? []);
+    setAlertLabel(payload.label ?? "STATUS");
     setAlertOpen(true);
 
-    setTimeout(() => {
+    alertTimeoutRef.current = window.setTimeout(() => {
       setAlertOpen(false);
-    }, 3000);
+      alertTimeoutRef.current = null;
+    }, payload.durationMs ?? 3400);
   }
 
+  const renderAlertToast = () => {
+    if (!alertOpen) {
+      return null;
+    }
+
+    return (
+      <div className="bingo-toast" role="status" aria-live="polite">
+        <article className={`bingo-toast__card is-${alertSeverity}`}>
+          <div className="bingo-toast__head">
+            <span className="bingo-toast__badge">{alertLabel}</span>
+            <button
+              type="button"
+              className="bingo-toast__close"
+              onClick={handleCloseAlert}
+              aria-label="알림 닫기"
+            >
+              닫기
+            </button>
+          </div>
+          <strong className="bingo-toast__title">{alertTitle}</strong>
+          <p className="bingo-toast__message">{alertMessage}</p>
+          {alertKeywords.length > 0 ? (
+            <div className="bingo-toast__keywords">
+              {alertKeywords.map((keyword) => (
+                <span key={keyword} className="bingo-toast__keyword">
+                  {keyword}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </article>
+      </div>
+    );
+  };
+
   const handleExchange = async () => {
+    if (isBoardPreviewActive) {
+      showAlert("보드 프리뷰를 해제한 뒤 실제 전송을 진행해 주세요.", "info", {
+        title: "프리뷰가 켜져 있어요",
+        label: "BOARD PREVIEW",
+      });
+      return;
+    }
+
     if (!opponentId.trim()) {
       showAlert("상대방 ID를 입력해주세요.", "warning");
       return;
     }
 
-    const myId = localStorage.getItem("myID");
+    const myId = getAuthSession()?.userId;
     if (!myId) {
       showAlert("로그인 정보가 없습니다.", "error");
       return;
@@ -898,15 +1181,38 @@ const BingoGame = () => {
         return;
       }
 
-      const result = await updateBingoBoard(myId, targetId);
-      await Promise.all(
-        myKeywords.map((keyword) =>
-          createUserBingoInteraction(keyword, Number(myId), Number(targetId))
-        )
-      );
+      const alreadyExchanged = await hasExistingDirectionalExchange(myId, targetId);
+      if (alreadyExchanged) {
+        showAlert(
+          `"${receiverName}"님에게는 이미 키워드를 보냈어요.`,
+          "warning",
+          {
+            title: "이미 전송한 참가자예요",
+            label: "KEYWORD EXCHANGE",
+          }
+        );
+        return;
+      }
 
+      const receiverBoard = await getBingoBoard(targetId);
+      const deliverableKeywords = Array.isArray(receiverBoard)
+        ? getPendingKeywordsForBoard(receiverBoard, myKeywords)
+        : getUniqueKeywords(myKeywords);
+
+      const result = await updateBingoBoard(myId, targetId);
       if (!result) {
         showAlert("키워드 교환 요청에 실패했습니다. 다시 시도해주세요.", "error");
+        return;
+      }
+
+      const interactionCreated = await createUserBingoInteraction(
+        serializeInteractionKeywords(myKeywords),
+        Number(myId),
+        Number(targetId)
+      );
+
+      if (!interactionCreated) {
+        showAlert("키워드 기록 저장에 실패했습니다. 다시 시도해주세요.", "error");
         return;
       }
 
@@ -914,7 +1220,33 @@ const BingoGame = () => {
       const boardInteractionData = await getUserInteractionCount(myId);
       setMetPersonNum(boardInteractionData);
       setOpponentId("");
-      showAlert(`"${receiverName}"님에게 키워드를 성공적으로 전송했습니다!`);
+
+      if (deliverableKeywords.length > 0) {
+        showAlert(
+          deliverableKeywords.length === myKeywords.length
+            ? `"${receiverName}"님에게 새로운 키워드를 전송했어요.`
+            : `"${receiverName}"님이 이미 가진 키워드는 제외하고 새로운 키워드만 전송했어요.`,
+          "success",
+          {
+            title:
+              deliverableKeywords.length === myKeywords.length
+                ? "키워드를 전송했어요"
+                : "새 키워드만 전송했어요",
+            keywords: deliverableKeywords,
+            label: "KEYWORD EXCHANGE",
+          }
+        );
+        return;
+      }
+
+      showAlert(
+        `"${receiverName}"님은 이미 내 키워드를 모두 가지고 있어요.`,
+        "info",
+        {
+          title: "이미 키워드가 다 있어요",
+          label: "KEYWORD EXCHANGE",
+        }
+      );
     } catch (error) {
       console.error("Exchange failed:", error);
       showAlert("에러가 발생했습니다. 잠시 후 다시 시도해주세요.", "error");
@@ -922,8 +1254,8 @@ const BingoGame = () => {
   };
 
   const isCellInCompletedLine = (index: number) => {
-    const row = Math.floor(index / 5);
-    const col = index % 5;
+    const row = Math.floor(index / BOARD_SIZE);
+    const col = index % BOARD_SIZE;
 
     return completedLines.some((line) => {
       if (line.type === "row" && line.index === row) {
@@ -935,12 +1267,27 @@ const BingoGame = () => {
       if (line.type === "diagonal" && line.index === 1 && row === col) {
         return true;
       }
-      if (line.type === "diagonal" && line.index === 2 && col === 4 - row) {
+      if (line.type === "diagonal" && line.index === 2 && col === BOARD_SIZE - 1 - row) {
         return true;
       }
       return false;
     });
   };
+
+  if (isBootstrapping) {
+    return (
+      <div className="bingo-game-page">
+        <div className="bingo-game-page__mesh" aria-hidden="true" />
+        <div className="bingo-loading-screen">
+          <section className="bingo-loading-card" aria-label="bingo loading">
+            <p className="bingo-loading-card__label">{SETUP_BRAND_TITLE}</p>
+            <h1>빙고 보드를 준비하고 있어요</h1>
+            <p>저장된 보드와 교환 기록을 불러오는 중입니다.</p>
+          </section>
+        </div>
+      </div>
+    );
+  }
 
   if (locked) {
     const days = Math.floor(remainingTime / (1000 * 60 * 60 * 24));
@@ -985,7 +1332,7 @@ const BingoGame = () => {
               <span className="keyword-setup-header__spark keyword-setup-header__spark--right" />
             </div>
             <p>
-              당신의 관심사를 잘 표현할 수 있는 키워드를 {keywordCount}개 선택하세요.
+              당신의 관심사를 잘 표현할 수 있는 키워드를 {exchangeKeywordCount}개 선택하세요.
             </p>
           </header>
 
@@ -1016,7 +1363,7 @@ const BingoGame = () => {
                 className="keyword-setup-submit"
                 onClick={handleInitialSetup}
                 disabled={
-                  selectedInitialKeywords.length !== keywordCount || isInitializingBoard
+                  selectedInitialKeywords.length !== exchangeKeywordCount || isInitializingBoard
                 }
               >
                 {isInitializingBoard ? "준비 중..." : "빙고 시작하기"}
@@ -1025,16 +1372,7 @@ const BingoGame = () => {
           </section>
         </main>
 
-        <Snackbar
-          open={alertOpen}
-          autoHideDuration={3000}
-          onClose={handleCloseAlert}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert onClose={handleCloseAlert} severity={alertSeverity} sx={{ width: "100%" }}>
-            {alertMessage}
-          </Alert>
-        </Snackbar>
+        {renderAlertToast()}
       </div>
     );
   }
@@ -1067,11 +1405,16 @@ const BingoGame = () => {
                   <input
                     value={opponentId}
                     onChange={(event) => setOpponentId(event.target.value.replace(/\D/g, ""))}
-                    placeholder="상대방 ID 입력"
+                    placeholder={
+                      isBoardPreviewActive ? "프리뷰 중에는 전송을 잠시 잠가두었어요" : "상대방 ID 입력"
+                    }
                     inputMode="numeric"
                     aria-label="상대방 ID 입력"
+                    disabled={isBoardPreviewActive}
                   />
-                  <button type="submit">보내기</button>
+                  <button type="submit" disabled={isBoardPreviewActive}>
+                    보내기
+                  </button>
                 </form>
               </div>
               <NetworkingIllustration />
@@ -1094,7 +1437,7 @@ const BingoGame = () => {
               <div>
                 <dt>수집한 키워드</dt>
                 <dd>
-                  {markedKeywordCount}/{TOTAL_PLAYABLE_CELLS}
+                  {markedKeywordCount}/{BOARD_CELL_COUNT}
                 </dd>
               </div>
               <div>
@@ -1106,6 +1449,46 @@ const BingoGame = () => {
         </section>
 
         <section className="bingo-board-shell" aria-label="bingo board">
+          {showBoardPreviewTools ? (
+            <section
+              className={`bingo-preview-panel ${isBoardPreviewActive ? "is-active" : ""}`}
+              aria-label="board preview tools"
+            >
+              <div className="bingo-preview-panel__copy">
+                <p className="bingo-preview-panel__eyebrow">로컬 테스트 프리뷰</p>
+                <strong>
+                  {isBoardPreviewActive
+                    ? "프리뷰 중에는 보드 실시간 동기화를 잠시 멈췄어요"
+                    : "1줄부터 올클리어까지 화면 상태를 바로 미리볼 수 있어요"}
+                </strong>
+                <span>실제 보드는 복원 버튼으로 바로 되돌릴 수 있습니다.</span>
+              </div>
+              <div className="bingo-preview-panel__actions">
+                {BOARD_PREVIEW_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`bingo-preview-panel__button ${
+                      boardPreviewPreset === option.id ? "is-selected" : ""
+                    }`}
+                    onClick={() => applyBoardPreview(option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+                {isBoardPreviewActive ? (
+                  <button
+                    type="button"
+                    className="bingo-preview-panel__button is-reset"
+                    onClick={clearBoardPreview}
+                  >
+                    실전 보드 복원
+                  </button>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
           <div className="bingo-board-shell__inner">
             <svg
               className="bingo-board__lines"
@@ -1139,21 +1522,26 @@ const BingoGame = () => {
               })}
             </svg>
 
-            <div className="bingo-board-grid">
+            <div
+              className="bingo-board-grid"
+              style={
+                {
+                  "--board-size": BOARD_SIZE,
+                } as React.CSSProperties
+              }
+            >
               {bingoBoard?.map((cell, index) => {
-                const isCenter = index === 12;
                 const isActive = cell.status === 1;
                 const isLineCell = isCellInCompletedLine(index);
                 const isNew = newBingoCells.includes(index);
                 const isLatest = latestReceivedKeywords.includes(cell.value);
                 const isAnimated = animatedCells.includes(index);
-                const isPlaceholder = !isLineCell && (!isActive || isCenter);
+                const isPlaceholder = !isLineCell && !isActive;
                 const isReceived = !isPlaceholder && !isLineCell;
-                const displayValue = isCenter ? BOARD_PLACEHOLDER_LABEL : cell.value;
+                const displayValue = cell.value;
 
                 const classNames = [
                   "bingo-board-cell",
-                  isCenter ? "is-center" : "",
                   isPlaceholder ? "is-placeholder" : "",
                   isReceived ? "is-received" : "",
                   isLineCell ? "is-complete" : "",
@@ -1169,6 +1557,10 @@ const BingoGame = () => {
                     {isPlaceholder ? (
                       <div className="bingo-board-cell__brand">
                         <span>{BOARD_PLACEHOLDER_LABEL}</span>
+                      </div>
+                    ) : isLineCell ? (
+                      <div className="bingo-board-cell__complete-badge">
+                        <span className="bingo-board-cell__label">{displayValue}</span>
                       </div>
                     ) : (
                       <span className="bingo-board-cell__label">{displayValue}</span>
@@ -1244,107 +1636,52 @@ const BingoGame = () => {
       ) : null}
 
       <Dialog
-        open={visibleModal === "review"}
-        onClose={(event, reason) => {
-          if (reason !== "backdropClick") {
-            setShowReviewModal(false);
-          }
-        }}
+        open={showAllBingoModal}
+        onClose={() => setShowAllBingoModal(false)}
+        PaperProps={{ className: "bingo-celebration-dialog" }}
       >
-        <DialogContent>
-          <p className="bingo-dialog__text">빙고 게임에 대한 간단한 피드백을 남겨주세요.</p>
-          <div className="bingo-dialog__rating">
-            <Rating
-              name="review-stars"
-              value={reviewStars}
-              onChange={(_, nextValue) => setReviewStars(nextValue)}
-              sx={{ fontSize: 30 }}
-            />
+        <div className="bingo-celebration">
+          <p className="bingo-celebration__eyebrow">MISSION CLEAR</p>
+          <h2>빙고를 완성했어요</h2>
+          <p className="bingo-celebration__copy">
+            {bingoMissionCount}줄 미션을 달성했습니다. 더 많은 참가자와 키워드를 나누며
+            보드를 계속 채워보세요.
+          </p>
+          <div className="bingo-celebration__stats">
+            <article className="bingo-celebration__stat">
+              <strong>{bingoCount}</strong>
+              <span>완성한 줄</span>
+            </article>
+            <article className="bingo-celebration__stat">
+              <strong>{markedKeywordCount}</strong>
+              <span>열린 칸</span>
+            </article>
+            <article className="bingo-celebration__stat">
+              <strong>{metPersonNum}</strong>
+              <span>만난 참가자</span>
+            </article>
           </div>
-          <textarea
-            className="bingo-dialog__textarea"
-            rows={4}
-            placeholder="간단한 리뷰를 작성해주세요"
-            value={reviewText}
-            onChange={(event) => setReviewText(event.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button
-            variant="text"
-            onClick={() => {
-              localStorage.setItem("hideReviewModal", "true");
-              setHideReviewModal(true);
-              setShowReviewModal(false);
-            }}
-          >
-            취소
-          </Button>
-          <Button
-            variant="contained"
-            onClick={async () => {
-              if (userId && reviewStars !== null) {
-                try {
-                  await submitReview(userId, reviewStars, reviewText);
-                  showAlert("소중한 리뷰 감사합니다!");
-                  localStorage.setItem("hideReviewModal", "true");
-                  setHideReviewModal(true);
-                  setShowReviewModal(false);
-                } catch (error) {
-                  showAlert("리뷰 제출 중 문제가 발생했습니다.", "error");
-                }
-                return;
-              }
-
-              showAlert("별점을 입력해주세요.", "warning");
-            }}
-          >
-            평가 완료
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={visibleModal === "allBingo"}
-        onClose={() => {
-          setShowAllBingoModal(false);
-          if (showReviewModal) {
-            setTimeout(() => setShowReviewModal(true), 100);
-          }
-        }}
-      >
-        <DialogTitle>3줄 미션 달성</DialogTitle>
-        <DialogContent>
-          <p className="bingo-dialog__text">축하합니다! 빙고를 완성했습니다.</p>
-          <p className="bingo-dialog__text">
-            재미있게 즐기셨다면{" "}
+          <div className="bingo-celebration__actions">
+            <button
+              type="button"
+              className="bingo-celebration__button bingo-celebration__button--primary"
+              onClick={() => setShowAllBingoModal(false)}
+            >
+              계속 진행하기
+            </button>
             <a
+              className="bingo-celebration__button bingo-celebration__button--secondary"
               href="https://github.com/Pseudo-Lab/devfactory"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Devfactory Repo
+              Devfactory Repo 보기
             </a>
-            에 별을 남겨 주세요.
-          </p>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowAllBingoModal(false)} color="primary">
-            닫기
-          </Button>
-        </DialogActions>
+          </div>
+        </div>
       </Dialog>
 
-      <Snackbar
-        open={alertOpen}
-        autoHideDuration={3000}
-        onClose={handleCloseAlert}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert severity={alertSeverity} variant="filled">
-          {alertMessage}
-        </Alert>
-      </Snackbar>
+      {renderAlertToast()}
     </div>
   );
 };
