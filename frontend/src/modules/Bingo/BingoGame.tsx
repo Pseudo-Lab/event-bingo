@@ -38,6 +38,13 @@ interface CompletedLine {
   index: number;
 }
 
+interface BoardLineCoordinates {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 interface ExchangeRecord {
   id: string;
   createdAt: string;
@@ -70,6 +77,7 @@ const cellValues = bingoKeywords.keywords;
 const SETUP_BRAND_TITLE = "Bingo Networking";
 const TOTAL_PLAYABLE_CELLS = 24;
 const BOARD_CENTERS = [10, 30, 50, 70, 90];
+const BOARD_PLACEHOLDER_LABEL = "PseudoLab";
 
 const shuffleArray = (array: string[]) => {
   return [...array].sort(() => Math.random() - 0.5);
@@ -79,7 +87,47 @@ const formatHistoryDate = (value: string) => {
   return value.replace(/-/g, ".").replace("T", " ").slice(0, 16);
 };
 
-const getLineCoordinates = (line: CompletedLine) => {
+const createBoardConnectionLines = (): BoardLineCoordinates[] => {
+  const lines: BoardLineCoordinates[] = [];
+
+  for (let row = 0; row < BOARD_CENTERS.length; row += 1) {
+    for (let col = 0; col < BOARD_CENTERS.length - 1; col += 1) {
+      lines.push({
+        x1: BOARD_CENTERS[col],
+        y1: BOARD_CENTERS[row],
+        x2: BOARD_CENTERS[col + 1],
+        y2: BOARD_CENTERS[row],
+      });
+      lines.push({
+        x1: BOARD_CENTERS[row],
+        y1: BOARD_CENTERS[col],
+        x2: BOARD_CENTERS[row],
+        y2: BOARD_CENTERS[col + 1],
+      });
+    }
+  }
+
+  for (let index = 0; index < BOARD_CENTERS.length - 1; index += 1) {
+    lines.push({
+      x1: BOARD_CENTERS[index],
+      y1: BOARD_CENTERS[index],
+      x2: BOARD_CENTERS[index + 1],
+      y2: BOARD_CENTERS[index + 1],
+    });
+    lines.push({
+      x1: BOARD_CENTERS[BOARD_CENTERS.length - 1 - index],
+      y1: BOARD_CENTERS[index],
+      x2: BOARD_CENTERS[BOARD_CENTERS.length - 2 - index],
+      y2: BOARD_CENTERS[index + 1],
+    });
+  }
+
+  return lines;
+};
+
+const BOARD_CONNECTION_LINES = createBoardConnectionLines();
+
+const getLineCoordinates = (line: CompletedLine): BoardLineCoordinates => {
   if (line.type === "row") {
     const y = BOARD_CENTERS[line.index];
     return { x1: 10, y1: y, x2: 90, y2: y };
@@ -1065,6 +1113,13 @@ const BingoGame = () => {
               preserveAspectRatio="none"
               aria-hidden="true"
             >
+              {BOARD_CONNECTION_LINES.map((coordinates, index) => (
+                <line
+                  key={`connection-${index}`}
+                  {...coordinates}
+                  className="bingo-board__line bingo-board__line--grid"
+                />
+              ))}
               {completedLines.map((line) => {
                 const coordinates = getLineCoordinates(line);
                 const key = `${line.type}-${line.index}`;
@@ -1087,19 +1142,21 @@ const BingoGame = () => {
             <div className="bingo-board-grid">
               {bingoBoard?.map((cell, index) => {
                 const isCenter = index === 12;
-                const isSelected = cell.selected === 1;
                 const isActive = cell.status === 1;
                 const isLineCell = isCellInCompletedLine(index);
                 const isNew = newBingoCells.includes(index);
                 const isLatest = latestReceivedKeywords.includes(cell.value);
                 const isAnimated = animatedCells.includes(index);
+                const isPlaceholder = !isLineCell && (!isActive || isCenter);
+                const isReceived = !isPlaceholder && !isLineCell;
+                const displayValue = isCenter ? BOARD_PLACEHOLDER_LABEL : cell.value;
 
                 const classNames = [
                   "bingo-board-cell",
                   isCenter ? "is-center" : "",
-                  isSelected ? "is-selected" : "",
-                  isActive ? "is-active" : "",
-                  isLineCell ? "is-line" : "",
+                  isPlaceholder ? "is-placeholder" : "",
+                  isReceived ? "is-received" : "",
+                  isLineCell ? "is-complete" : "",
                   isNew ? "is-new" : "",
                   isLatest ? "is-latest" : "",
                   isAnimated ? "is-animated" : "",
@@ -1109,12 +1166,12 @@ const BingoGame = () => {
 
                 return (
                   <article key={cell.id} className={classNames}>
-                    {isCenter ? (
+                    {isPlaceholder ? (
                       <div className="bingo-board-cell__brand">
-                        <span>PseudoLab</span>
+                        <span>{BOARD_PLACEHOLDER_LABEL}</span>
                       </div>
                     ) : (
-                      <span className="bingo-board-cell__label">{cell.value}</span>
+                      <span className="bingo-board-cell__label">{displayValue}</span>
                     )}
                   </article>
                 );
