@@ -43,7 +43,7 @@
 
 ## Core Stack
 - Backend: FastAPI
-- Frontend: React
+- Frontend: React + Vite + TypeScript + Tailwind CSS + `shadcn/ui`
 - Data/Auth: Supabase
 - Infra: k3s
 - Deployment: ArgoCD
@@ -65,6 +65,12 @@
 - Treat mobile and web compatibility as mandatory for service and admin pages.
 - Follow P0 then P1 then P2 sequence from the planning reference.
 - If `docs/design-guide.md` exists, frontend and design-fe must follow it as UI implementation standard.
+- Frontend and design-fe should use Tailwind CSS with `shadcn/ui` as the default UI implementation baseline for new and refactored screens.
+- When frontend UI is reworked substantially, prefer replacing legacy `MUI` and `emotion` UI layers with Tailwind CSS and `shadcn/ui`-based components unless a documented technical constraint blocks migration.
+- When an existing frontend screen or component is touched and it diverges from the current baseline, align the touched scope to Tailwind CSS and `shadcn/ui` in the same task when feasible.
+- Do not expand legacy `MUI` or `emotion` usage into new screens, new components, or newly edited areas; if temporary coexistence is unavoidable, isolate it and document the follow-up migration scope.
+- Prefer `TanStack Query` for server-state synchronization, `Zustand` for local game and screen state, and `Motion` for meaningful UI feedback animations.
+- Prefer `CSS Grid` plus `SVG` overlays for bingo board layout and completed-line rendering rather than canvas-heavy implementations.
 - Document API contract deltas for frontend and QA handoff.
 - Add or update tests for each behavior change.
 - Track and verify regression around issue #81 behavior.
@@ -82,6 +88,3 @@
 - Team Leader confirms architecture, sequencing, and risk mitigations.
 - Backend and Frontend or Design-FE implement in parallel when possible.
 - QA validates service-page scenarios first, then admin scenarios.
-
-
-
