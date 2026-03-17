@@ -39,8 +39,12 @@ Enable consistent delivery when different contributors use Codex, Claude, or Gem
 - A change requires coordinated updates in `Pseudo-Lab/DevFactory-Ops`.
 - Product Owner or the relevant domain owner requests review-by-PR.
 
-## Work Contract Per Task
-Each task must include these fields in handoff notes.
+## Handoff Requirement Policy
+Handoff notes are required for impact-trigger tasks and strongly recommended for medium-or-larger scoped tasks.
+Handoff notes may be skipped for low-risk, minor, single-domain changes when context is clear in commit or PR text.
+
+## Work Contract For Required Handoffs
+Required handoff notes must include these fields.
 - Task ID
 - Scope
 - Inputs used
@@ -54,10 +58,7 @@ Use template: `docs/templates/agent-handoff.md`
 - Direct push path: commit directly on `main` for single-domain non-impact tasks.
 - PR path branch: `feature/<task-id>-<short-slug>` or `fix/<task-id>-<short-slug>` or `codex/<task-id>-<short-slug>`.
 - Commit title: `<type>(<scope>): <summary>`.
-- Include handoff metadata in commit body or PR description:
-- Agent: codex | claude | gemini
-- Model: exact model name or version if available
-- Date: YYYY-MM-DD
+- Commit body metadata is optional; keep commit messages concise and focused on change intent.
 
 ## PR Collaboration Checklist
 - Source documents referenced
@@ -76,6 +77,9 @@ Use template: `docs/templates/agent-handoff.md`
 - Korean mirrors must be updated in the same change set.
 - Sync pair for this document:
 - `docs/reference/agent-collaboration.md` <-> `docs/reference/agent-collaboration.ko.md`
+
+
+
 
 
 

@@ -9,3 +9,7 @@ Examples:
 - `2026-03-17-qa-service-flow.md`
 - `2026-03-17-release-readiness.md`
 - `2026-03-17-issue-81-regression-check.md`
+
+Handoff outputs:
+- Store required handoff notes in `docs/reports/handoffs/`.
+- Suggested name: `YYYY-MM-DD-topic.md`

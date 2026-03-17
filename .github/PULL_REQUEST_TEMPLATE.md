@@ -3,9 +3,6 @@
 
 ## Summary
 - Task ID:
-- Agent: codex | claude | gemini
-- Model:
-- Date:
 
 ## Impact Trigger (Select At Least One)
 - [ ] Cross-domain change (BE/FE/Infra)
@@ -38,5 +35,6 @@
 
 ## Handoff
 - [ ] Added handoff note following docs/templates/agent-handoff.md
+
 
 

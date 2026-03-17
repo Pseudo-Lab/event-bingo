@@ -1,63 +1,262 @@
-// ConsentDialog.tsx
-import React, { useEffect, useState } from 'react';
-import { DialogTitle, DialogContent, Typography } from '@mui/material';
-import ReactMarkdown from 'react-markdown';
+import React, { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 type ConsentDialogProps = {
   host: string;
+  onDecline: () => void;
+  onAccept: () => void;
 };
 
-const ConsentDialog: React.FC<ConsentDialogProps> = ({ host }) => {
-  const [markdown, setMarkdown] = useState('');
-  const [title, setTitle] = useState('');
+type ConsentSectionTone = "default" | "accent" | "notice";
+
+type ConsentSection = {
+  title: string;
+  markdown: string;
+  tone: ConsentSectionTone;
+};
+
+type ParsedConsentContent = {
+  title: string;
+  intro: string;
+  sections: ConsentSection[];
+};
+
+const FALLBACK_TEMPLATE = `# [필수] 개인정보 수집 및 이용 동의서
+
+**{host}**는 본 행사 운영 및 네트워킹 서비스 제공을 위해 아래와 같이 개인정보를 수집 및 이용합니다.
+
+■ 수집 항목
+이름, 이메일 주소, 키워드 선택 내역, 후기 및 별점, 빙고 보드 구성 정보, 키워드 교환 및 상호작용 기록
+
+■ 수집 목적
+\\- 행사 참가자 식별 및 빙고 서비스 제공
+\\- 키워드 기반 매칭 및 네트워킹 기능 제공
+\\- 후기 및 참여 내역 기반 통계 분석
+\\- 이벤트 참여 확인 및 기념품 지급
+\\- 추후 행사 기획 및 운영 개선에 활용
+
+■ 보유 및 이용 기간
+수집일로부터 **최대 5년**간 보관 또는 이용 목적 달성 시까지 보유하며, 보유 기간 경과 또는 참가자 요청 시 **즉시 파기**합니다.
+
+■ 귀하의 권리
+귀하는 개인정보 수집 및 이용에 대한 동의를 거부할 수 있습니다. 다만, **본 동의는 빙고 서비스 이용을 위한 필수 사항**으로, 동의하지 않을 경우 **빙고 서비스 이용이 제한**될 수 있습니다.`;
+
+const normalizeMarkdown = (lines: string[]) =>
+  lines
+    .join("\n")
+    .replace(/^\s*\\-\s*/gm, "- ")
+    .trim();
+
+const getSectionTone = (title: string): ConsentSectionTone => {
+  if (title.includes("권리")) {
+    return "notice";
+  }
+
+  if (title.includes("보유") || title.includes("기간")) {
+    return "accent";
+  }
+
+  return "default";
+};
+
+const parseConsentTemplate = (template: string, host: string): ParsedConsentContent => {
+  const interpolated = template.replace(/{host}/g, host).replace(/\r\n/g, "\n").trim();
+  const lines = interpolated.split("\n");
+  const firstLine = lines[0]?.trim();
+
+  let title = "[필수] 개인정보 수집 및 이용 동의서";
+  let contentStartIndex = 0;
+
+  if (firstLine?.startsWith("#")) {
+    title = firstLine.replace(/^#\s*/, "");
+    contentStartIndex = 1;
+  }
+
+  const introLines: string[] = [];
+  const sections: Array<{ title: string; lines: string[] }> = [];
+  let currentSection: { title: string; lines: string[] } | null = null;
+
+  const flushSection = () => {
+    if (!currentSection) {
+      return;
+    }
+
+    sections.push(currentSection);
+    currentSection = null;
+  };
+
+  lines.slice(contentStartIndex).forEach((line) => {
+    const trimmedLine = line.trim();
+
+    if (trimmedLine.startsWith("■")) {
+      flushSection();
+      currentSection = {
+        title: trimmedLine.replace(/^■\s*/, ""),
+        lines: [],
+      };
+      return;
+    }
+
+    if (currentSection) {
+      currentSection.lines.push(line);
+      return;
+    }
+
+    introLines.push(line);
+  });
+
+  flushSection();
+
+  return {
+    title,
+    intro: normalizeMarkdown(introLines),
+    sections: sections
+      .map((section) => ({
+        title: section.title,
+        markdown: normalizeMarkdown(section.lines),
+        tone: getSectionTone(section.title),
+      }))
+      .filter((section) => section.markdown.length > 0),
+  };
+};
+
+const ConsentDialog: React.FC<ConsentDialogProps> = ({
+  host,
+  onDecline,
+  onAccept,
+}) => {
+  const [content, setContent] = useState<ParsedConsentContent>(() =>
+    parseConsentTemplate(FALLBACK_TEMPLATE, host)
+  );
 
   useEffect(() => {
-    fetch('/templates/consent.md')
-      .then((res) => res.text())
-      .then((text) => {
-        const interpolated = text.replace(/{host}/g, host);
-        const lines = interpolated.split('\n');
-        const firstLine = lines[0].trim();
+    let isMounted = true;
 
-        if (firstLine.startsWith('#')) {
-          setTitle(firstLine.replace(/^#\s*/, ''));
-          setMarkdown(lines.slice(1).join('\n').trim());
-        } else {
-          setTitle('[필수] 개인정보 수집 및 이용 동의서'); // fallback
-          setMarkdown(interpolated);
+    const loadTemplate = async () => {
+      try {
+        const response = await fetch("/templates/consent.md");
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch consent template: ${response.status}`);
         }
-      });
+
+        const template = await response.text();
+
+        if (isMounted) {
+          setContent(parseConsentTemplate(template, host));
+        }
+      } catch (error) {
+        console.error("Failed to load consent template", error);
+
+        if (isMounted) {
+          setContent(parseConsentTemplate(FALLBACK_TEMPLATE, host));
+        }
+      }
+    };
+
+    void loadTemplate();
+
+    return () => {
+      isMounted = false;
+    };
   }, [host]);
 
   return (
-    <>
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent dividers>
-        <ReactMarkdown
-          components={{
-            h1: ({ children }) => (
-							<Typography variant="h6" sx={{ mt: 0, mb: 1 }}>
-								{children}
-							</Typography>
-						),
-						h5: ({ children }) => (
-							<Typography variant="body1" sx={{ mt: 1, mb: 0.25, fontWeight: 600 }}>
-								{children}
-							</Typography>
-						),
-						p: ({ children }) => (
-							<Typography variant="body2" paragraph={false} sx={{ my: 1, lineHeight: 1.7 }}>
-								{children}
-							</Typography>
-						),
-            strong: ({ children }) => <strong>{children}</strong>,
-            br: () => <br />,
-          }}
-        >
-          {markdown}
-        </ReactMarkdown>
-      </DialogContent>
-    </>
+    <div className="consent-sheet">
+      <div className="consent-sheet__hero">
+        <p className="consent-sheet__eyebrow">Required Consent</p>
+        <h2>{content.title}</h2>
+        <div className="consent-sheet__intro">
+          <ReactMarkdown
+            components={{
+              p: ({ children }) => (
+                <p className="consent-markdown__paragraph consent-markdown__paragraph--intro">
+                  {children}
+                </p>
+              ),
+              strong: ({ children }) => (
+                <strong className="consent-markdown__strong">{children}</strong>
+              ),
+            }}
+          >
+            {content.intro}
+          </ReactMarkdown>
+        </div>
+        <div className="consent-sheet__facts" aria-label="consent overview">
+          {content.sections.map((section) => (
+            <span key={section.title}>{section.title}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="consent-sheet__scroll">
+        <section className="consent-sheet__notice" aria-label="mandatory notice">
+          <p className="consent-sheet__notice-label">서비스 이용 안내</p>
+          <h3>동의 후에만 빙고 서비스 로그인이 가능합니다.</h3>
+          <p>
+            내용을 확인한 뒤 동의 여부를 선택해 주세요. 동의하지 않으면 이벤트
+            네트워킹 기능 이용이 제한됩니다.
+          </p>
+        </section>
+
+        <div className="consent-sheet__sections">
+          {content.sections.map((section, index) => (
+            <section
+              key={section.title}
+              className={`consent-sheet__section consent-sheet__section--${section.tone}`}
+            >
+              <div className="consent-sheet__section-head">
+                <span className="consent-sheet__section-index">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <h3>{section.title}</h3>
+              </div>
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => (
+                    <p className="consent-markdown__paragraph">{children}</p>
+                  ),
+                  ul: ({ children }) => (
+                    <ul className="consent-markdown__list">{children}</ul>
+                  ),
+                  li: ({ children }) => (
+                    <li className="consent-markdown__item">{children}</li>
+                  ),
+                  strong: ({ children }) => (
+                    <strong className="consent-markdown__strong">{children}</strong>
+                  ),
+                }}
+              >
+                {section.markdown}
+              </ReactMarkdown>
+            </section>
+          ))}
+        </div>
+      </div>
+
+      <div className="consent-sheet__footer">
+        <p className="consent-sheet__footer-copy">
+          개인정보 처리 내용을 모두 확인하셨다면 아래에서 동의 여부를 선택해
+          주세요.
+        </p>
+        <div className="consent-sheet__actions">
+          <button
+            type="button"
+            className="consent-action consent-action--secondary"
+            onClick={onDecline}
+          >
+            동의 안함
+          </button>
+          <button
+            type="button"
+            className="consent-action consent-action--primary"
+            onClick={onAccept}
+          >
+            동의하고 계속
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 

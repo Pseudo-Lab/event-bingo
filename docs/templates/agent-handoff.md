@@ -1,10 +1,7 @@
-# Agent Handoff Template
+﻿# Agent Handoff Template
 
 ## Task Metadata
 - Task ID:
-- Agent: codex | claude | gemini
-- Model:
-- Date:
 
 ## Scope
 - In scope:
@@ -30,3 +27,4 @@
 ## Next Owner
 - Owner:
 - Expected next action:
+

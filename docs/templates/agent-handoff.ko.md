@@ -2,9 +2,6 @@
 
 ## 작업 메타데이터
 - Task ID:
-- Agent: codex | claude | gemini
-- Model:
-- Date:
 
 ## 범위
 - In scope:
@@ -30,3 +27,4 @@
 ## 다음 담당자
 - Owner:
 - Expected next action:
+
