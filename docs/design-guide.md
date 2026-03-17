@@ -7,6 +7,18 @@ Provide a consistent UI standard for service pages and admin pages.
 - This English file is the implementation source-of-truth.
 - Update `docs/design-guide.ko.md` whenever this file changes.
 
+## UI Implementation Base
+- Keep `React + Vite + TypeScript` as the frontend application shell.
+- Use Tailwind CSS with `shadcn/ui` as the default component baseline for new and refactored frontend work.
+- Reuse and adapt `shadcn/ui` blocks and interaction patterns before introducing custom primitives.
+- Prefer `TanStack Query` for server-state synchronization and `Zustand` for local game and screen state.
+- Use `Motion` for meaningful reveal, progress, and completion feedback where animation improves comprehension.
+- Prefer `CSS Grid` plus `SVG` overlays for bingo board layout and completed-line rendering.
+- When a screen is substantially reworked, prefer replacing legacy `MUI` and `emotion` UI layers with Tailwind CSS and `shadcn/ui`-based components unless a documented technical constraint blocks migration.
+- When an existing screen or component is modified, migrate the touched UI scope toward Tailwind CSS and `shadcn/ui` unless a documented technical constraint blocks migration.
+- Do not extend legacy `MUI` or `emotion` usage into new surfaces while migration is in progress.
+- Keep visual tokens and component behavior consistent across migrated and non-migrated screens during transition.
+
 ## Design Principles
 - Mobile-first layout with desktop compatibility.
 - Keep primary actions clear: login, start bingo, send keyword.

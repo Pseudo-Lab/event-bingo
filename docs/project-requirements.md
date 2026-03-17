@@ -23,6 +23,16 @@
 - UI guide path: `docs/design-guide.md`
 - Frontend and design-fe must apply this guide when it exists.
 
+## Frontend Implementation Baseline
+- Keep `React + Vite + TypeScript` as the application shell for frontend work.
+- Use Tailwind CSS with `shadcn/ui` as the default UI implementation stack for new and refactored screens.
+- Prefer `TanStack Query` for server-state synchronization and `Zustand` for local game and screen state.
+- Use `Motion` for meaningful game feedback and transition effects only when it improves clarity.
+- Prefer `CSS Grid` plus `SVG` overlays for bingo board layout and completed-line rendering.
+- When a screen is substantially refactored, prefer removing legacy `MUI` and `emotion` UI layers unless a documented technical constraint blocks migration.
+- When existing frontend screens or components are modified, migrate the touched UI scope toward Tailwind CSS and `shadcn/ui` unless a documented technical constraint blocks migration.
+- Do not add new `MUI` or `emotion` usage to expand legacy frontend surface area.
+
 ## Language And Sync Rule
 - English guides are source-of-truth for implementation.
 - Korean mirrors are for Korean contributors and must be updated with every English guide change.
@@ -86,6 +96,4 @@
 ### P1
 - migrate existing Postgres data to Supabase
 - VictoriaMetrics and Gatus availability checks
-
-
 
