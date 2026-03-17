@@ -19,6 +19,11 @@ SWAGGER_PASSWORD = os.environ.get("SWAGGER_PASSWORD")
 security = HTTPBasic()
 
 def authenticate_user(credentials: Annotated[HTTPBasicCredentials, Depends(security)]):
+    if not SWAGGER_USERNAME or not SWAGGER_PASSWORD:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Swagger credentials are not configured",
+        )
     if credentials.username != SWAGGER_USERNAME or credentials.password != SWAGGER_PASSWORD:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
