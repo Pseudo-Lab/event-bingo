@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
-import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
 import Snackbar from "@mui/material/Snackbar";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
@@ -246,6 +244,7 @@ const Home = () => {
                 <div className="login-form__field">
                   <input
                     id="accessCode"
+                    type="password"
                     className={`login-input ${!isAccessCodeValid ? "is-invalid" : ""}`}
                     value={accessCode}
                     onChange={(event) =>
@@ -325,20 +324,14 @@ const Home = () => {
         fullWidth
         PaperProps={{ className: "login-consent-dialog" }}
       >
-        <ConsentDialog host={config.host} />
-        <DialogActions sx={{ padding: "0 1.5rem 1.5rem" }}>
-          <Button onClick={() => setAgreeOpen(false)} color="inherit">
-            동의 안함
-          </Button>
-          <Button
-            onClick={() => {
-              setIsAgreed(true);
-              setAgreeOpen(false);
-            }}
-          >
-            동의함
-          </Button>
-        </DialogActions>
+        <ConsentDialog
+          host={config.host}
+          onDecline={() => setAgreeOpen(false)}
+          onAccept={() => {
+            setIsAgreed(true);
+            setAgreeOpen(false);
+          }}
+        />
       </Dialog>
 
       <Snackbar
