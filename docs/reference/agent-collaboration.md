@@ -4,10 +4,10 @@
 Enable consistent delivery when different contributors use Codex, Claude, or Gemini.
 
 ## Source Priority
-1. `docs/project-requirements.md`
-2. `docs/service-user-flow.md`
-3. `docs/design-guide.md` (when exists)
-4. This protocol: `docs/agent-collaboration.md`
+1. `docs/reference/project-requirements.md`
+2. `docs/reference/service-user-flow.md`
+3. `docs/reference/design-guide.md` (when exists)
+4. This protocol: `docs/reference/agent-collaboration.md`
 
 ## Supported Agents
 - Codex
@@ -37,7 +37,7 @@ Enable consistent delivery when different contributors use Codex, Claude, or Gem
 - Any source-of-truth guide in `docs/*.md` is changed.
 - CI/CD, deployment, security, ingress, secrets, or runtime topology changes are included.
 - A change requires coordinated updates in `Pseudo-Lab/DevFactory-Ops`.
-- Product Owner or Team Leader requests review-by-PR.
+- Product Owner or the relevant domain owner requests review-by-PR.
 
 ## Work Contract Per Task
 Each task must include these fields in handoff notes.
@@ -69,13 +69,15 @@ Use template: `docs/templates/agent-handoff.md`
 ## Conflict Resolution
 - If outputs differ across agents, compare against source-priority order.
 - Product Owner decides product intent conflicts.
-- Team Leader decides technical conflict resolution.
+- Technical conflict resolution follows relevant domain ownership.
 
 ## Language And Sync Rule
 - English guides are source-of-truth for implementation.
 - Korean mirrors must be updated in the same change set.
 - Sync pair for this document:
-- `docs/agent-collaboration.md` <-> `docs/agent-collaboration.ko.md`
+- `docs/reference/agent-collaboration.md` <-> `docs/reference/agent-collaboration.ko.md`
+
+
 
 
 

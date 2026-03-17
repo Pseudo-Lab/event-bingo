@@ -17,11 +17,11 @@
 2. 이후 관리자/리포트 기능을 개발한다.
 
 ## 서비스 흐름 기준 문서
-- `docs/service-user-flow.md`
+- `docs/reference/service-user-flow.md`
 
 ## 디자인 가이드 기준 문서
-- `docs/design-guide.md`
-- 해당 파일이 존재하면 frontend/design-fe는 반드시 준수한다.
+- `docs/reference/design-guide.md`
+- 해당 파일이 존재하면 frontend는 반드시 준수한다.
 
 ## 언어 및 동기화 규칙
 - 구현 기준은 영어 가이드(`*.md`)를 우선 사용한다.

@@ -17,11 +17,11 @@
 2. Build admin and report flows next.
 
 ## Service Flow Source
-- Primary service-flow reference: `docs/service-user-flow.md`
+- Primary service-flow reference: `docs/reference/service-user-flow.md`
 
 ## Design Guide Source
-- UI guide path: `docs/design-guide.md`
-- Frontend and design-fe must apply this guide when it exists.
+- UI guide path: `docs/reference/design-guide.md`
+- Frontend must apply this guide when it exists.
 
 ## Language And Sync Rule
 - English guides are source-of-truth for implementation.
@@ -86,6 +86,8 @@
 ### P1
 - migrate existing Postgres data to Supabase
 - VictoriaMetrics and Gatus availability checks
+
+
 
 
 

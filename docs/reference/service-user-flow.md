@@ -1,4 +1,4 @@
-# Service User Flow
+﻿# Service User Flow
 
 ## Confirmed Flow
 1. User logs in.
@@ -41,4 +41,5 @@
 
 ## Language And Sync Rule
 - English file is source-of-truth for implementation.
-- Keep Korean mirror `docs/service-user-flow.ko.md` in sync on every update.
+- Keep Korean mirror `docs/reference/service-user-flow.ko.md` in sync on every update.
+

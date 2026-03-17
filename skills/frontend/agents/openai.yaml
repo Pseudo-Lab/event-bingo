@@ -1,5 +1,4 @@
 interface:
   display_name: "Frontend"
-  short_description: "React service-page implementation"
-  default_prompt: "Use $frontend to build or refine React screens for the bingo service page and integrate APIs safely."
-
+  short_description: "React implementation with UX ownership"
+  default_prompt: "Use $frontend to design and build user-facing React screens for the bingo service flow and integrate APIs safely."

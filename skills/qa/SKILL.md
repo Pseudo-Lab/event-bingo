@@ -1,4 +1,4 @@
----
+﻿---
 name: qa
 description: Validate quality of event bingo features before release. Use when creating and executing test scenarios, checking realtime and auth behavior, validating analytics outputs, and reporting defects with reproducible evidence.
 ---
@@ -9,10 +9,10 @@ description: Validate quality of event bingo features before release. Use when c
 Protect release quality through requirement-traceable validation.
 
 ## Read First
-- `docs/agent-collaboration.md`
-- `docs/project-requirements.md`
-- `docs/service-user-flow.md`
-- `docs/design-guide.md` (if exists)
+- `docs/reference/agent-collaboration.md`
+- `docs/reference/project-requirements.md`
+- `docs/reference/service-user-flow.md`
+- `docs/reference/design-guide.md` (if exists)
 
 ## Guide Language Policy
 - Use English guides as source-of-truth for implementation.
@@ -33,7 +33,7 @@ Protect release quality through requirement-traceable validation.
 - Verify keyword exchange updates board state correctly (issue #81 class regression).
 - Verify anonymous to OAuth account link flow preserves event progress.
 - Verify report numbers are consistent with stored event data.
-- If `docs/design-guide.md` exists, verify typography, color, spacing, and component usage are guide-compliant.
+- If `docs/reference/design-guide.md` exists, verify typography, color, spacing, and component usage are guide-compliant.
 
 ## Workflow
 1. Build scenario matrix from acceptance criteria.
@@ -47,3 +47,4 @@ Protect release quality through requirement-traceable validation.
 - Defect report list with severity
 - Release quality summary
 - Design-guide compliance check result when guide exists
+

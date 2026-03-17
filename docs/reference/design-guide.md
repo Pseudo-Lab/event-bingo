@@ -1,11 +1,11 @@
-# Design Guide (English Source)
+﻿# Design Guide (English Source)
 
 ## Purpose
 Provide a consistent UI standard for service pages and admin pages.
 
 ## Language Rule
 - This English file is the implementation source-of-truth.
-- Update `docs/design-guide.ko.md` whenever this file changes.
+- Update `docs/reference/design-guide.ko.md` whenever this file changes.
 
 ## Design Principles
 - Mobile-first layout with desktop compatibility.
@@ -50,3 +50,4 @@ Provide a consistent UI standard for service pages and admin pages.
 ## QA Handoff
 - Include design compliance notes in PR when UI changes are made.
 - Flag any intentional deviations from this guide.
+

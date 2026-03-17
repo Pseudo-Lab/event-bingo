@@ -4,8 +4,8 @@
 서비스 페이지와 관리자 페이지에서 일관된 UI 기준을 제공한다.
 
 ## 언어 규칙
-- 구현 기준 원문은 `docs/design-guide.md`(영문)이다.
-- 영문 가이드 변경 시 `docs/design-guide.ko.md`를 반드시 함께 수정한다.
+- 구현 기준 원문은 `docs/reference/design-guide.md`(영문)이다.
+- 영문 가이드 변경 시 `docs/reference/design-guide.ko.md`를 반드시 함께 수정한다.
 
 ## 디자인 원칙
 - 모바일 우선 레이아웃, 데스크톱 웹 호환.
@@ -50,3 +50,4 @@
 ## QA 핸드오프
 - UI 변경 PR에 가이드 준수 노트를 포함한다.
 - 의도적 예외가 있다면 사유를 명시한다.
+

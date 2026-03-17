@@ -1,4 +1,4 @@
----
+﻿---
 name: backend-api
 description: Build and maintain FastAPI backend APIs for the event bingo service. Use when implementing or changing endpoints, request-response schemas, database models and migrations, Supabase integration, authentication, room logic, and backend-side business rules.
 ---
@@ -9,9 +9,9 @@ description: Build and maintain FastAPI backend APIs for the event bingo service
 Implement backend features in strict priority order for service-page usability first.
 
 ## Read First
-- `docs/agent-collaboration.md`
-- `docs/project-requirements.md`
-- `docs/service-user-flow.md`
+- `docs/reference/agent-collaboration.md`
+- `docs/reference/project-requirements.md`
+- `docs/reference/service-user-flow.md`
 
 ## Guide Language Policy
 - Use English guides as source-of-truth for implementation.
@@ -42,3 +42,4 @@ Implement backend features in strict priority order for service-page usability f
 - Changed backend files
 - API contract summary
 - Test result summary and known risks
+
