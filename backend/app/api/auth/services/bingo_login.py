@@ -9,33 +9,67 @@ class BaseBingoUser:
         self.async_session = session
 
 
-class LoginUser(BaseBingoUser):
-    """
-    리스트에 존재하는 유저만 로그인
-    """
-    async def execute(self, email: str, username: str) -> BingoUser:
+class RegisterBingoUser(BaseBingoUser):
+    async def execute(self, username: str, password: str) -> BingoUser:
         try:
-            # 사용자 조회
-            user = await BingoUser.get_user_by_email(self.async_session, email)
-            if not user:
-                raise ValueError(f"{email} 가 존재하지 않습니다.")
-            user = await BingoUser.update_privacy_agreement(self.async_session, email)
-            return BingoUserResponse(**user.__dict__, ok=True, message="빙고 유저 생성에 성공하였습니다.")
+            normalized_username = username.strip()
+            normalized_password = password.strip()
+
+            if len(normalized_username) == 0:
+                raise ValueError("이름을 입력해 주세요.")
+
+            if len(normalized_password) < 4:
+                raise ValueError("비밀번호는 4자 이상이어야 합니다.")
+
+            user = await BingoUser.create(
+                self.async_session,
+                user_name=normalized_username,
+                password=normalized_password,
+            )
+            logger.debug(f"Bingo user registered: {user}")
+
+            return BingoUserResponse(
+                **user.__dict__,
+                ok=True,
+                message="빙고 계정이 생성되었습니다.",
+            )
         except ValueError as e:
             logger.info(str(e))
             return BingoUserResponse(ok=False, message=str(e))
 
 
-class NewLoginUser(BaseBingoUser):
-    async def execute(self, email: str, username: str) -> BingoUser:
+class LoginBingoUser(BaseBingoUser):
+    async def execute(self, login_id: str, password: str) -> BingoUser:
         try:
-            # 사용자 생성 또는 조회
-            user = await BingoUser.get_user_by_email(self.async_session, email)
-            if not user:
-                user = await BingoUser.create(self.async_session, email=email, user_name=username)
-            logger.debug(f"User created or retrieved: {user}")
+            normalized_login_id = login_id.strip().upper()
+            normalized_password = password.strip()
 
-            return BingoUserResponse(**user.__dict__, ok=True, message="빙고 유저 생성에 성공하였습니다.")
+            if len(normalized_login_id) == 0:
+                raise ValueError("로그인 코드를 입력해 주세요.")
+
+            if len(normalized_password) == 0:
+                raise ValueError("비밀번호를 입력해 주세요.")
+
+            user = await BingoUser.get_user_by_login_id(
+                self.async_session,
+                normalized_login_id,
+            )
+
+            if user is None:
+                raise ValueError("존재하지 않는 로그인 코드입니다.")
+
+            if not BingoUser.verify_password(normalized_password, user.password_hash):
+                raise ValueError("비밀번호가 일치하지 않습니다.")
+
+            user = await BingoUser.update_privacy_agreement(
+                self.async_session,
+                user.user_id,
+            )
+            return BingoUserResponse(
+                **user.__dict__,
+                ok=True,
+                message="로그인되었습니다.",
+            )
         except ValueError as e:
             logger.info(str(e))
             return BingoUserResponse(ok=False, message=str(e))
@@ -46,7 +80,7 @@ class GetBingoUserByName(BaseBingoUser):
         try:
             user = await BingoUser.get_user_by_name(self.async_session, username)
             if user is None:
-                raise ValueError(f"{user} 가 존재하지 않습니다.")
+                raise ValueError(f"{username} 가 존재하지 않습니다.")
 
             return BingoUserResponse(**user.__dict__, ok=True, message="빙고 유저 조회에 성공하였습니다.")
         except ValueError as e:

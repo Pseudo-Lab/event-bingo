@@ -6,10 +6,8 @@ import {
   createUserBingoInteraction,
   getBingoBoard,
   getUserAllInteraction,
-  getUserInteractionCount,
   getUserLatestInteraction,
   getUserName,
-  isLocalMockTesterEnabled,
   updateBingoBoard,
 } from "../../api/bingo_api.ts";
 import { bingoConfig, boardKeywordPool } from "../../config/bingoConfig.ts";
@@ -54,8 +52,6 @@ interface InteractionRecord {
   word_id_list: string[] | string;
 }
 
-type BoardPreviewPreset = "one-line" | "two-lines" | "three-lines" | "full";
-
 type AlertSeverity = "success" | "warning" | "error" | "info";
 type AlertPayload = {
   title?: string;
@@ -85,12 +81,6 @@ const BOARD_EDGE_END = BOARD_CENTERS[BOARD_CENTERS.length - 1] ?? 100;
 const BOARD_PLACEHOLDER_LABEL = "PseudoLab";
 const INTERACTION_BATCH_WINDOW_MS = 1500;
 const RECENT_INTERACTION_LIMIT = 12;
-const BOARD_PREVIEW_OPTIONS: Array<{ id: BoardPreviewPreset; label: string }> = [
-  { id: "one-line", label: "1줄 완성" },
-  { id: "two-lines", label: "2줄 완성" },
-  { id: "three-lines", label: "3줄 완성" },
-  { id: "full", label: "올클리어" },
-];
 
 const shuffleArray = (array: string[]) => {
   return [...array].sort(() => Math.random() - 0.5);
@@ -432,16 +422,10 @@ const BingoGame = () => {
   const [hasShownConfetti, setHasShownConfetti] = useState(false);
   const [alertSeverity, setAlertSeverity] = useState<AlertSeverity>("success");
   const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
-  const [boardPreviewPreset, setBoardPreviewPreset] = useState<BoardPreviewPreset | null>(null);
-  const [boardPreviewBase, setBoardPreviewBase] = useState<BingoCell[] | null>(null);
   const [remainingTime, setRemainingTime] = useState(() => {
     return bingoConfig.unlockTime - Date.now();
   });
-  const [locked, setLocked] = useState(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const isTester = urlParams.get("early") === "true";
-    return !isTester && new Date().getTime() < bingoConfig.unlockTime;
-  });
+  const [locked, setLocked] = useState(() => new Date().getTime() < bingoConfig.unlockTime);
   const [showAllBingoModal, setShowAllBingoModal] = useState(false);
   const [isInitializingBoard, setIsInitializingBoard] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
@@ -450,8 +434,6 @@ const BingoGame = () => {
 
   const bingoMissionCount = bingoConfig.bingoMissionCount;
   const exchangeKeywordCount = bingoConfig.exchangeKeywordCount;
-  const showBoardPreviewTools = useMemo(() => isLocalMockTesterEnabled(), []);
-  const isBoardPreviewActive = boardPreviewPreset !== null;
 
   const markedKeywordCount = useMemo(() => {
     if (!bingoBoard) {
@@ -470,7 +452,7 @@ const BingoGame = () => {
 
   const participantSummary = useMemo(() => {
     if (participantContact) {
-      return `${username} 님 | ${participantContact}`;
+      return `${username} 님 | 코드 ${participantContact}`;
     }
 
     if (userId) {
@@ -494,12 +476,23 @@ const BingoGame = () => {
     const rawHistory = await getUserAllInteraction(activeUserId);
     if (!rawHistory || !Array.isArray(rawHistory.interactions)) {
       setExchangeHistory([]);
+      setMetPersonNum(0);
       return;
     }
 
+    const activeNumericUserId = Number(activeUserId);
+    const counterpartUserIds = new Set<number>();
     const grouped: Record<string, ExchangeRecord> = {};
 
     for (const record of rawHistory.interactions as InteractionRecord[]) {
+      if (record.send_user_id === activeNumericUserId) {
+        counterpartUserIds.add(record.receive_user_id);
+      }
+
+      if (record.receive_user_id === activeNumericUserId) {
+        counterpartUserIds.add(record.send_user_id);
+      }
+
       const groupKey = `${record.send_user_id}-${record.receive_user_id}`;
 
       if (!grouped[groupKey]) {
@@ -542,6 +535,7 @@ const BingoGame = () => {
           new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
       )
     );
+    setMetPersonNum(counterpartUserIds.size);
   }, []);
 
   const hasExistingDirectionalExchange = useCallback(
@@ -580,7 +574,7 @@ const BingoGame = () => {
       const authSession = getAuthSession();
       const storedId = authSession?.userId ?? "";
       const storedName = authSession?.userName ?? "";
-      const storedContact = authSession?.userEmail ?? "";
+      const storedContact = authSession?.loginId ?? "";
 
       if (!storedId) {
         navigate("/", { replace: true });
@@ -598,8 +592,6 @@ const BingoGame = () => {
         }
 
         const boardData = await getBingoBoard(storedId);
-        const boardInteractionData = await getUserInteractionCount(storedId);
-        setMetPersonNum(boardInteractionData);
 
         if (boardData && boardData.length > 0) {
           setBingoBoard(boardData);
@@ -663,10 +655,6 @@ const BingoGame = () => {
   }, [fetchExchangeHistory, userId]);
 
   useEffect(() => {
-    if (isBoardPreviewActive) {
-      return;
-    }
-
     const interval = setInterval(async () => {
       if (!userId || !bingoBoard) {
         return;
@@ -674,8 +662,6 @@ const BingoGame = () => {
 
       try {
         const latestBoard = await getBingoBoard(userId);
-        const boardInteractionData = await getUserInteractionCount(userId);
-        setMetPersonNum(boardInteractionData);
 
         if (!latestBoard || latestBoard.length === 0) {
           return;
@@ -746,7 +732,7 @@ const BingoGame = () => {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [bingoBoard, isBoardPreviewActive, lastProcessedIncomingSignature, userId]);
+  }, [bingoBoard, lastProcessedIncomingSignature, userId]);
 
   const initializeBoard = async (selectedKeywords: string[]) => {
     try {
@@ -859,87 +845,6 @@ const BingoGame = () => {
     }
 
     return cells;
-  };
-
-  const buildPreviewBoard = (sourceBoard: BingoCell[], preset: BoardPreviewPreset) => {
-    if (preset === "full") {
-      return sourceBoard.map((cell) => ({
-        ...cell,
-        status: 1,
-      }));
-    }
-
-    const presetLines: CompletedLine[] = [
-      { type: "row", index: 0 },
-      { type: "col", index: 0 },
-      { type: "diagonal", index: 1 },
-    ];
-    const lineCountByPreset: Record<Exclude<BoardPreviewPreset, "full">, number> = {
-      "one-line": 1,
-      "two-lines": 2,
-      "three-lines": 3,
-    };
-    const activeCellIds = new Set<number>();
-
-    presetLines
-      .slice(0, lineCountByPreset[preset])
-      .forEach((line) => {
-        getCellsInLine(line.type, line.index).forEach((cellId) => {
-          activeCellIds.add(cellId);
-        });
-      });
-
-    return sourceBoard.map((cell, index) => ({
-      ...cell,
-      status: activeCellIds.has(index) ? 1 : 0,
-    }));
-  };
-
-  const applyBoardPreview = (preset: BoardPreviewPreset) => {
-    if (!bingoBoard || bingoBoard.length === 0) {
-      return;
-    }
-
-    const sourceBoard = boardPreviewBase ?? bingoBoard;
-    const baseBoard = sourceBoard.map((cell) => ({ ...cell }));
-
-    if (!boardPreviewBase) {
-      setBoardPreviewBase(baseBoard);
-    }
-
-    setBoardPreviewPreset(preset);
-    setShowAllBingoModal(false);
-    setShowConfetti(false);
-    setHasShownConfetti(false);
-    setNewBingoFound(false);
-    setAnimatedCells([]);
-    setNewBingoCells([]);
-    setLatestReceivedKeywords([]);
-    setBingoBoard(buildPreviewBoard(baseBoard, preset));
-    showAlert("보드 프리뷰를 적용했습니다.", "info", {
-      title: "테스트 프리뷰",
-      label: "BOARD PREVIEW",
-    });
-  };
-
-  const clearBoardPreview = () => {
-    if (!boardPreviewBase) {
-      return;
-    }
-
-    setBoardPreviewPreset(null);
-    setShowAllBingoModal(false);
-    setShowConfetti(false);
-    setNewBingoFound(false);
-    setAnimatedCells([]);
-    setNewBingoCells([]);
-    setLatestReceivedKeywords([]);
-    setBingoBoard(boardPreviewBase.map((cell) => ({ ...cell })));
-    setBoardPreviewBase(null);
-    showAlert("실제 보드 상태로 돌아왔습니다.", "info", {
-      title: "프리뷰 해제",
-      label: "BOARD PREVIEW",
-    });
   };
 
   const checkBingoLines = useCallback(() => {
@@ -1149,14 +1054,6 @@ const BingoGame = () => {
   };
 
   const handleExchange = async () => {
-    if (isBoardPreviewActive) {
-      showAlert("보드 프리뷰를 해제한 뒤 실제 전송을 진행해 주세요.", "info", {
-        title: "프리뷰가 켜져 있어요",
-        label: "BOARD PREVIEW",
-      });
-      return;
-    }
-
     if (!opponentId.trim()) {
       showAlert("상대방 ID를 입력해주세요.", "warning");
       return;
@@ -1217,8 +1114,6 @@ const BingoGame = () => {
       }
 
       await fetchExchangeHistory(myId);
-      const boardInteractionData = await getUserInteractionCount(myId);
-      setMetPersonNum(boardInteractionData);
       setOpponentId("");
 
       if (deliverableKeywords.length > 0) {
@@ -1382,7 +1277,13 @@ const BingoGame = () => {
       <div className="bingo-game-page__mesh" aria-hidden="true" />
 
       <main className="bingo-game-shell">
-        <p className="bingo-game-brand">{SETUP_BRAND_TITLE}</p>
+        <button
+          type="button"
+          className="bingo-game-brand bingo-game-brand--link"
+          onClick={() => navigate("/", { replace: true })}
+        >
+          {SETUP_BRAND_TITLE}
+        </button>
 
         <section className="bingo-game-top">
           <article className="bingo-card bingo-hero">
@@ -1405,14 +1306,11 @@ const BingoGame = () => {
                   <input
                     value={opponentId}
                     onChange={(event) => setOpponentId(event.target.value.replace(/\D/g, ""))}
-                    placeholder={
-                      isBoardPreviewActive ? "프리뷰 중에는 전송을 잠시 잠가두었어요" : "상대방 ID 입력"
-                    }
+                    placeholder="상대방 ID 입력"
                     inputMode="numeric"
                     aria-label="상대방 ID 입력"
-                    disabled={isBoardPreviewActive}
                   />
-                  <button type="submit" disabled={isBoardPreviewActive}>
+                  <button type="submit">
                     보내기
                   </button>
                 </form>
@@ -1449,46 +1347,6 @@ const BingoGame = () => {
         </section>
 
         <section className="bingo-board-shell" aria-label="bingo board">
-          {showBoardPreviewTools ? (
-            <section
-              className={`bingo-preview-panel ${isBoardPreviewActive ? "is-active" : ""}`}
-              aria-label="board preview tools"
-            >
-              <div className="bingo-preview-panel__copy">
-                <p className="bingo-preview-panel__eyebrow">로컬 테스트 프리뷰</p>
-                <strong>
-                  {isBoardPreviewActive
-                    ? "프리뷰 중에는 보드 실시간 동기화를 잠시 멈췄어요"
-                    : "1줄부터 올클리어까지 화면 상태를 바로 미리볼 수 있어요"}
-                </strong>
-                <span>실제 보드는 복원 버튼으로 바로 되돌릴 수 있습니다.</span>
-              </div>
-              <div className="bingo-preview-panel__actions">
-                {BOARD_PREVIEW_OPTIONS.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className={`bingo-preview-panel__button ${
-                      boardPreviewPreset === option.id ? "is-selected" : ""
-                    }`}
-                    onClick={() => applyBoardPreview(option.id)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-                {isBoardPreviewActive ? (
-                  <button
-                    type="button"
-                    className="bingo-preview-panel__button is-reset"
-                    onClick={clearBoardPreview}
-                  >
-                    실전 보드 복원
-                  </button>
-                ) : null}
-              </div>
-            </section>
-          ) : null}
-
           <div className="bingo-board-shell__inner">
             <svg
               className="bingo-board__lines"
