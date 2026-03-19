@@ -10,6 +10,7 @@ from core.db import AsyncSessionDepends
 from core.dependencies import authenticate_user
 from models.admin import Admin, AdminRole
 from models.event import Event, EventPublishState
+from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 
 from .auth import (
     authenticate_admin_session,
@@ -23,6 +24,7 @@ from .console_services import (
     ensure_admin_console_seed_data,
     ensure_unique_event_slug,
     reset_event_runtime_data,
+    serialize_event_manager_request,
     resolve_first_published_at,
     serialize_admin_member,
     serialize_admin_session,
@@ -32,6 +34,9 @@ from .console_services import (
 from .schema import (
     AdminEventDetailResponse,
     AdminEventListResponse,
+    AdminEventManagerRequestListResponse,
+    AdminEventManagerRequestResponse,
+    AdminEventManagerRequestUpdateRequest,
     AdminEventResetResponse,
     AdminEventResponse,
     AdminEventUpsertRequest,
@@ -54,6 +59,16 @@ def to_publish_state(value: str) -> EventPublishState:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="지원하지 않는 공개 상태입니다.",
+        ) from error
+
+
+def to_event_manager_request_status(value: str) -> EventManagerRequestStatus:
+    try:
+        return EventManagerRequestStatus(value)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="지원하지 않는 신청 상태입니다.",
         ) from error
 
 
@@ -181,6 +196,64 @@ async def delete_admin_member(
         ok=True,
         message="관리자 계정을 삭제했습니다.",
         deleted_member_id=member.id,
+    )
+
+
+@admin_router.get(
+    "/event-manager-requests",
+    response_model=AdminEventManagerRequestListResponse,
+    summary="이벤트 관리자 신청 목록 조회",
+)
+async def list_event_manager_requests(
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    await ensure_admin_console_seed_data(db)
+    require_admin_role(actor)
+
+    requests = await EventManagerRequest.get_all(db)
+    serialized_requests = [
+        await serialize_event_manager_request(db, request_item)
+        for request_item in requests
+    ]
+
+    return AdminEventManagerRequestListResponse(
+        ok=True,
+        message="이벤트 관리자 신청 목록을 불러왔습니다.",
+        requests=serialized_requests,
+        pending_count=sum(1 for request_item in requests if request_item.status == EventManagerRequestStatus.PENDING),
+    )
+
+
+@admin_router.patch(
+    "/event-manager-requests/{request_id}",
+    response_model=AdminEventManagerRequestResponse,
+    summary="이벤트 관리자 신청 상태 변경",
+)
+async def update_event_manager_request(
+    request_id: int,
+    payload: AdminEventManagerRequestUpdateRequest,
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    await ensure_admin_console_seed_data(db)
+    require_admin_role(actor)
+
+    try:
+        updated_request = await EventManagerRequest.update_review(
+            db,
+            request_id,
+            status=to_event_manager_request_status(payload.status),
+            review_note=payload.review_note.strip() if payload.review_note else None,
+            reviewed_by_admin_id=actor.id,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    return AdminEventManagerRequestResponse(
+        ok=True,
+        message="신청 상태를 업데이트했습니다.",
+        request=await serialize_event_manager_request(db, updated_request),
     )
 
 

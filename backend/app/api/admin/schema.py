@@ -9,6 +9,7 @@ from core.base_schema import BaseSchema
 AdminRoleLiteral = Literal["admin", "event_manager"]
 PublishStateLiteral = Literal["draft", "published", "archived"]
 EventStatusLiteral = Literal["scheduled", "in_progress", "ended"]
+EventManagerRequestStatusLiteral = Literal["pending", "approved", "rejected"]
 
 
 class AdminSessionInfo(BaseModel):
@@ -54,6 +55,37 @@ class AdminMemberResponse(BaseSchema):
 
 class AdminMemberDeleteResponse(BaseSchema):
     deleted_member_id: Optional[int] = None
+
+
+class AdminEventManagerRequestItem(BaseModel):
+    id: int
+    name: str
+    email: str
+    organization: Optional[str] = None
+    event_name: str
+    event_purpose: str
+    expected_event_date: Optional[datetime] = None
+    expected_attendee_count: Optional[int] = None
+    notes: Optional[str] = None
+    status: EventManagerRequestStatusLiteral
+    review_note: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    reviewed_by_name: Optional[str] = None
+    created_at: datetime
+
+
+class AdminEventManagerRequestListResponse(BaseSchema):
+    requests: list[AdminEventManagerRequestItem] = Field(default_factory=list)
+    pending_count: int = 0
+
+
+class AdminEventManagerRequestUpdateRequest(BaseModel):
+    status: EventManagerRequestStatusLiteral
+    review_note: Optional[str] = Field(default=None, max_length=1000)
+
+
+class AdminEventManagerRequestResponse(BaseSchema):
+    request: Optional[AdminEventManagerRequestItem] = None
 
 
 class AdminEventParticipantItem(BaseModel):

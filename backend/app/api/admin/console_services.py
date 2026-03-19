@@ -11,6 +11,7 @@ from models.bingo.bingo_boards import BingoBoards
 from models.bingo.bingo_interaction import BingoInteraction
 from models.event import Event, EventPublishState, EventStatus
 from models.event_attendee import EventAttendee
+from models.event_manager_request import EventManagerRequest
 from models.team import Team
 from models.user import BingoUser
 
@@ -21,6 +22,7 @@ from .schema import (
     AdminEventKeywordRow,
     AdminEventParticipantItem,
     AdminEventSummary,
+    AdminEventManagerRequestItem,
     AdminMemberItem,
     AdminSessionInfo,
 )
@@ -68,6 +70,33 @@ def serialize_admin_member(admin: Admin) -> AdminMemberItem:
 
 def can_edit_event(actor: Admin, event: Event) -> bool:
     return actor.role == AdminRole.ADMIN or actor.id == event.admin_id
+
+
+async def serialize_event_manager_request(
+    session: AsyncSession,
+    request: EventManagerRequest,
+) -> AdminEventManagerRequestItem:
+    reviewed_by_name = None
+    if request.reviewed_by_admin_id is not None:
+        reviewed_by = await Admin.get_by_id(session, request.reviewed_by_admin_id)
+        reviewed_by_name = reviewed_by.name
+
+    return AdminEventManagerRequestItem(
+        id=request.id,
+        name=request.name,
+        email=request.email,
+        organization=request.organization,
+        event_name=request.event_name,
+        event_purpose=request.event_purpose,
+        expected_event_date=request.expected_event_date,
+        expected_attendee_count=request.expected_attendee_count,
+        notes=request.notes,
+        status=request.status.value,
+        review_note=request.review_note,
+        reviewed_at=request.reviewed_at,
+        reviewed_by_name=reviewed_by_name,
+        created_at=request.created_at,
+    )
 
 
 def validate_admin_member_deletion(
