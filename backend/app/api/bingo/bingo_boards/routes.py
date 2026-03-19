@@ -4,8 +4,6 @@ from .schema import (
     BingoBoardRequest,
     BingoBoardResponse,
     UpdateBingoCountResponse,
-    UserSelectedWordsResponse,
-    UpdateBingoStatusResponse,
     UpdateBingoStatusResponseByQRScan,
     GetUserBingoEventUser,
 )
@@ -14,8 +12,6 @@ from .services import (
     GetBingoBoardByUserId,
     UpdateBingoBoardByUserId,
     UpdateBingoCount,
-    GetUserSelectedWords,
-    UpdateBingoStatusBySelectedUser,
     GetBingoEventUser,
     UpdateBingoStatusByQRScan,
 )
@@ -54,23 +50,6 @@ async def update_bingo_count(
     bingo_boards: UpdateBingoCount = Depends(UpdateBingoCount),
 ):
     return await bingo_boards.execute(user_id)
-
-
-@bingo_boards_router.get("/selected_words/{user_id}", response_model=UserSelectedWordsResponse)
-async def get_user_selected_words(
-    user_id: int = Path(..., title="유저 ID", ge=0),
-    bingo_boards: GetUserSelectedWords = Depends(GetUserSelectedWords),
-):
-    return await bingo_boards.execute(user_id)
-
-
-@bingo_boards_router.put("/bingo_status/{send_user_id}/{receive_user_id}", response_model=UpdateBingoStatusResponse)
-async def update_bingo_status(
-    send_user_id: int = Path(..., title="요청 유저 ID", ge=0),
-    receive_user_id: int = Path(..., title="대상 유저 ID", ge=0),
-    bingo_boards: UpdateBingoStatusBySelectedUser = Depends(UpdateBingoStatusBySelectedUser),
-):
-    return await bingo_boards.execute(send_user_id, receive_user_id)
 
 
 @bingo_boards_router.get("/bingo_event_users/{bingo_count}", response_model=GetUserBingoEventUser)

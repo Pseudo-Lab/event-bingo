@@ -9,7 +9,7 @@ from sqlalchemy.ext.mutable import MutableDict
 
 from core.db import AsyncSession
 from models.base import Base
-from models.bingo.schema import BingoInteractionSchema, BingoEventUserInfo, BingoQRScanSchema
+from models.bingo.schema import BingoEventUserInfo, BingoQRScanSchema
 from models.user import BingoUser
 
 
@@ -103,55 +103,6 @@ class BingoBoards(Base):
                 selected_words.append(board_block.get("value"))
 
         return selected_words
-
-    @classmethod
-    async def update_bingo_status_by_selected_user(
-        cls, session: AsyncSession, send_user_id: int, receive_user_id: int
-    ) -> BingoInteractionSchema:
-        if send_user_id == receive_user_id:
-            raise ValueError("보내는 계정과 받는 계정이 같습니다.")
-
-        send_user = await BingoUser.get_user_by_id(session, send_user_id)
-        if not send_user:
-            raise ValueError(f"{send_user_id} 존재하지 않는 아이디")
-
-        receive_user = await BingoUser.get_user_by_id(session, receive_user_id)
-        if not receive_user:
-            raise ValueError(f"{receive_user_id} 존재하지 않는 아이디")
-
-        board = await cls.get_board_by_userid(session, receive_user_id)
-        selected_words = await cls.get_user_selected_words(session, send_user_id)
-        board_data = board.board_data
-        already_interaction = False
-
-        not_selected_ids = []
-        updated_keywords = []
-        interaction_cnt = board.user_interaction_count
-        for idx, bingo_dict in board_data.items():
-            value, status, interaction_id = bingo_dict["value"], bingo_dict["status"], bingo_dict.get("interaction_id")
-            if send_user.user_id == interaction_id:  # 이미 interaction 한 유저인 경우는 Pass
-                already_interaction = True
-                break
-            if status == 0 and value in selected_words:
-                # get not selected list
-                not_selected_ids.append(idx)
-                updated_keywords.append(value)
-
-        if not already_interaction:
-            for update_idx in not_selected_ids:
-                board_data[update_idx]["status"] = 1
-                board_data[update_idx]["interaction_id"] = send_user.user_id
-            interaction_cnt += 1
-            await cls.update_board_by_userid(session, receive_user_id, board_data)
-            await cls.update_board_interaction_count_by_userid(session, receive_user_id, interaction_cnt)
-            board = await cls.update_bingo_count(session, receive_user_id)
-
-        return BingoInteractionSchema(
-            send_user_id=send_user_id,
-            receive_user_id=receive_user_id,
-            updated_words=updated_keywords,
-            bingo_count=board.bingo_count,
-        )
 
     @classmethod
     async def get_bingo_event_users(cls, session: AsyncSession, bingo_count: int) -> list:
