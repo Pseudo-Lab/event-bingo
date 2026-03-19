@@ -1,15 +1,26 @@
 from enum import IntEnum
 from core.base_schema import BaseSchema
-from pydantic import Field
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
 class BingoUser(BaseSchema):
     user_id: Optional[int] = Field(title="빙고 유저 ID", default=None)
-    user_email: Optional[str] = Field(title="빙고 유저 Email", default=None)
     user_name: Optional[str] = Field(title="빙고 유저 이름", default=None)
+    login_id: Optional[str] = Field(title="빙고 로그인 코드", default=None)
+    user_email: Optional[str] = Field(title="레거시 로그인 식별자", default=None)
     umoh_id: Optional[int] = Field(title="우모 ID", default=None)
     privacy_agreed: Optional[bool] = Field(title="개인정보 동의 여부", default=False)
+
+
+class BingoRegisterRequest(BaseModel):
+    username: str = Field(..., min_length=1, max_length=100, description="표시 이름")
+    password: str = Field(..., min_length=4, max_length=100, description="로그인 비밀번호")
+
+
+class BingoLoginRequest(BaseModel):
+    login_id: str = Field(..., min_length=1, max_length=32, description="로그인 코드")
+    password: str = Field(..., min_length=4, max_length=100, description="로그인 비밀번호")
 
 
 class LoginState(IntEnum):

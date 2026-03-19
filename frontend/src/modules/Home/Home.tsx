@@ -1,29 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Dialog from "@mui/material/Dialog";
 import Snackbar from "@mui/material/Snackbar";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
-import {
-  clearLocalMockMode,
-  getLocalMockTesterUsers,
-  isLocalMockTesterEnabled,
-  loginWithLocalMockTester,
-  newSingUpUser,
-  resetLocalMockTesterData,
-} from "../../api/bingo_api";
-import type { MockTesterUser } from "../../api/bingo_api";
+import { loginBingoUser, registerBingoUser } from "../../api/bingo_api";
 import config from "../../config/settings.json";
 import {
   clearAuthSession,
   getAuthSession,
   setAuthSession,
 } from "../../utils/authSession";
+import {
+  getRecentBingoAccounts,
+  saveRecentBingoAccount,
+  type RecentBingoAccount,
+} from "../../utils/recentBingoAccounts";
 import ConsentDialog from "./ConsentDialog";
 import "./Home.css";
 
-const ACCESS_CODE_PATTERN = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{1,8}$/;
+type AuthMode = "register" | "login";
+
+const PASSWORD_MIN_LENGTH = 4;
 
 const DISPLAY_FALLBACKS = {
   brand: "PseudoLab",
@@ -44,10 +43,15 @@ const isPlaceholderValue = (value: string | undefined, placeholders: string[]) =
 
 const Home = () => {
   const navigate = useNavigate();
-  const location = useLocation();
 
+  const [authMode, setAuthMode] = useState<AuthMode>("register");
   const [participantName, setParticipantName] = useState("");
-  const [accessCode, setAccessCode] = useState("");
+  const [loginIdInput, setLoginIdInput] = useState("");
+  const [password, setPassword] = useState("");
+  const [currentLoginId, setCurrentLoginId] = useState("");
+  const [recentAccounts, setRecentAccounts] = useState<RecentBingoAccount[]>([]);
+  const [issuedLoginId, setIssuedLoginId] = useState("");
+  const [loginCodeDialogOpen, setLoginCodeDialogOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [agreeOpen, setAgreeOpen] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
@@ -56,29 +60,34 @@ const Home = () => {
   const [alertSeverity, setAlertSeverity] = useState<"error" | "success">(
     "error"
   );
-  const [mockTesterEnabled, setMockTesterEnabled] = useState(false);
-  const [mockTesterUsers, setMockTesterUsers] = useState<MockTesterUser[]>([]);
-  const [mockTesterLoading, setMockTesterLoading] = useState(false);
-  const [mockTesterResetting, setMockTesterResetting] = useState(false);
-  const [activeTesterCode, setActiveTesterCode] = useState<string | null>(null);
-  const [handledTestCode, setHandledTestCode] = useState<string | null>(null);
+
+  const refreshRecentAccounts = useCallback(() => {
+    const nextAccounts = getRecentBingoAccounts();
+    setRecentAccounts(nextAccounts);
+
+    if (!isLoggedIn && nextAccounts.length > 0) {
+      setAuthMode("login");
+    }
+  }, [isLoggedIn]);
 
   useEffect(() => {
     const storedSession = getAuthSession();
-    if (storedSession) {
-      setParticipantName(storedSession.userName);
-      setAccessCode(storedSession.loginKey);
-      setIsLoggedIn(true);
-      setIsAgreed(true);
+    const nextRecentAccounts = getRecentBingoAccounts();
+    setRecentAccounts(nextRecentAccounts);
+
+    if (!storedSession) {
+      if (nextRecentAccounts.length > 0) {
+        setAuthMode("login");
+      }
+      return;
     }
 
-    setMockTesterEnabled(isLocalMockTesterEnabled());
+    setParticipantName(storedSession.userName);
+    setLoginIdInput(storedSession.loginId);
+    setCurrentLoginId(storedSession.loginId);
+    setIsLoggedIn(true);
+    setIsAgreed(true);
   }, []);
-
-  const testCodeFromQuery = useMemo(() => {
-    const testCode = new URLSearchParams(location.search).get("testCode");
-    return testCode?.trim() ?? "";
-  }, [location.search]);
 
   const displayBrand = useMemo(
     () =>
@@ -112,9 +121,10 @@ const Home = () => {
     []
   );
 
-  const accessCodeValue = accessCode.trim();
-  const isAccessCodeValid =
-    accessCodeValue.length === 0 || ACCESS_CODE_PATTERN.test(accessCodeValue);
+  const trimmedPassword = password.trim();
+  const isPasswordValid =
+    trimmedPassword.length === 0 || trimmedPassword.length >= PASSWORD_MIN_LENGTH;
+  const requiresConsent = authMode === "register";
 
   const openAlert = useCallback((message: string, severity: "error" | "success" = "error") => {
     setAlertMessage(message);
@@ -124,51 +134,42 @@ const Home = () => {
 
   const applyLoginSession = useCallback(({
     userId,
-    userEmail,
     userName,
-    loginKey,
+    loginId,
   }: {
     userId: string;
-    userEmail: string;
     userName: string;
-    loginKey: string;
+    loginId: string;
   }) => {
     setAuthSession({
       userId,
-      userEmail,
       userName,
-      loginKey,
+      loginId,
     });
     setParticipantName(userName);
-    setAccessCode(loginKey);
+    setLoginIdInput(loginId);
+    setCurrentLoginId(loginId);
+    setPassword("");
     setIsLoggedIn(true);
     setIsAgreed(true);
   }, []);
 
-  const loadMockTesterUsers = useCallback(async () => {
-    if (!mockTesterEnabled) {
-      return;
-    }
-
-    try {
-      setMockTesterLoading(true);
-      const users = await getLocalMockTesterUsers();
-      setMockTesterUsers(users);
-    } catch (error) {
-      console.error("Failed to load local tester users", error);
-      openAlert("테스트 계정 목록을 불러오지 못했습니다.");
-    } finally {
-      setMockTesterLoading(false);
-    }
-  }, [mockTesterEnabled, openAlert]);
-
-  useEffect(() => {
-    if (!mockTesterEnabled) {
-      return;
-    }
-
-    void loadMockTesterUsers();
-  }, [loadMockTesterUsers, mockTesterEnabled]);
+  const persistRecentAccount = useCallback(({
+    userId,
+    userName,
+    loginId,
+  }: {
+    userId: string;
+    userName: string;
+    loginId: string;
+  }) => {
+    saveRecentBingoAccount({
+      userId,
+      userName,
+      loginId,
+    });
+    refreshRecentAccounts();
+  }, [refreshRecentAccounts]);
 
   const handleConsentToggle = () => {
     if (isAgreed) {
@@ -179,17 +180,16 @@ const Home = () => {
     setAgreeOpen(true);
   };
 
-  const handleLogin = async () => {
+  const handleRegister = async () => {
     const trimmedName = participantName.trim();
-    const trimmedAccessCode = accessCode.trim();
 
     if (!trimmedName) {
       openAlert("이름을 입력해 주세요.");
       return;
     }
 
-    if (!ACCESS_CODE_PATTERN.test(trimmedAccessCode)) {
-      openAlert("비밀번호는 영문과 숫자를 포함한 8자 이내로 입력해 주세요.");
+    if (trimmedPassword.length < PASSWORD_MIN_LENGTH) {
+      openAlert(`비밀번호는 ${PASSWORD_MIN_LENGTH}자 이상 입력해 주세요.`);
       return;
     }
 
@@ -199,20 +199,68 @@ const Home = () => {
     }
 
     try {
-      clearLocalMockMode();
-      const result = await newSingUpUser(trimmedAccessCode, trimmedName);
+      const result = await registerBingoUser(trimmedName, trimmedPassword);
 
-      if (!result.ok) {
-        openAlert(result.message);
+      if (
+        !result.ok ||
+        result.user_id == null ||
+        !result.user_name ||
+        !result.login_id
+      ) {
+        openAlert(result.message || "계정 생성에 실패했습니다.");
         return;
       }
 
-      applyLoginSession({
+      const sessionPayload = {
         userId: String(result.user_id),
-        userEmail: result.user_email,
         userName: result.user_name,
-        loginKey: trimmedAccessCode,
-      });
+        loginId: result.login_id,
+      };
+
+      applyLoginSession(sessionPayload);
+      persistRecentAccount(sessionPayload);
+      setIssuedLoginId(result.login_id);
+      setLoginCodeDialogOpen(true);
+    } catch (error) {
+      console.error("Failed to register", error);
+      openAlert("계정 생성 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleLogin = async () => {
+    const trimmedLoginId = loginIdInput.trim().toUpperCase();
+
+    if (!trimmedLoginId) {
+      openAlert("로그인 코드를 입력해 주세요.");
+      return;
+    }
+
+    if (trimmedPassword.length < PASSWORD_MIN_LENGTH) {
+      openAlert("비밀번호를 확인해 주세요.");
+      return;
+    }
+
+    try {
+      const result = await loginBingoUser(trimmedLoginId, trimmedPassword);
+
+      if (
+        !result.ok ||
+        result.user_id == null ||
+        !result.user_name ||
+        !result.login_id
+      ) {
+        openAlert(result.message || "로그인에 실패했습니다.");
+        return;
+      }
+
+      const sessionPayload = {
+        userId: String(result.user_id),
+        userName: result.user_name,
+        loginId: result.login_id,
+      };
+
+      applyLoginSession(sessionPayload);
+      persistRecentAccount(sessionPayload);
       openAlert("로그인되었습니다.", "success");
       navigate("/bingo", { replace: true });
     } catch (error) {
@@ -223,108 +271,42 @@ const Home = () => {
 
   const clearCurrentSessionState = useCallback(() => {
     clearAuthSession();
-    clearLocalMockMode();
     setParticipantName("");
-    setAccessCode("");
+    setPassword("");
+    setCurrentLoginId("");
     setIsLoggedIn(false);
     setIsAgreed(false);
-    setActiveTesterCode(null);
-  }, []);
+    setAuthMode(recentAccounts.length > 0 ? "login" : "register");
+  }, [recentAccounts.length]);
 
   const handleLogout = () => {
     clearCurrentSessionState();
   };
 
-  const handleTesterLogin = useCallback(async (tester: MockTesterUser) => {
-    try {
-      setActiveTesterCode(tester.accessCode);
-
-      const result = await loginWithLocalMockTester(
-        tester.accessCode,
-        tester.userName
-      );
-
-      if (!result.ok) {
-        openAlert(result.message);
-        return;
-      }
-
-      applyLoginSession({
-        userId: String(result.user_id),
-        userEmail: result.user_email,
-        userName: result.user_name,
-        loginKey: tester.accessCode,
-      });
-      openAlert(`"${result.user_name}" 계정으로 전환했습니다.`, "success");
-      navigate("/bingo", { replace: true });
-    } catch (error) {
-      console.error("Failed to switch tester session", error);
-      openAlert("테스트 계정 전환 중 오류가 발생했습니다.");
-    } finally {
-      setActiveTesterCode(null);
-    }
-  }, [applyLoginSession, navigate, openAlert]);
-
-  useEffect(() => {
-    if (!mockTesterEnabled || !testCodeFromQuery || handledTestCode === testCodeFromQuery) {
+  const handleSubmit = async () => {
+    if (authMode === "register") {
+      await handleRegister();
       return;
     }
 
-    setHandledTestCode(testCodeFromQuery);
-
-    const targetTester =
-      mockTesterUsers.find((tester) => tester.accessCode === testCodeFromQuery) ?? {
-        accessCode: testCodeFromQuery,
-        userName: testCodeFromQuery,
-      };
-
-    void handleTesterLogin({
-      userId: "",
-      userEmail: targetTester.accessCode,
-      userName: targetTester.userName,
-      accessCode: targetTester.accessCode,
-      hasBoard: true,
-    });
-  }, [
-    handledTestCode,
-    handleTesterLogin,
-    mockTesterEnabled,
-    mockTesterUsers,
-    testCodeFromQuery,
-  ]);
-
-  const openTesterInNewTab = (tester: MockTesterUser) => {
-    const nextUrl = new URL(window.location.href);
-    nextUrl.pathname = "/";
-    nextUrl.search = "";
-    nextUrl.searchParams.set("testCode", tester.accessCode);
-    window.open(nextUrl.toString(), "_blank", "noopener,noreferrer");
+    await handleLogin();
   };
 
-  const handleResetMockTesterData = useCallback(async () => {
-    const shouldReset = window.confirm(
-      "로컬 테스트 보드와 교환 기록을 처음 상태로 되돌릴까요?"
-    );
+  const handleSelectRecentAccount = (account: RecentBingoAccount) => {
+    setAuthMode("login");
+    setParticipantName(account.userName);
+    setLoginIdInput(account.loginId);
+  };
 
-    if (!shouldReset) {
-      return;
-    }
+  const handleCloseLoginCodeDialog = () => {
+    setLoginCodeDialogOpen(false);
+    navigate("/bingo", { replace: true });
+  };
 
-    try {
-      setMockTesterResetting(true);
-      setMockTesterUsers([]);
-      resetLocalMockTesterData();
-      clearCurrentSessionState();
-      navigate("/", { replace: true });
-      await loadMockTesterUsers();
-      openAlert("테스트 데이터를 처음 상태로 초기화했습니다.", "success");
-    } catch (error) {
-      console.error("Failed to reset local mock tester data", error);
-      openAlert("테스트 데이터 초기화 중 오류가 발생했습니다.");
-    } finally {
-      setMockTesterResetting(false);
-    }
-  }, [clearCurrentSessionState, loadMockTesterUsers, navigate, openAlert]);
+  const modeDescription =
+    authMode === "register"
+      ? "처음 참가라면 이름과 비밀번호로 계정을 만들고 로그인 코드를 발급받으세요."
+      : "다시 로그인할 때는 로그인 코드와 비밀번호를 입력하세요.";
 
   return (
     <div className="login-page">
@@ -374,91 +356,168 @@ const Home = () => {
 
         <section className="login-form-card" aria-label="login form">
           {!isLoggedIn ? (
-            <form
-              className="login-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void handleLogin();
-              }}
-            >
-              <div className="login-form__row">
-                <label className="login-form__label" htmlFor="participantName">
-                  이름
-                </label>
-                <div className="login-form__field">
-                  <input
-                    id="participantName"
-                    className="login-input"
-                    value={participantName}
-                    onChange={(event) => setParticipantName(event.target.value)}
-                    placeholder="이름을 입력해 주세요"
-                    autoComplete="name"
-                  />
-                </div>
-              </div>
-
-              <div className="login-form__row">
-                <label className="login-form__label" htmlFor="accessCode">
-                  비밀번호
-                </label>
-                <div className="login-form__field">
-                  <input
-                    id="accessCode"
-                    type="password"
-                    className={`login-input ${!isAccessCodeValid ? "is-invalid" : ""}`}
-                    value={accessCode}
-                    onChange={(event) =>
-                      setAccessCode(
-                        event.target.value.replace(/[^0-9A-Za-z]/g, "").slice(0, 8)
-                      )
-                    }
-                    placeholder="영어, 숫자 포함 8글자 이내"
-                    autoComplete="current-password"
-                    aria-invalid={!isAccessCodeValid}
-                  />
-                  <p className="login-form__hint">
-                    영문과 숫자를 함께 포함해 8자 이내로 입력해 주세요.
-                  </p>
-                </div>
-              </div>
-
-              <div className="login-consent">
-                <label className="login-consent__checkbox">
-                  <input
-                    type="checkbox"
-                    checked={isAgreed}
-                    onChange={handleConsentToggle}
-                  />
-                  <span>개인정보 처리 동의(필수)</span>
-                </label>
+            <>
+              <div className="login-mode-toggle" role="tablist" aria-label="auth mode">
                 <button
                   type="button"
-                  className="login-consent__link"
-                  onClick={() => setAgreeOpen(true)}
+                  className={`login-mode-toggle__button ${authMode === "register" ? "is-active" : ""}`}
+                  onClick={() => setAuthMode("register")}
                 >
-                  내용 보기
+                  처음 참가예요
+                </button>
+                <button
+                  type="button"
+                  className={`login-mode-toggle__button ${authMode === "login" ? "is-active" : ""}`}
+                  onClick={() => setAuthMode("login")}
+                >
+                  다시 로그인
                 </button>
               </div>
 
-              <button
-                type="submit"
-                className="login-submit"
-                disabled={
-                  !participantName.trim() ||
-                  !ACCESS_CODE_PATTERN.test(accessCodeValue) ||
-                  !isAgreed
-                }
+              <p className="login-mode-toggle__description">{modeDescription}</p>
+
+              <form
+                className="login-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleSubmit();
+                }}
               >
-                로그인
-              </button>
-            </form>
+                {authMode === "register" ? (
+                  <div className="login-form__row">
+                    <label className="login-form__label" htmlFor="participantName">
+                      이름
+                    </label>
+                    <div className="login-form__field">
+                      <input
+                        id="participantName"
+                        className="login-input"
+                        value={participantName}
+                        onChange={(event) => setParticipantName(event.target.value)}
+                        placeholder="이름을 입력해 주세요"
+                        autoComplete="name"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="login-form__row">
+                    <label className="login-form__label" htmlFor="loginId">
+                      로그인 코드
+                    </label>
+                    <div className="login-form__field">
+                      <input
+                        id="loginId"
+                        className="login-input"
+                        value={loginIdInput}
+                        onChange={(event) =>
+                          setLoginIdInput(event.target.value.toUpperCase().replace(/\s/g, ""))
+                        }
+                        placeholder="발급받은 로그인 코드"
+                        autoComplete="username"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="login-form__row">
+                  <label className="login-form__label" htmlFor="password">
+                    비밀번호
+                  </label>
+                  <div className="login-form__field">
+                    <input
+                      id="password"
+                      type="password"
+                      className={`login-input ${!isPasswordValid ? "is-invalid" : ""}`}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder={`${PASSWORD_MIN_LENGTH}자 이상 입력해 주세요`}
+                      autoComplete={
+                        authMode === "register" ? "new-password" : "current-password"
+                      }
+                      aria-invalid={!isPasswordValid}
+                    />
+                    <p className="login-form__hint">
+                      비밀번호는 {PASSWORD_MIN_LENGTH}자 이상 입력해 주세요.
+                    </p>
+                  </div>
+                </div>
+
+                {requiresConsent ? (
+                  <div className="login-consent">
+                    <label className="login-consent__checkbox">
+                      <input
+                        type="checkbox"
+                        checked={isAgreed}
+                        onChange={handleConsentToggle}
+                      />
+                      <span>개인정보 처리 동의(필수)</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="login-consent__link"
+                      onClick={() => setAgreeOpen(true)}
+                    >
+                      내용 보기
+                    </button>
+                  </div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  className="login-submit"
+                  disabled={
+                    (authMode === "register"
+                      ? !participantName.trim()
+                      : !loginIdInput.trim()) ||
+                    trimmedPassword.length < PASSWORD_MIN_LENGTH ||
+                    (requiresConsent && !isAgreed)
+                  }
+                >
+                  {authMode === "register" ? "계정 만들기" : "로그인"}
+                </button>
+              </form>
+
+              {recentAccounts.length > 0 ? (
+                <section className="login-account-panel" aria-label="recent accounts">
+                  <div className="login-account-panel__header">
+                    <div>
+                      <p className="login-account-panel__eyebrow">최근 로그인</p>
+                      <h3>같은 기기에서는 더 빠르게 들어갈 수 있어요</h3>
+                    </div>
+                  </div>
+                  <p className="login-account-panel__description">
+                    최근에 이 브라우저에서 로그인한 계정입니다. 선택하면 로그인 코드가
+                    자동으로 채워집니다.
+                  </p>
+                  <div className="login-account-panel__list">
+                    {recentAccounts.map((account) => (
+                      <button
+                        key={account.loginId}
+                        type="button"
+                        className={`login-account-card ${
+                          loginIdInput.trim().toUpperCase() === account.loginId ? "is-active" : ""
+                        }`}
+                        onClick={() => handleSelectRecentAccount(account)}
+                      >
+                        <strong>{account.userName}</strong>
+                        <span>코드 {account.loginId}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </>
           ) : (
             <div className="login-session">
               <p className="login-session__eyebrow">로그인 상태</p>
               <h3>{participantName}</h3>
+              <div className="login-session__code-block">
+                <span>로그인 코드</span>
+                <strong>{currentLoginId}</strong>
+              </div>
               <p className="login-session__description">
                 이 탭에는 이미 로그인 정보가 저장되어 있습니다. 바로 빙고 보드로
-                이동하거나 정보를 초기화할 수 있습니다.
+                이동하거나 로그아웃 후 최근 계정 목록에서 다시 로그인할 수 있습니다.
               </p>
               <div className="login-session__actions">
                 <button
@@ -473,94 +532,11 @@ const Home = () => {
                   className="login-secondary"
                   onClick={handleLogout}
                 >
-                  다시 로그인
+                  로그아웃
                 </button>
               </div>
             </div>
           )}
-
-          {mockTesterEnabled ? (
-            <section className="login-dev-panel" aria-label="local mock tester">
-              <div className="login-dev-panel__header">
-                <div>
-                  <p className="login-dev-panel__eyebrow">로컬 테스트 계정</p>
-                  <h3>탭마다 다른 계정으로 바로 테스트</h3>
-                </div>
-                <div className="login-dev-panel__tools">
-                  <button
-                    type="button"
-                    className="login-dev-panel__refresh"
-                    onClick={() => {
-                      void loadMockTesterUsers();
-                    }}
-                    disabled={mockTesterLoading || mockTesterResetting}
-                  >
-                    {mockTesterLoading ? "불러오는 중..." : "새로고침"}
-                  </button>
-                  <button
-                    type="button"
-                    className="login-dev-panel__reset"
-                    onClick={() => {
-                      void handleResetMockTesterData();
-                    }}
-                    disabled={mockTesterLoading || mockTesterResetting}
-                  >
-                    {mockTesterResetting ? "초기화 중..." : "테스트 초기화"}
-                  </button>
-                </div>
-              </div>
-              <p className="login-dev-panel__description">
-                로그인 계정은 탭별 `sessionStorage`를 쓰고, mock 데이터는 브라우저 전체에서
-                공유합니다. 그래서 여러 탭을 열면 서로 다른 계정끼리 바로 주고받기 테스트를
-                할 수 있습니다. `테스트 초기화`를 누르면 공유 보드와 교환 기록, 현재 탭
-                로그인 정보가 처음 상태로 돌아갑니다.
-              </p>
-
-              <div className="login-dev-panel__list">
-                {mockTesterUsers.map((tester) => {
-                  const isActive = accessCode === tester.accessCode;
-
-                  return (
-                    <article
-                      key={`${tester.userId}-${tester.accessCode}`}
-                      className={`login-dev-user ${isActive ? "is-active" : ""}`}
-                    >
-                      <div className="login-dev-user__meta">
-                        <strong>{tester.userName}</strong>
-                        <span>ID {tester.userId}</span>
-                        <span>접속 코드 {tester.accessCode}</span>
-                        <span>{tester.hasBoard ? "보드 준비 완료" : "보드 미준비"}</span>
-                      </div>
-                      <div className="login-dev-user__actions">
-                        <button
-                          type="button"
-                          className="login-dev-user__button"
-                          onClick={() => {
-                            void handleTesterLogin(tester);
-                          }}
-                          disabled={
-                            mockTesterResetting || activeTesterCode === tester.accessCode
-                          }
-                        >
-                          {activeTesterCode === tester.accessCode
-                            ? "전환 중..."
-                            : "이 탭으로"}
-                        </button>
-                        <button
-                          type="button"
-                          className="login-dev-user__button is-secondary"
-                          onClick={() => openTesterInNewTab(tester)}
-                          disabled={mockTesterResetting}
-                        >
-                          새 탭 열기
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null}
         </section>
       </main>
 
@@ -579,6 +555,31 @@ const Home = () => {
             setAgreeOpen(false);
           }}
         />
+      </Dialog>
+
+      <Dialog
+        open={loginCodeDialogOpen}
+        onClose={handleCloseLoginCodeDialog}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ className: "login-code-dialog" }}
+      >
+        <div className="login-code-dialog__body">
+          <p className="login-code-dialog__eyebrow">LOGIN CODE</p>
+          <h2>계정이 준비됐어요</h2>
+          <p className="login-code-dialog__description">
+            다음 로그인부터는 아래 코드를 사용합니다. 같은 기기에서는 최근 로그인
+            목록에서도 다시 들어올 수 있어요.
+          </p>
+          <div className="login-code-dialog__code">{issuedLoginId}</div>
+          <button
+            type="button"
+            className="login-submit"
+            onClick={handleCloseLoginCodeDialog}
+          >
+            빙고 시작하기
+          </button>
+        </div>
       </Dialog>
 
       <Snackbar

@@ -540,6 +540,20 @@
     0 16px 28px rgba(15, 88, 69, 0.14);
 }
 
+.bingo-game-brand--link {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.bingo-game-brand--link:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 4px;
+}
+
 .bingo-game-top {
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(17rem, 0.95fr);

@@ -48,7 +48,7 @@ async def download_attendance_data(
         {
             "ID": user.user_id,
             "Name": user.user_name,
-            "Email": user.user_email,
+            "LoginID": user.login_id,
             "Rating": user.rating,
             "Review": user.review,
             "AgreedAt": user.agreement_at.strftime('%Y-%m-%d %H:%M:%S') if user.agreement_at else None,
@@ -92,7 +92,7 @@ async def download_bingo_participation_data(
             participation_data.append({
                 "ID": user.user_id,
                 "Name": user.user_name,
-                "Email": user.user_email,
+                "LoginID": user.login_id,
                 "BingoCount": board.bingo_count,
                 "InteractionCount": board.user_interaction_count,
                 "SelectedWords": ", ".join(selected_words) if selected_words else "",
