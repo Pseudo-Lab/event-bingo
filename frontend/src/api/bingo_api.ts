@@ -205,7 +205,11 @@ export const resetLocalMockTesterData = () => {
   mockResetState();
 };
 
-export const registerBingoUser = async (userName: string, password: string) => {
+export const registerBingoUser = async (
+  userName: string,
+  password: string,
+  eventSlug?: string
+) => {
   if (shouldUseMockApi()) {
     return mockRegisterBingoUser(userName, password);
   }
@@ -217,12 +221,17 @@ export const registerBingoUser = async (userName: string, password: string) => {
       body: JSON.stringify({
         username: userName,
         password,
+        event_slug: eventSlug,
       }),
     }
   );
 };
 
-export const loginBingoUser = async (loginId: string, password: string) => {
+export const loginBingoUser = async (
+  loginId: string,
+  password: string,
+  eventSlug?: string
+) => {
   if (shouldUseMockApi()) {
     return mockLoginBingoUser(loginId, password);
   }
@@ -234,6 +243,7 @@ export const loginBingoUser = async (loginId: string, password: string) => {
       body: JSON.stringify({
         login_id: loginId,
         password,
+        event_slug: eventSlug,
       }),
     }
   );

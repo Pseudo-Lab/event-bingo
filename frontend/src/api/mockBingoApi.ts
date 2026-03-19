@@ -1,4 +1,8 @@
-import { bingoConfig, boardKeywordPool } from "../config/bingoConfig.ts";
+import {
+  getActiveEventSlugFromLocation,
+  getDefaultEventSlug,
+  resolveEventProfile,
+} from "../config/eventProfiles";
 import { getCompletedLines } from "../modules/Bingo/bingoGameUtils.ts";
 
 type MockBoardCell = {
@@ -34,6 +38,8 @@ type MockState = {
   boards: Record<string, MockBoardData>;
   interactions: MockInteraction[];
 };
+
+type MockStateStore = Record<string, MockState>;
 
 export type MockTesterUser = {
   userId: string;
@@ -71,7 +77,7 @@ type MockInteractionListResponse = {
   interactions: MockInteractionResponse[];
 };
 
-const STORAGE_KEY = "bingo.mockApiState.v2";
+const STORAGE_KEY = "bingo.mockApiState.v3";
 const MODE_KEY = "bingo.mockApiMode";
 const DEFAULT_PASSWORD = "TEST";
 const TEST_LOGIN_PREFIX = "TEST";
@@ -98,31 +104,68 @@ const createDefaultState = (): MockState => ({
   interactions: [],
 });
 
-const readState = (): MockState => {
+const createDefaultStateStore = (): MockStateStore => ({});
+
+const getActiveEventSlug = () => {
   if (typeof window === "undefined") {
-    return createDefaultState();
+    return getDefaultEventSlug();
+  }
+
+  return getActiveEventSlugFromLocation(window.location.pathname);
+};
+
+const getRuntimeConfig = () => {
+  const eventProfile = resolveEventProfile(getActiveEventSlug());
+  return {
+    boardSize: eventProfile.boardSize,
+    boardCellCount: eventProfile.boardSize * eventProfile.boardSize,
+    exchangeKeywordCount: eventProfile.exchangeKeywordCount,
+    boardKeywordPool: eventProfile.keywords,
+  };
+};
+
+const hydrateState = (parsedState?: Partial<MockState>): MockState => {
+  return {
+    nextUserId: parsedState?.nextUserId ?? 1,
+    nextInteractionId: parsedState?.nextInteractionId ?? 1,
+    nextLoginOrdinal: parsedState?.nextLoginOrdinal ?? 1,
+    users: parsedState?.users ?? {},
+    loginIdToUserId: parsedState?.loginIdToUserId ?? {},
+    boards: parsedState?.boards ?? {},
+    interactions: parsedState?.interactions ?? [],
+  };
+};
+
+const readStateStore = (): MockStateStore => {
+  if (typeof window === "undefined") {
+    return createDefaultStateStore();
   }
 
   const rawState = window.localStorage.getItem(STORAGE_KEY);
   if (!rawState) {
-    return createDefaultState();
+    return createDefaultStateStore();
   }
 
   try {
-    const parsedState = JSON.parse(rawState) as Partial<MockState>;
-    return {
-      nextUserId: parsedState.nextUserId ?? 1,
-      nextInteractionId: parsedState.nextInteractionId ?? 1,
-      nextLoginOrdinal: parsedState.nextLoginOrdinal ?? 1,
-      users: parsedState.users ?? {},
-      loginIdToUserId: parsedState.loginIdToUserId ?? {},
-      boards: parsedState.boards ?? {},
-      interactions: parsedState.interactions ?? [],
-    };
+    const parsedState = JSON.parse(rawState) as Record<string, Partial<MockState>>;
+    if (typeof parsedState !== "object" || parsedState === null) {
+      return createDefaultStateStore();
+    }
+
+    return Object.entries(parsedState).reduce<MockStateStore>((stateStore, [eventSlug, state]) => {
+      stateStore[eventSlug] = hydrateState(state);
+      return stateStore;
+    }, {});
   } catch (error) {
     console.warn("Failed to parse local mock API state. Resetting it.", error);
-    return createDefaultState();
+    return createDefaultStateStore();
   }
+};
+
+const readState = (): MockState => {
+  const activeEventSlug = getActiveEventSlug();
+  const stateStore = readStateStore();
+  return stateStore[activeEventSlug] ?? createDefaultState();
 };
 
 const writeState = (state: MockState) => {
@@ -130,7 +173,10 @@ const writeState = (state: MockState) => {
     return;
   }
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  const activeEventSlug = getActiveEventSlug();
+  const stateStore = readStateStore();
+  stateStore[activeEventSlug] = state;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stateStore));
 };
 
 const normalizeLoginId = (value: string) => {
@@ -155,17 +201,20 @@ const rotateWords = (words: string[], offset: number) => {
 };
 
 const buildSeedKeywords = (userIndex: number) => {
-  return Array.from({ length: bingoConfig.exchangeKeywordCount }, (_, index) => {
-    const keywordIndex = (userIndex * 4 + index * 7) % boardKeywordPool.length;
-    return boardKeywordPool[keywordIndex];
+  const runtimeConfig = getRuntimeConfig();
+
+  return Array.from({ length: runtimeConfig.exchangeKeywordCount }, (_, index) => {
+    const keywordIndex = (userIndex * 4 + index * 7) % runtimeConfig.boardKeywordPool.length;
+    return runtimeConfig.boardKeywordPool[keywordIndex];
   });
 };
 
 const buildSeedBoard = (userIndex: number): MockBoardData => {
-  const boardWords = rotateWords(boardKeywordPool, userIndex * 3);
+  const runtimeConfig = getRuntimeConfig();
+  const boardWords = rotateWords(runtimeConfig.boardKeywordPool, userIndex * 3);
   const selectedKeywords = new Set(buildSeedKeywords(userIndex));
 
-  return Array.from({ length: bingoConfig.boardCellCount }).reduce<MockBoardData>(
+  return Array.from({ length: runtimeConfig.boardCellCount }).reduce<MockBoardData>(
     (board, _, index) => {
       const value = boardWords[index % boardWords.length];
 
@@ -323,7 +372,7 @@ const generateLoginId = (state: MockState) => {
 };
 
 const getCompletedLineCount = (boardData: MockBoardData) => {
-  return getCompletedLines(toBoardItems(boardData), bingoConfig.boardSize).length;
+  return getCompletedLines(toBoardItems(boardData), getRuntimeConfig().boardSize).length;
 };
 
 export const mockIsModeEnabled = () => {
@@ -347,7 +396,16 @@ export const mockResetState = () => {
     return;
   }
 
-  window.localStorage.removeItem(STORAGE_KEY);
+  const activeEventSlug = getActiveEventSlug();
+  const stateStore = readStateStore();
+  delete stateStore[activeEventSlug];
+
+  if (Object.keys(stateStore).length === 0) {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } else {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stateStore));
+  }
+
   window.sessionStorage.removeItem(MODE_KEY);
 };
 

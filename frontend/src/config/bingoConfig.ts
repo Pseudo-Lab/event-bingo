@@ -1,14 +1,15 @@
 import { bingoKeywords } from "./bingoKeywords";
 
-const BOARD_SIZE = 5;
-const BOARD_CELL_COUNT = BOARD_SIZE * BOARD_SIZE;
-const EXCHANGE_KEYWORD_COUNT = 3;
+export const DEFAULT_BOARD_SIZE = 5;
+export const DEFAULT_BOARD_CELL_COUNT = DEFAULT_BOARD_SIZE * DEFAULT_BOARD_SIZE;
+export const DEFAULT_EXCHANGE_KEYWORD_COUNT = 3;
+export const DEFAULT_BINGO_MISSION_COUNT = 3;
 
-const normalizeKeywords = (keywords: string[]) => {
+export const normalizeKeywords = (keywords: string[]) => {
   return [...new Set(keywords.map((keyword) => keyword.trim()).filter(Boolean))];
 };
 
-const buildBoardKeywordPool = (keywords: string[], requiredCount: number) => {
+export const buildBoardKeywordPool = (keywords: string[], requiredCount: number) => {
   const normalizedKeywords = normalizeKeywords(keywords);
 
   if (normalizedKeywords.length >= requiredCount) {
@@ -25,13 +26,13 @@ const buildBoardKeywordPool = (keywords: string[], requiredCount: number) => {
 
 export const boardKeywordPool = buildBoardKeywordPool(
   [...bingoKeywords],
-  BOARD_CELL_COUNT
+  DEFAULT_BOARD_CELL_COUNT
 );
 
 export const bingoConfig = {
   unlockTime: new Date("2025-05-17T15:00:00+09:00").getTime(),
-  boardSize: BOARD_SIZE,
-  boardCellCount: BOARD_CELL_COUNT,
-  exchangeKeywordCount: EXCHANGE_KEYWORD_COUNT,
-  bingoMissionCount: 3,
+  boardSize: DEFAULT_BOARD_SIZE,
+  boardCellCount: DEFAULT_BOARD_CELL_COUNT,
+  exchangeKeywordCount: DEFAULT_EXCHANGE_KEYWORD_COUNT,
+  bingoMissionCount: DEFAULT_BINGO_MISSION_COUNT,
 } as const;

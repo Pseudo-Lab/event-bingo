@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Dialog from "@mui/material/Dialog";
 import Snackbar from "@mui/material/Snackbar";
@@ -14,7 +14,13 @@ import {
   resetLocalMockTesterData,
 } from "../../api/bingo_api";
 import type { MockTesterUser } from "../../api/bingo_api";
-import { eventConfig } from "../../config/eventConfig";
+import {
+  formatEventDateLabel,
+  getEventBingoPath,
+  getEventHomePath,
+  withSearch,
+} from "../../config/eventProfiles";
+import { useEventProfile } from "../../hooks/useEventProfile";
 import {
   clearAuthSession,
   getAuthSession,
@@ -57,6 +63,16 @@ const normalizeTesterCode = (value: string | undefined | null) => {
 const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { eventSlug } = useParams();
+  const eventProfile = useEventProfile(eventSlug);
+  const eventHomePath = useMemo(
+    () => withSearch(getEventHomePath(eventProfile.slug), location.search),
+    [eventProfile.slug, location.search]
+  );
+  const eventBingoPath = useMemo(
+    () => withSearch(getEventBingoPath(eventProfile.slug), location.search),
+    [eventProfile.slug, location.search]
+  );
 
   const [authMode, setAuthMode] = useState<AuthMode>("register");
   const [participantName, setParticipantName] = useState("");
@@ -113,37 +129,30 @@ const Home = () => {
     setIsAgreed(true);
   }, []);
 
-  const displayBrand = useMemo(
-    () =>
-      isPlaceholderValue(eventConfig.host, ["행사 주최자"])
-        ? DISPLAY_FALLBACKS.brand
-        : eventConfig.host,
-    []
-  );
+  const displayBrand = useMemo(() => {
+    return isPlaceholderValue(eventProfile.host, ["행사 주최자"])
+      ? DISPLAY_FALLBACKS.brand
+      : eventProfile.host;
+  }, [eventProfile.host]);
 
-  const displayEventName = useMemo(
-    () =>
-      isPlaceholderValue(eventConfig.subTitle, ["YYYY 행사 이름"])
-        ? DISPLAY_FALLBACKS.eventName
-        : eventConfig.subTitle,
-    []
-  );
+  const displayEventName = useMemo(() => {
+    return isPlaceholderValue(eventProfile.subTitle, ["YYYY 행사 이름"])
+      ? DISPLAY_FALLBACKS.eventName
+      : eventProfile.subTitle;
+  }, [eventProfile.subTitle]);
 
-  const displayDate = useMemo(
-    () =>
-      isPlaceholderValue(eventConfig.date, ["MM월 DD일"])
-        ? DISPLAY_FALLBACKS.date
-        : eventConfig.date,
-    []
-  );
+  const displayDate = useMemo(() => {
+    const formattedDate = formatEventDateLabel(eventProfile.startAt);
+    return isPlaceholderValue(formattedDate, ["MM월 DD일"])
+      ? DISPLAY_FALLBACKS.date
+      : formattedDate;
+  }, [eventProfile.startAt]);
 
-  const displayPlace = useMemo(
-    () =>
-      isPlaceholderValue(eventConfig.place, ["장소"])
-        ? DISPLAY_FALLBACKS.place
-        : eventConfig.place,
-    []
-  );
+  const displayPlace = useMemo(() => {
+    return isPlaceholderValue(eventProfile.place, ["장소"])
+      ? DISPLAY_FALLBACKS.place
+      : eventProfile.place;
+  }, [eventProfile.place]);
 
   const testCodeFromQuery = useMemo(() => {
     return normalizeTesterCode(new URLSearchParams(location.search).get("testCode"));
@@ -254,7 +263,7 @@ const Home = () => {
 
     try {
       clearLocalMockMode();
-      const result = await registerBingoUser(trimmedName, trimmedPassword);
+      const result = await registerBingoUser(trimmedName, trimmedPassword, eventProfile.slug);
 
       if (
         !result.ok ||
@@ -297,7 +306,7 @@ const Home = () => {
 
     try {
       clearLocalMockMode();
-      const result = await loginBingoUser(trimmedLoginId, trimmedPassword);
+      const result = await loginBingoUser(trimmedLoginId, trimmedPassword, eventProfile.slug);
 
       if (
         !result.ok ||
@@ -318,7 +327,7 @@ const Home = () => {
       applyLoginSession(sessionPayload);
       persistRecentAccount(sessionPayload);
       openAlert("로그인되었습니다.", "success");
-      navigate("/bingo", { replace: true });
+      navigate(eventBingoPath, { replace: true });
     } catch (error) {
       console.error("Failed to login", error);
       openAlert("로그인 요청 중 오류가 발생했습니다.");
@@ -347,14 +356,14 @@ const Home = () => {
         loginId: result.login_id,
       });
       openAlert(`"${result.user_name}" 계정으로 전환했습니다.`, "success");
-      navigate("/bingo", { replace: true });
+      navigate(eventBingoPath, { replace: true });
     } catch (error) {
       console.error("Failed to switch tester session", error);
       openAlert("테스트 계정 전환 중 오류가 발생했습니다.");
     } finally {
       setActiveTesterCode(null);
     }
-  }, [applyLoginSession, navigate, openAlert]);
+  }, [applyLoginSession, eventBingoPath, navigate, openAlert]);
 
   const handleResetMockTesterData = useCallback(async () => {
     const shouldReset = window.confirm(
@@ -370,7 +379,7 @@ const Home = () => {
       setMockTesterUsers([]);
       resetLocalMockTesterData();
       clearCurrentSessionState();
-      navigate("/", { replace: true });
+      navigate(eventHomePath, { replace: true });
       await loadMockTesterUsers();
       openAlert("테스트 데이터를 처음 상태로 초기화했습니다.", "success");
     } catch (error) {
@@ -379,7 +388,7 @@ const Home = () => {
     } finally {
       setMockTesterResetting(false);
     }
-  }, [clearCurrentSessionState, loadMockTesterUsers, navigate, openAlert]);
+  }, [clearCurrentSessionState, eventHomePath, loadMockTesterUsers, navigate, openAlert]);
 
   useEffect(() => {
     if (!testModeEnabled) {
@@ -435,12 +444,12 @@ const Home = () => {
 
   const handleCloseLoginCodeDialog = () => {
     setLoginCodeDialogOpen(false);
-    navigate("/bingo", { replace: true });
+    navigate(eventBingoPath, { replace: true });
   };
 
   const openTesterInNewTab = (tester: MockTesterUser) => {
     const nextUrl = new URL(window.location.href);
-    nextUrl.pathname = "/";
+    nextUrl.pathname = getEventHomePath(eventProfile.slug);
     nextUrl.search = "";
     nextUrl.searchParams.set("testMode", "1");
     nextUrl.searchParams.set("testCode", tester.accessCode);
@@ -556,7 +565,7 @@ const Home = () => {
 
         <section className="login-event-card" aria-label="event summary">
           <div className="login-event-card__copy">
-            <p className="login-event-card__eyebrow">{eventConfig.title}</p>
+            <p className="login-event-card__eyebrow">{eventProfile.title}</p>
             <h2>{displayEventName}</h2>
             <div className="login-event-card__meta">
               <span>
@@ -757,7 +766,7 @@ const Home = () => {
                 <button
                   type="button"
                   className="login-submit"
-                  onClick={() => navigate("/bingo")}
+                  onClick={() => navigate(eventBingoPath)}
                 >
                   빙고로 이동
                 </button>
@@ -785,7 +794,7 @@ const Home = () => {
       >
         {agreeOpen ? (
           <ConsentDialog
-            host={eventConfig.host}
+            host={eventProfile.host}
             onDecline={() => setAgreeOpen(false)}
             onAccept={() => {
               setIsAgreed(true);

@@ -7,12 +7,9 @@ type ConsentDialogProps = {
   onAccept: () => void;
 };
 
-type ConsentSectionTone = "default" | "accent" | "notice";
-
 type ConsentSection = {
   title: string;
   markdown: string;
-  tone: ConsentSectionTone;
 };
 
 type ParsedConsentContent = {
@@ -46,18 +43,6 @@ const normalizeMarkdown = (lines: string[]) =>
     .join("\n")
     .replace(/^\s*\\-\s*/gm, "- ")
     .trim();
-
-const getSectionTone = (title: string): ConsentSectionTone => {
-  if (title.includes("권리")) {
-    return "notice";
-  }
-
-  if (title.includes("보유") || title.includes("기간")) {
-    return "accent";
-  }
-
-  return "default";
-};
 
 const parseConsentTemplate = (template: string, host: string): ParsedConsentContent => {
   const interpolated = template.replace(/{host}/g, host).replace(/\r\n/g, "\n").trim();
@@ -114,7 +99,6 @@ const parseConsentTemplate = (template: string, host: string): ParsedConsentCont
       .map((section) => ({
         title: section.title,
         markdown: normalizeMarkdown(section.lines),
-        tone: getSectionTone(section.title),
       }))
       .filter((section) => section.markdown.length > 0),
   };
@@ -163,54 +147,41 @@ const ConsentDialog: React.FC<ConsentDialogProps> = ({
 
   return (
     <div className="consent-sheet">
-      <div className="consent-sheet__hero">
-        <p className="consent-sheet__eyebrow">Required Consent</p>
+      <div className="consent-sheet__header">
+        <p className="consent-sheet__label">필수 동의</p>
         <h2>{content.title}</h2>
-        <div className="consent-sheet__intro">
-          <ReactMarkdown
-            components={{
-              p: ({ children }) => (
-                <p className="consent-markdown__paragraph consent-markdown__paragraph--intro">
-                  {children}
-                </p>
-              ),
-              strong: ({ children }) => (
-                <strong className="consent-markdown__strong">{children}</strong>
-              ),
-            }}
-          >
-            {content.intro}
-          </ReactMarkdown>
-        </div>
-        <div className="consent-sheet__facts" aria-label="consent overview">
-          {content.sections.map((section) => (
-            <span key={section.title}>{section.title}</span>
-          ))}
-        </div>
+        <p className="consent-sheet__summary">
+          로그인 전에 아래 내용을 읽고 동의 여부를 선택해 주세요. 동의하지 않으면
+          이벤트 네트워킹 기능을 이용할 수 없습니다.
+        </p>
       </div>
 
       <div className="consent-sheet__scroll">
-        <section className="consent-sheet__notice" aria-label="mandatory notice">
-          <p className="consent-sheet__notice-label">서비스 이용 안내</p>
-          <h3>동의 후에만 빙고 서비스 로그인이 가능합니다.</h3>
-          <p>
-            내용을 확인한 뒤 동의 여부를 선택해 주세요. 동의하지 않으면 이벤트
-            네트워킹 기능 이용이 제한됩니다.
-          </p>
-        </section>
+        <div className="consent-sheet__document">
+          {content.intro ? (
+            <section className="consent-sheet__section">
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => (
+                    <p className="consent-markdown__paragraph consent-markdown__paragraph--intro">
+                      {children}
+                    </p>
+                  ),
+                  strong: ({ children }) => (
+                    <strong className="consent-markdown__strong">{children}</strong>
+                  ),
+                }}
+              >
+                {content.intro}
+              </ReactMarkdown>
+            </section>
+          ) : null}
 
-        <div className="consent-sheet__sections">
           {content.sections.map((section, index) => (
-            <section
-              key={section.title}
-              className={`consent-sheet__section consent-sheet__section--${section.tone}`}
-            >
-              <div className="consent-sheet__section-head">
-                <span className="consent-sheet__section-index">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <h3>{section.title}</h3>
-              </div>
+            <section key={section.title} className="consent-sheet__section">
+              <h3>
+                {index + 1}. {section.title}
+              </h3>
               <ReactMarkdown
                 components={{
                   p: ({ children }) => (

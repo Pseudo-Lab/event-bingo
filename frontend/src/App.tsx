@@ -1,9 +1,20 @@
 import "./App.css";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Home from "./modules/Home/Home.tsx";
 import BingoGame from "./modules/Bingo/BingoGame.tsx";
 import { CssBaseline } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
+import {
+  AdminDashboardPage,
+  AdminEventDashboardPage,
+  AdminEventOverviewPage,
+  AdminEventParticipantsPage,
+  AdminEventSettingsPage,
+  AdminMembersPage,
+  AdminPoliciesPage,
+  AdminRoutesLoginPage,
+} from "./modules/Admin/AdminPortal";
+import { getAdminPath } from "./config/eventProfiles";
 
 const defaultTheme = createTheme({
   palette: {
@@ -25,6 +36,54 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/bingo" element={<BingoGame />} />
+          <Route path="/admin" element={<AdminRoutesLoginPage />} />
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+          <Route path="/admin/members" element={<AdminMembersPage />} />
+          <Route path="/admin/events" element={<AdminEventSettingsPage />} />
+          <Route path="/admin/events/:adminEventId" element={<AdminEventOverviewPage />} />
+          <Route
+            path="/admin/events/:adminEventId/dashboard"
+            element={<AdminEventDashboardPage />}
+          />
+          <Route
+            path="/admin/events/:adminEventId/participants"
+            element={<AdminEventParticipantsPage />}
+          />
+          <Route path="/admin/policies" element={<AdminPoliciesPage />} />
+          <Route path="/:eventSlug" element={<Home />} />
+          <Route path="/:eventSlug/bingo" element={<BingoGame />} />
+          <Route
+            path="/:eventSlug/admin"
+            element={<Navigate to={getAdminPath()} replace />}
+          />
+          <Route
+            path="/:eventSlug/admin/dashboard"
+            element={<Navigate to={getAdminPath("dashboard")} replace />}
+          />
+          <Route
+            path="/:eventSlug/admin/members"
+            element={<Navigate to={getAdminPath("members")} replace />}
+          />
+          <Route
+            path="/:eventSlug/admin/event-settings"
+            element={<Navigate to={getAdminPath("event-settings")} replace />}
+          />
+          <Route
+            path="/:eventSlug/admin/event-settings/:adminEventId"
+            element={<Navigate to={getAdminPath("event-settings")} replace />}
+          />
+          <Route
+            path="/:eventSlug/admin/event-settings/:adminEventId/dashboard"
+            element={<Navigate to={getAdminPath("event-settings")} replace />}
+          />
+          <Route
+            path="/:eventSlug/admin/event-settings/:adminEventId/participants"
+            element={<Navigate to={getAdminPath("event-settings")} replace />}
+          />
+          <Route
+            path="/:eventSlug/admin/policies"
+            element={<Navigate to={getAdminPath("policies")} replace />}
+          />
         </Routes>
       </main>
     </div>

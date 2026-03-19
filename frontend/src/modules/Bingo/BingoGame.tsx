@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   createBingoBoard,
   createUserBingoInteraction,
   getBingoBoard,
   getUserAllInteraction,
 } from "../../api/bingo_api.ts";
-import { bingoConfig, boardKeywordPool } from "../../config/bingoConfig.ts";
+import {
+  getEventHomePath,
+  withSearch,
+} from "../../config/eventProfiles";
+import { useEventProfile } from "../../hooks/useEventProfile";
 import { getAuthSession } from "../../utils/authSession";
 import {
   BingoAlertToast,
@@ -44,15 +48,25 @@ import type { BoardPreviewPreset } from "./bingoGameTypes";
 import { syncTestModeFromUrl } from "../../utils/testMode";
 import "./BingoGame.css";
 
-const cellValues = boardKeywordPool;
-const SETUP_BRAND_TITLE = "Bingo Networking";
-const BOARD_SIZE = bingoConfig.boardSize;
-const BOARD_CELL_COUNT = bingoConfig.boardCellCount;
-const BOARD_CONNECTION_LINES = createBoardConnectionLines(BOARD_SIZE);
-
 const BingoGame = () => {
   const navigate = useNavigate();
-  const [testModeEnabled] = useState(() => syncTestModeFromUrl(window.location.search));
+  const location = useLocation();
+  const { eventSlug } = useParams();
+  const eventProfile = useEventProfile(eventSlug);
+  const [testModeEnabled] = useState(() => syncTestModeFromUrl(location.search));
+  const boardSize = eventProfile.boardSize;
+  const boardCellCount = boardSize * boardSize;
+  const cellValues = useMemo(() => eventProfile.keywords, [eventProfile.keywords]);
+  const boardConnectionLines = useMemo(
+    () => createBoardConnectionLines(boardSize),
+    [boardSize]
+  );
+  const brandTitle = eventProfile.title;
+  const unlockTime = useMemo(() => new Date(eventProfile.startAt).getTime(), [eventProfile.startAt]);
+  const eventHomePath = useMemo(
+    () => withSearch(getEventHomePath(eventProfile.slug), location.search),
+    [eventProfile.slug, location.search]
+  );
 
   const [username, setUsername] = useState("사용자 이름");
   const [participantContact, setParticipantContact] = useState("");
@@ -81,10 +95,10 @@ const BingoGame = () => {
   const [boardPreviewPreset, setBoardPreviewPreset] = useState<BoardPreviewPreset | null>(null);
   const [boardPreviewBase, setBoardPreviewBase] = useState<BingoCell[] | null>(null);
   const [remainingTime, setRemainingTime] = useState(() => {
-    return bingoConfig.unlockTime - Date.now();
+    return unlockTime - Date.now();
   });
   const [locked, setLocked] = useState(
-    () => !testModeEnabled && new Date().getTime() < bingoConfig.unlockTime
+    () => !testModeEnabled && new Date().getTime() < unlockTime
   );
   const [showAllBingoModal, setShowAllBingoModal] = useState(false);
   const [isInitializingBoard, setIsInitializingBoard] = useState(false);
@@ -97,8 +111,8 @@ const BingoGame = () => {
   const isPollingRef = useRef(false);
   const isBoardPreviewActiveRef = useRef(false);
 
-  const bingoMissionCount = bingoConfig.bingoMissionCount;
-  const exchangeKeywordCount = bingoConfig.exchangeKeywordCount;
+  const bingoMissionCount = eventProfile.bingoMissionCount;
+  const exchangeKeywordCount = eventProfile.exchangeKeywordCount;
   const isBoardPreviewActive = boardPreviewPreset !== null;
 
   const markedKeywordCount = useMemo(
@@ -109,9 +123,9 @@ const BingoGame = () => {
   const completionRate = useMemo(() => {
     return Math.min(
       100,
-      Math.round((markedKeywordCount / BOARD_CELL_COUNT) * 100)
+      Math.round((markedKeywordCount / boardCellCount) * 100)
     );
-  }, [markedKeywordCount]);
+  }, [boardCellCount, markedKeywordCount]);
 
   const participantSummary = useMemo(() => {
     if (participantContact) {
@@ -183,9 +197,13 @@ const BingoGame = () => {
       return;
     }
 
+    const initialDiff = unlockTime - new Date().getTime();
+    setLocked(initialDiff > 0);
+    setRemainingTime(Math.max(0, initialDiff));
+
     const interval = setInterval(() => {
       const now = new Date().getTime();
-      const diff = bingoConfig.unlockTime - now;
+      const diff = unlockTime - now;
 
       if (diff <= 0) {
         setLocked(false);
@@ -196,7 +214,7 @@ const BingoGame = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [testModeEnabled]);
+  }, [testModeEnabled, unlockTime]);
 
   useEffect(() => {
     bingoBoardRef.current = bingoBoard;
@@ -342,7 +360,7 @@ const BingoGame = () => {
       const storedContact = authSession?.loginId ?? "";
 
       if (!storedId) {
-        navigate("/", { replace: true });
+        navigate(eventHomePath, { replace: true });
         return;
       }
 
@@ -390,7 +408,7 @@ const BingoGame = () => {
           }
         } else {
           const shuffledValues = shuffleArray(cellValues);
-          const initialBoard: BingoCell[] = Array(BOARD_CELL_COUNT)
+          const initialBoard: BingoCell[] = Array(boardCellCount)
             .fill(null)
             .map((_, index) => ({
               id: index,
@@ -412,7 +430,7 @@ const BingoGame = () => {
     };
 
     void init();
-  }, [navigate, showAlert]);
+  }, [boardCellCount, cellValues, eventHomePath, navigate, showAlert]);
 
   useEffect(() => {
     if (!userId) {
@@ -452,7 +470,7 @@ const BingoGame = () => {
       setBoardPreviewPreset(preset);
       resetPreviewVisualState();
 
-      const previewBoard = buildPreviewBoard(baseBoard, preset, BOARD_SIZE);
+      const previewBoard = buildPreviewBoard(baseBoard, preset, boardSize);
       setBingoBoard(previewBoard);
       bingoBoardRef.current = previewBoard;
 
@@ -461,7 +479,7 @@ const BingoGame = () => {
         label: "BOARD PREVIEW",
       });
     },
-    [bingoBoard, boardPreviewBase, resetPreviewVisualState, showAlert]
+    [bingoBoard, boardPreviewBase, boardSize, resetPreviewVisualState, showAlert]
   );
 
   const clearBoardPreview = useCallback(() => {
@@ -576,28 +594,28 @@ const BingoGame = () => {
       return;
     }
 
-    const newCompletedLines = getCompletedLines(bingoBoard, BOARD_SIZE);
+    const newCompletedLines = getCompletedLines(bingoBoard, boardSize);
     const newBingoCount = newCompletedLines.length;
     setCompletedLines(newCompletedLines);
     setBingoCount(newBingoCount);
     if (newBingoCount >= bingoMissionCount) {
       setShowAllBingoModal(true);
     }
-  }, [bingoBoard, bingoMissionCount]);
+  }, [bingoBoard, bingoMissionCount, boardSize]);
 
   useEffect(() => {
     let resetAnimationTimer: number | null = null;
 
     const newLines = completedLines.filter(
       (newLine) =>
-        !getCellsInLine(newLine.type, newLine.index, BOARD_SIZE).every((lineCell) =>
+        !getCellsInLine(newLine.type, newLine.index, boardSize).every((lineCell) =>
           bingoLineCells.includes(lineCell)
         )
     );
 
     const newCells: number[] = [];
     newLines.forEach((line) => {
-      newCells.push(...getCellsInLine(line.type, line.index, BOARD_SIZE));
+      newCells.push(...getCellsInLine(line.type, line.index, boardSize));
     });
 
     const uniqueNewCells = [...new Set(newCells)];
@@ -623,7 +641,7 @@ const BingoGame = () => {
 
     const allCellsFromLines: number[] = [];
     completedLines.forEach((line) => {
-      allCellsFromLines.push(...getCellsInLine(line.type, line.index, BOARD_SIZE));
+      allCellsFromLines.push(...getCellsInLine(line.type, line.index, boardSize));
     });
 
     const uniqueAllCells = [...new Set(allCellsFromLines)];
@@ -644,16 +662,17 @@ const BingoGame = () => {
     bingoCount,
     bingoLineCells,
     bingoMissionCount,
+    boardSize,
     completedLines,
     hasShownConfetti,
     showAlert,
   ]);
 
   useEffect(() => {
-    if (bingoBoard?.length === BOARD_CELL_COUNT) {
+    if (bingoBoard?.length === boardCellCount) {
       checkBingoLines();
     }
-  }, [bingoBoard, checkBingoLines]);
+  }, [boardCellCount, bingoBoard, checkBingoLines]);
 
   useEffect(() => {
     return () => {
@@ -772,13 +791,13 @@ const BingoGame = () => {
   };
 
   if (isBootstrapping) {
-    return <BingoLoadingScreen brandTitle={SETUP_BRAND_TITLE} />;
+    return <BingoLoadingScreen brandTitle={brandTitle} />;
   }
 
   if (locked) {
     return (
       <BingoCountdownScreen
-        brandTitle={SETUP_BRAND_TITLE}
+        brandTitle={brandTitle}
         remainingTime={remainingTime}
       />
     );
@@ -787,7 +806,7 @@ const BingoGame = () => {
   if (initialSetupOpen) {
     return (
       <KeywordSetupScreen
-        brandTitle={SETUP_BRAND_TITLE}
+        brandTitle={brandTitle}
         exchangeKeywordCount={exchangeKeywordCount}
         isInitializingBoard={isInitializingBoard}
         keywords={cellValues}
@@ -807,9 +826,9 @@ const BingoGame = () => {
         <button
           type="button"
           className="bingo-game-brand bingo-game-brand--link"
-          onClick={() => navigate("/", { replace: true })}
+          onClick={() => navigate(eventHomePath, { replace: true })}
         >
-          {SETUP_BRAND_TITLE}
+          {brandTitle}
         </button>
 
         <section className="bingo-game-top">
@@ -867,7 +886,7 @@ const BingoGame = () => {
               <div>
                 <dt>수집한 키워드</dt>
                 <dd>
-                  {markedKeywordCount}/{BOARD_CELL_COUNT}
+                  {markedKeywordCount}/{boardCellCount}
                 </dd>
               </div>
               <div>
@@ -881,8 +900,8 @@ const BingoGame = () => {
         {bingoBoard ? (
           <BingoBoardSection
             board={bingoBoard}
-            boardSize={BOARD_SIZE}
-            connectionLines={BOARD_CONNECTION_LINES}
+            boardSize={boardSize}
+            connectionLines={boardConnectionLines}
             completedLines={completedLines}
             newBingoCells={newBingoCells}
             latestReceivedKeywords={latestReceivedKeywords}
@@ -922,7 +941,7 @@ const BingoGame = () => {
           <button
             type="button"
             className="bingo-game-footer__home"
-            onClick={() => navigate("/", { replace: true })}
+            onClick={() => navigate(eventHomePath, { replace: true })}
           >
             처음으로 돌아가기
           </button>
