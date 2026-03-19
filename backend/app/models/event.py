@@ -4,7 +4,7 @@ from typing import Optional
 import enum
 
 from sqlalchemy import String, Integer, DateTime, Enum, JSON, ForeignKey, select, func
-from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 from core.db import AsyncSession
 from models.base import Base
 
@@ -15,24 +15,37 @@ class EventStatus(enum.Enum):
     FINISHED = "finished"
 
 
+class EventPublishState(enum.Enum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
+
+
 class Event(Base):
     __tablename__ = "events"
 
-    id: int = mapped_column(Integer, primary_key=True, nullable=False)
-    name: str = mapped_column(String(100), nullable=False)
-    start_time: datetime = mapped_column(DateTime(timezone=True), nullable=False)
-    end_time: datetime = mapped_column(DateTime(timezone=True), nullable=False)
-    admin_id: int = mapped_column(Integer, ForeignKey("admins.id"), nullable=False)
-    admin_email: str = mapped_column(String(100), nullable=False)  # 중복 저장 (조회 편의성)
-    bingo_size: int = mapped_column(Integer, nullable=False, default=5)
-    success_condition: int = mapped_column(Integer, nullable=False, default=5)
-    keywords: list = mapped_column(JSON, nullable=True, default=list)
-    created_at: datetime = mapped_column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    admin_id: Mapped[int] = mapped_column(Integer, ForeignKey("admins.id"), nullable=False)
+    admin_email: Mapped[str] = mapped_column(String(100), nullable=False)  # 중복 저장 (조회 편의성)
+    bingo_size: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    success_condition: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    keywords: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
+    publish_state: Mapped[EventPublishState] = mapped_column(
+        Enum(EventPublishState),
+        nullable=False,
+        default=EventPublishState.DRAFT,
+    )
+    first_published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
         nullable=False
     )
-    updated_at: datetime = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
         onupdate=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
@@ -42,10 +55,22 @@ class Event(Base):
     @property
     def status(self) -> EventStatus:
         """현재 시간 기준으로 이벤트 상태 계산"""
-        now = datetime.now(ZoneInfo("Asia/Seoul"))
-        if now < self.start_time.replace(tzinfo=ZoneInfo("Asia/Seoul")) if self.start_time.tzinfo is None else self.start_time:
+        timezone = ZoneInfo("Asia/Seoul")
+        now = datetime.now(timezone)
+        start_time = (
+            self.start_time.replace(tzinfo=timezone)
+            if self.start_time.tzinfo is None
+            else self.start_time.astimezone(timezone)
+        )
+        end_time = (
+            self.end_time.replace(tzinfo=timezone)
+            if self.end_time.tzinfo is None
+            else self.end_time.astimezone(timezone)
+        )
+
+        if now < start_time:
             return EventStatus.SCHEDULED
-        elif self.start_time <= now <= self.end_time:
+        elif start_time <= now <= end_time:
             return EventStatus.IN_PROGRESS
         else:
             return EventStatus.FINISHED
@@ -55,13 +80,16 @@ class Event(Base):
         cls,
         session: AsyncSession,
         name: str,
+        slug: str,
         start_time: datetime,
         end_time: datetime,
         admin_id: int,
         admin_email: str,
         bingo_size: int = 5,
         success_condition: int = 5,
-        keywords: list = None
+        keywords: list = None,
+        publish_state: EventPublishState = EventPublishState.DRAFT,
+        first_published_at: Optional[datetime] = None,
     ):
         """새 이벤트 생성"""
         if keywords is None:
@@ -73,13 +101,16 @@ class Event(Base):
         
         new_event = Event(
             name=name,
+            slug=slug,
             start_time=start_time,
             end_time=end_time,
             admin_id=admin_id,
             admin_email=admin_email,
             bingo_size=bingo_size,
             success_condition=success_condition,
-            keywords=keywords
+            keywords=keywords,
+            publish_state=publish_state,
+            first_published_at=first_published_at,
         )
         session.add(new_event)
         await session.commit()
@@ -95,6 +126,11 @@ class Event(Base):
         return result
 
     @classmethod
+    async def get_by_slug(cls, session: AsyncSession, slug: str) -> Optional["Event"]:
+        result = await session.execute(select(cls).where(cls.slug == slug))
+        return result.scalar_one_or_none()
+
+    @classmethod
     async def get_all(cls, session: AsyncSession):
         """모든 이벤트 조회"""
         result = await session.execute(select(cls).order_by(cls.start_time.desc()))
@@ -106,28 +142,40 @@ class Event(Base):
         session: AsyncSession,
         event_id: int,
         name: Optional[str] = None,
+        slug: Optional[str] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         bingo_size: Optional[int] = None,
         success_condition: Optional[int] = None,
-        keywords: Optional[list] = None
+        keywords: Optional[list] = None,
+        admin_email: Optional[str] = None,
+        publish_state: Optional[EventPublishState] = None,
+        first_published_at: Optional[datetime] = None,
     ):
         """이벤트 정보 수정"""
         event = await cls.get_by_id(session, event_id)
-        
+
         if name is not None:
             event.name = name
+        if slug is not None:
+            event.slug = slug
         if start_time is not None:
             event.start_time = start_time
         if end_time is not None:
             event.end_time = end_time
+        if admin_email is not None:
+            event.admin_email = admin_email
         if bingo_size is not None:
             event.bingo_size = bingo_size
         if success_condition is not None:
             event.success_condition = success_condition
         if keywords is not None:
             event.keywords = keywords
-        
+        if publish_state is not None:
+            event.publish_state = publish_state
+        if first_published_at is not None:
+            event.first_published_at = first_published_at
+
         await session.commit()
         await session.refresh(event)
         return event
@@ -177,4 +225,3 @@ class Event(Base):
         completed_count = completed_result.scalar() or 0
         
         return (completed_count / total_participants) * 100
-

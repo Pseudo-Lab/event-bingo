@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build:
@@ -33,7 +31,7 @@ services:
       SWAGGER_PASSWORD: ${SWAGGER_PASSWORD:?set in .env}
     command: >
       /bin/sh -c "
-        alembic upgrade head;
+        alembic upgrade head &&
         python app/start.py
       "
     ports:

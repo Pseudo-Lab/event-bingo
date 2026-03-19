@@ -1,27 +1,353 @@
-from fastapi import APIRouter, HTTPException, Depends
-from core.db import AsyncSessionDepends
-from .services import set_test_bingo_board, get_all_users, get_all_bingo_boards
-from core.dependencies import authenticate_user
-
+from datetime import timedelta
 import io
+
 import pandas as pd
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
 from starlette.responses import StreamingResponse
 
-admin_router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(authenticate_user)])
+from core.db import AsyncSessionDepends
+from core.dependencies import authenticate_user
+from models.admin import Admin, AdminRole
+from models.event import Event, EventPublishState
+
+from .auth import (
+    authenticate_admin_session,
+    create_admin_access_token,
+    require_admin_role,
+)
+from .console_services import (
+    build_event_detail,
+    build_event_summary,
+    can_edit_event,
+    ensure_admin_console_seed_data,
+    ensure_unique_event_slug,
+    reset_event_runtime_data,
+    resolve_first_published_at,
+    serialize_admin_member,
+    serialize_admin_session,
+    validate_admin_member_deletion,
+    validate_publish_transition,
+)
+from .schema import (
+    AdminEventDetailResponse,
+    AdminEventListResponse,
+    AdminEventResetResponse,
+    AdminEventResponse,
+    AdminEventUpsertRequest,
+    AdminLoginRequest,
+    AdminLoginResponse,
+    AdminMemberCreateRequest,
+    AdminMemberDeleteResponse,
+    AdminMemberListResponse,
+    AdminMemberResponse,
+)
+from .services import get_all_bingo_boards, get_all_users, set_test_bingo_board
+
+admin_router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def to_publish_state(value: str) -> EventPublishState:
+    try:
+        return EventPublishState(value)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="지원하지 않는 공개 상태입니다.",
+        ) from error
+
+
+@admin_router.post("/auth/login", response_model=AdminLoginResponse, summary="관리자 로그인")
+async def admin_login(
+    payload: AdminLoginRequest,
+    db: AsyncSessionDepends,
+):
+    await ensure_admin_console_seed_data(db)
+
+    admin = await Admin.get_by_email(db, payload.email.strip().lower())
+    if not admin or not admin.verify_password(payload.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="이메일 또는 비밀번호를 확인해 주세요.",
+        )
+
+    return AdminLoginResponse(
+        ok=True,
+        message="관리자 로그인에 성공했습니다.",
+        access_token=create_admin_access_token(admin),
+        admin=serialize_admin_session(admin),
+    )
+
+
+@admin_router.get("/auth/me", response_model=AdminLoginResponse, summary="현재 관리자 세션 조회")
+async def admin_me(
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    await ensure_admin_console_seed_data(db)
+    return AdminLoginResponse(
+        ok=True,
+        message="현재 관리자 정보를 불러왔습니다.",
+        admin=serialize_admin_session(actor),
+    )
+
+
+@admin_router.get("/members", response_model=AdminMemberListResponse, summary="관리자 목록 조회")
+async def list_admin_members(
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    await ensure_admin_console_seed_data(db)
+    require_admin_role(actor)
+    members = await Admin.get_all(db)
+    return AdminMemberListResponse(
+        ok=True,
+        message="관리자 목록을 불러왔습니다.",
+        members=[serialize_admin_member(member) for member in members],
+    )
+
+
+@admin_router.post("/members", response_model=AdminMemberResponse, summary="관리자 생성")
+async def create_admin_member(
+    payload: AdminMemberCreateRequest,
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    require_admin_role(actor)
+
+    if len(payload.password) < 8 or not any(character.isupper() for character in payload.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="비밀번호는 영어 대문자를 포함해 8자 이상이어야 합니다.",
+        )
+
+    role = AdminRole.ADMIN if payload.role == "admin" else AdminRole.EVENT_MANAGER
+
+    try:
+        member = await Admin.create(
+            db,
+            email=payload.email.strip().lower(),
+            password=payload.password,
+            name=payload.name.strip(),
+            role=role,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+
+    return AdminMemberResponse(
+        ok=True,
+        message="관리자 계정을 생성했습니다.",
+        member=serialize_admin_member(member),
+    )
+
+
+@admin_router.delete(
+    "/members/{member_id}",
+    response_model=AdminMemberDeleteResponse,
+    summary="관리자 삭제",
+)
+async def delete_admin_member(
+    member_id: int,
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    await ensure_admin_console_seed_data(db)
+    require_admin_role(actor)
+
+    try:
+        member = await Admin.get_by_id(db, member_id)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    total_admin_count = (
+        await db.execute(select(func.count(Admin.id)).where(Admin.role == AdminRole.ADMIN))
+    ).scalar() or 0
+    owned_event_count = (
+        await db.execute(select(func.count(Event.id)).where(Event.admin_id == member.id))
+    ).scalar() or 0
+
+    try:
+        validate_admin_member_deletion(
+            actor,
+            member,
+            total_admin_count=total_admin_count,
+            owned_event_count=owned_event_count,
+        )
+        await Admin.delete(db, member.id)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+
+    return AdminMemberDeleteResponse(
+        ok=True,
+        message="관리자 계정을 삭제했습니다.",
+        deleted_member_id=member.id,
+    )
+
+
+@admin_router.get("/events", response_model=AdminEventListResponse, summary="이벤트 목록 조회")
+async def list_admin_events(
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    await ensure_admin_console_seed_data(db)
+    events = await Event.get_all(db)
+    event_items = [await build_event_summary(db, event, actor) for event in events]
+
+    return AdminEventListResponse(
+        ok=True,
+        message="이벤트 목록을 불러왔습니다.",
+        events=event_items,
+    )
+
+
+@admin_router.get("/events/{event_id}", response_model=AdminEventDetailResponse, summary="이벤트 상세 조회")
+async def get_admin_event(
+    event_id: int,
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    await ensure_admin_console_seed_data(db)
+    try:
+        event = await Event.get_by_id(db, event_id)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    return AdminEventDetailResponse(
+        ok=True,
+        message="이벤트 상세를 불러왔습니다.",
+        event=await build_event_detail(db, event, actor),
+    )
+
+
+@admin_router.post("/events", response_model=AdminEventResponse, summary="이벤트 생성")
+async def create_admin_event(
+    payload: AdminEventUpsertRequest,
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    try:
+        publish_state = to_publish_state(payload.publish_state)
+        validate_publish_transition(None, publish_state)
+        slug = await ensure_unique_event_slug(db, payload.slug)
+        start_time = payload.event_date
+        end_time = start_time + timedelta(hours=6)
+        event = await Event.create(
+            db,
+            name=payload.name.strip(),
+            slug=slug,
+            start_time=start_time,
+            end_time=end_time,
+            admin_id=actor.id,
+            admin_email=payload.admin_email.strip().lower(),
+            bingo_size=payload.board_size,
+            success_condition=payload.bingo_mission_count,
+            keywords=[keyword.strip() for keyword in payload.keywords if keyword.strip()],
+            publish_state=publish_state,
+            first_published_at=resolve_first_published_at(None, publish_state, None),
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+
+    return AdminEventResponse(
+        ok=True,
+        message="이벤트를 생성했습니다.",
+        event=await build_event_detail(db, event, actor),
+    )
+
+
+@admin_router.put("/events/{event_id}", response_model=AdminEventResponse, summary="이벤트 수정")
+async def update_admin_event(
+    event_id: int,
+    payload: AdminEventUpsertRequest,
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    try:
+        event = await Event.get_by_id(db, event_id)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    if not can_edit_event(actor, event):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="이 이벤트는 읽기 전용입니다.",
+        )
+
+    try:
+        publish_state = to_publish_state(payload.publish_state)
+        validate_publish_transition(event.publish_state, publish_state)
+        slug = await ensure_unique_event_slug(db, payload.slug, current_event_id=event.id)
+        if event.publish_state == EventPublishState.PUBLISHED and event.slug != slug:
+            raise ValueError("공개된 이후에는 slug를 변경할 수 없습니다.")
+
+        updated_event = await Event.update(
+            db,
+            event_id=event.id,
+            name=payload.name.strip(),
+            slug=slug,
+            start_time=payload.event_date,
+            end_time=payload.event_date + timedelta(hours=6),
+            admin_email=payload.admin_email.strip().lower(),
+            bingo_size=payload.board_size,
+            success_condition=payload.bingo_mission_count,
+            keywords=[keyword.strip() for keyword in payload.keywords if keyword.strip()],
+            publish_state=publish_state,
+            first_published_at=resolve_first_published_at(
+                event.publish_state,
+                publish_state,
+                event.first_published_at,
+            ),
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+
+    return AdminEventResponse(
+        ok=True,
+        message="이벤트를 수정했습니다.",
+        event=await build_event_detail(db, updated_event, actor),
+    )
+
+
+@admin_router.post(
+    "/events/{event_id}/reset-data",
+    response_model=AdminEventResetResponse,
+    summary="이벤트 데이터 초기화",
+)
+async def reset_admin_event_data(
+    event_id: int,
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    try:
+        event = await Event.get_by_id(db, event_id)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    if not can_edit_event(actor, event):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="이 이벤트는 읽기 전용입니다.",
+        )
+
+    stats = await reset_event_runtime_data(db, event)
+    return AdminEventResetResponse(
+        ok=True,
+        message="이벤트 데이터를 초기화했습니다.",
+        stats=stats,
+    )
+
 
 @admin_router.post(
     "/zozo-manual-setting-bingo/{user_id}/{bingo_count}",
     summary="(관리자) 빙고 테스트 데이터 세팅",
     description="사용자 ID와 원하는 빙고 줄 수를 입력하여 빙고판 상태를 강제로 설정합니다. bingo_count를 0으로 설정 시 빙고판을 초기화합니다.",
+    dependencies=[Depends(authenticate_user)],
 )
 async def set_bingo_test_route(
     db: AsyncSessionDepends,
     user_id: int,
     bingo_count: int
 ):
-    """
-    관리자용 빙고 테스트 API 엔드포인트입니다.
-    """
     try:
         updated_board = await set_test_bingo_board(db=db, user_id=user_id, bingo_count=bingo_count)
         return {
@@ -29,21 +355,22 @@ async def set_bingo_test_route(
             "message": f"사용자 {user_id}의 빙고가 {bingo_count}줄로 설정되었습니다.",
             "board_data": updated_board.board_data
         }
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"서버 오류가 발생했습니다: {e}")
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=f"서버 오류가 발생했습니다: {error}") from error
 
 
-@admin_router.get("/download-attendance-data", summary="참여자 데이터 다운로드")
+@admin_router.get(
+    "/download-attendance-data",
+    summary="참여자 데이터 다운로드",
+    dependencies=[Depends(authenticate_user)],
+)
 async def download_attendance_data(
     db: AsyncSessionDepends,
 ):
-    """
-    참여자 데이터를 CSV 파일로 다운로드합니다.
-    """
     users = await get_all_users(db)
-    
+
     user_data = [
         {
             "ID": user.user_id,
@@ -56,28 +383,29 @@ async def download_attendance_data(
         }
         for user in users
     ]
-    
+
     df = pd.DataFrame(user_data)
-    
+
     stream = io.StringIO()
     df.to_csv(stream, index=False, encoding='utf-8-sig')
-    
+
     response = StreamingResponse(
         iter([stream.getvalue()]),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=attendance.csv"}
     )
-    
+
     return response
 
 
-@admin_router.get("/download-bingo-participation-data", summary="빙고 참여 데이터 다운로드")
+@admin_router.get(
+    "/download-bingo-participation-data",
+    summary="빙고 참여 데이터 다운로드",
+    dependencies=[Depends(authenticate_user)],
+)
 async def download_bingo_participation_data(
     db: AsyncSessionDepends,
 ):
-    """
-    참여자들의 주요 빙고 참여 데이터를 CSV 파일로 다운로드합니다.
-    """
     users = await get_all_users(db)
     boards = await get_all_bingo_boards(db)
 
@@ -112,21 +440,21 @@ async def download_bingo_participation_data(
     return response
 
 
-@admin_router.get("/download-all-interactions", summary="모든 인터랙션 데이터 다운로드")
+@admin_router.get(
+    "/download-all-interactions",
+    summary="모든 인터랙션 데이터 다운로드",
+    dependencies=[Depends(authenticate_user)],
+)
 async def download_all_interactions(
     db: AsyncSessionDepends,
 ):
-    """
-    사용자 간의 모든 인터랙션 기록을 CSV 파일로 다운로드합니다.
-    """
     users = await get_all_users(db)
     boards = await get_all_bingo_boards(db)
 
     user_map = {user.user_id: user for user in users}
-    
-    # (ReceiverID, SenderID)를 키로 사용하여 인터랙션을 그룹화합니다.
+
     grouped_interactions = {}
-    
+
     for board in boards:
         receiver_user = user_map.get(board.user_id)
         if not receiver_user:
@@ -142,7 +470,7 @@ async def download_all_interactions(
                     continue
 
                 group_key = (receiver_user.user_id, sender_user.user_id)
-                
+
                 if group_key not in grouped_interactions:
                     grouped_interactions[group_key] = {
                         "ReceiverID": receiver_user.user_id,
@@ -152,27 +480,32 @@ async def download_all_interactions(
                         "Keywords": [],
                         "Timestamp": board.updated_at.strftime('%Y-%m-%d %H:%M:%S') if board.updated_at else None,
                     }
-                
+
                 grouped_interactions[group_key]["Keywords"].append(keyword)
 
-    # 그룹화된 데이터를 리스트로 변환하고 키워드를 콤마로 연결합니다.
     interaction_list = list(grouped_interactions.values())
     for item in interaction_list:
         item["Keyword"] = ", ".join(item.pop("Keywords"))
 
-    # 시간순, 이름순으로 정렬합니다.
     if interaction_list:
-        interaction_list.sort(key=lambda x: (x.get("Timestamp", ""), x.get("ReceiverName", ""), x.get("SenderName", "")), reverse=True)
+        interaction_list.sort(
+            key=lambda value: (
+                value.get("Timestamp", ""),
+                value.get("ReceiverName", ""),
+                value.get("SenderName", ""),
+            ),
+            reverse=True,
+        )
 
     df = pd.DataFrame(interaction_list)
-    
+
     stream = io.StringIO()
     df.to_csv(stream, index=False, encoding='utf-8-sig')
-    
+
     response = StreamingResponse(
         iter([stream.getvalue()]),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=all_interactions.csv"}
     )
-    
+
     return response

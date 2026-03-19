@@ -4,7 +4,7 @@ from typing import Optional
 import enum
 
 from sqlalchemy import String, Enum, select
-from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 from core.db import AsyncSession
 from models.base import Base
 import bcrypt
@@ -18,15 +18,15 @@ class AdminRole(enum.Enum):
 class Admin(Base):
     __tablename__ = "admins"
 
-    id: int = mapped_column(primary_key=True, nullable=False)
-    email: str = mapped_column(String(100), unique=True, nullable=False)
-    password: str = mapped_column(String(255), nullable=False)  # bcrypt hash는 60자이지만 여유있게
-    name: str = mapped_column(String(100), nullable=False)
-    role: AdminRole = mapped_column(Enum(AdminRole), nullable=False, default=AdminRole.EVENT_MANAGER)
-    created_at: datetime = mapped_column(
+    id: Mapped[int] = mapped_column(primary_key=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    password: Mapped[str] = mapped_column(String(255), nullable=False)  # bcrypt hash는 60자이지만 여유있게
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    role: Mapped[AdminRole] = mapped_column(Enum(AdminRole), nullable=False, default=AdminRole.EVENT_MANAGER)
+    created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )
-    updated_at: datetime = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
         onupdate=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
         nullable=False,
@@ -115,4 +115,3 @@ class Admin(Base):
     def verify_password(self, password: str) -> bool:
         """비밀번호 검증"""
         return bcrypt.checkpw(password.encode('utf-8'), self.password.encode('utf-8'))
-

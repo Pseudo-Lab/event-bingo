@@ -16,11 +16,13 @@ class BingoUser(BaseSchema):
 class BingoRegisterRequest(BaseModel):
     username: str = Field(..., min_length=1, max_length=100, description="표시 이름")
     password: str = Field(..., min_length=4, max_length=100, description="로그인 비밀번호")
+    event_slug: Optional[str] = Field(default=None, min_length=1, max_length=100, description="이벤트 slug")
 
 
 class BingoLoginRequest(BaseModel):
     login_id: str = Field(..., min_length=1, max_length=32, description="로그인 코드")
     password: str = Field(..., min_length=4, max_length=100, description="로그인 비밀번호")
+    event_slug: Optional[str] = Field(default=None, min_length=1, max_length=100, description="이벤트 slug")
 
 
 class LoginState(IntEnum):

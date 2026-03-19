@@ -21,7 +21,7 @@ async def bingo_register(
     data: BingoRegisterRequest,
     register_bingo_user: RegisterBingoUser = Depends(RegisterBingoUser),
 ):
-    res = await register_bingo_user.execute(data.username, data.password)
+    res = await register_bingo_user.execute(data.username, data.password, data.event_slug)
     return res
 
 
@@ -30,5 +30,5 @@ async def bingo_login(
     data: BingoLoginRequest,
     login_bingo_user: LoginBingoUser = Depends(LoginBingoUser),
 ):
-    res = await login_bingo_user.execute(data.login_id, data.password)
+    res = await login_bingo_user.execute(data.login_id, data.password, data.event_slug)
     return res

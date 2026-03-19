@@ -4,7 +4,7 @@ from typing import Optional, List
 import random
 
 from sqlalchemy import Integer, String, ForeignKey, JSON, DateTime, select
-from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 from core.db import AsyncSession
 from models.base import Base
 
@@ -12,14 +12,14 @@ from models.base import Base
 class EventAttendee(Base):
     __tablename__ = "event_attendees"
 
-    id: int = mapped_column(Integer, primary_key=True, nullable=False)
-    event_id: int = mapped_column(Integer, ForeignKey("events.id"), nullable=False)
-    user_id: int = mapped_column(Integer, ForeignKey("bingo_user.user_id"), nullable=False)
-    team_id: Optional[int] = mapped_column(Integer, ForeignKey("teams.id"), nullable=True)
-    selected_keywords: list = mapped_column(JSON, nullable=True, default=list)
-    rating: Optional[int] = mapped_column(Integer, nullable=True)
-    review: Optional[str] = mapped_column(String(500), nullable=True)
-    created_at: datetime = mapped_column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False)
+    event_id: Mapped[int] = mapped_column(Integer, ForeignKey("events.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("bingo_user.user_id"), nullable=False)
+    team_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("teams.id"), nullable=True)
+    selected_keywords: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
+    rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    review: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
         nullable=False
@@ -190,4 +190,3 @@ class EventAttendee(Base):
             "blue_team_id": blue_team_id,
             "red_team_id": red_team_id
         }
-
