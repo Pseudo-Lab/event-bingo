@@ -45,8 +45,6 @@ services:
       - "traefik.http.routers.bingo-backend.rule=Host(`bingo.pseudolab-devfactory.com`) && PathPrefix(`/api`)"
       - "traefik.http.routers.bingo-backend.entrypoints=websecure"
       - "traefik.http.routers.bingo-backend.tls.certresolver=le"
-      - "traefik.http.middlewares.bingo-strip-api.stripprefix.prefixes=/api"
-      - "traefik.http.routers.bingo-backend.middlewares=bingo-strip-api"
       - "traefik.http.services.bingo-backend.loadbalancer.server.port=8000"
       - "traefik.docker.network=traefik"
 
