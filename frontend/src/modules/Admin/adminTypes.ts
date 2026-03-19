@@ -1,5 +1,6 @@
 export type AdminRole = "admin" | "event_manager";
 export type AdminPublishState = "draft" | "published" | "archived";
+export type AdminApplicationStatus = "pending" | "approved" | "rejected";
 
 export type AdminMember = {
   id: number;
@@ -53,6 +54,23 @@ export type AdminEventAnalytics = {
   operatingMinutes: number;
   bingoRows: AdminEventBingoRow[];
   keywordRows: AdminEventKeywordRow[];
+};
+
+export type AdminEventManagerRequest = {
+  id: number;
+  name: string;
+  email: string;
+  organization?: string;
+  eventName: string;
+  eventPurpose: string;
+  expectedEventDate?: string;
+  expectedAttendeeCount?: number;
+  notes?: string;
+  status: AdminApplicationStatus;
+  reviewNote?: string;
+  reviewedAt?: string;
+  reviewedByName?: string;
+  createdAt: string;
 };
 
 export type AdminEvent = {

@@ -17,11 +17,13 @@ describe("eventProfiles", () => {
       "/spring-networking-2026/bingo"
     );
     expect(getAdminPath("Spring Networking 2026", "members")).toBe("/admin/members");
+    expect(getAdminPath("applications")).toBe("/admin/applications");
   });
 
   it("extracts the active event slug from legacy and event routes", () => {
     expect(getActiveEventSlugFromLocation("/")).toBe("bingo-networking");
     expect(getActiveEventSlugFromLocation("/bingo")).toBe("bingo-networking");
+    expect(getActiveEventSlugFromLocation("/experience")).toBe("bingo-networking");
     expect(getActiveEventSlugFromLocation("/spring-networking-2026")).toBe(
       "spring-networking-2026"
     );

@@ -1,7 +1,9 @@
 import type {
+  AdminApplicationStatus,
   AdminEvent,
   AdminEventAnalytics,
   AdminEventParticipant,
+  AdminEventManagerRequest,
   AdminMember,
   AdminPublishState,
   AdminSession,
@@ -42,6 +44,34 @@ type AdminMemberListResponse = ApiResponseBase & {
 
 type AdminMemberResponse = ApiResponseBase & {
   member?: AdminMemberPayload | null;
+};
+
+type AdminEventManagerRequestStatusLiteral = "pending" | "approved" | "rejected";
+
+type AdminEventManagerRequestPayload = {
+  id: number;
+  name: string;
+  email: string;
+  organization?: string | null;
+  event_name: string;
+  event_purpose: string;
+  expected_event_date?: string | null;
+  expected_attendee_count?: number | null;
+  notes?: string | null;
+  status: AdminEventManagerRequestStatusLiteral;
+  review_note?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by_name?: string | null;
+  created_at: string;
+};
+
+type AdminEventManagerRequestListResponse = ApiResponseBase & {
+  requests?: AdminEventManagerRequestPayload[] | null;
+  pending_count?: number | null;
+};
+
+type AdminEventManagerRequestResponse = ApiResponseBase & {
+  request?: AdminEventManagerRequestPayload | null;
 };
 
 type AdminEventParticipantPayload = {
@@ -128,6 +158,11 @@ export type AdminEventUpsertInput = {
   publishState: AdminPublishState;
 };
 
+export type AdminEventManagerRequestReviewInput = {
+  status: AdminApplicationStatus;
+  reviewNote?: string;
+};
+
 const API_URL = import.meta.env.VITE_API_URL?.trim().replace(/\/$/, "") ?? "";
 
 const createApiUrl = (path: string) => {
@@ -206,6 +241,27 @@ const mapAdminMember = (payload: AdminMemberPayload): AdminMember => {
     phone: payload.phone,
     createdAt: payload.created_at,
     role: payload.role,
+  };
+};
+
+const mapAdminEventManagerRequest = (
+  payload: AdminEventManagerRequestPayload
+): AdminEventManagerRequest => {
+  return {
+    id: payload.id,
+    name: payload.name,
+    email: payload.email,
+    organization: payload.organization ?? undefined,
+    eventName: payload.event_name,
+    eventPurpose: payload.event_purpose,
+    expectedEventDate: payload.expected_event_date ?? undefined,
+    expectedAttendeeCount: payload.expected_attendee_count ?? undefined,
+    notes: payload.notes ?? undefined,
+    status: payload.status,
+    reviewNote: payload.review_note ?? undefined,
+    reviewedAt: payload.reviewed_at ?? undefined,
+    reviewedByName: payload.reviewed_by_name ?? undefined,
+    createdAt: payload.created_at,
   };
 };
 
@@ -352,6 +408,43 @@ export const deleteAdminMember = async (accessToken: string, memberId: number) =
     },
     accessToken
   );
+};
+
+export const getAdminEventManagerRequests = async (accessToken: string) => {
+  const payload = await requestJson<AdminEventManagerRequestListResponse>(
+    "/api/admin/event-manager-requests",
+    {},
+    accessToken
+  );
+
+  return {
+    requests: (payload.requests ?? []).map(mapAdminEventManagerRequest),
+    pendingCount: payload.pending_count ?? 0,
+  };
+};
+
+export const reviewAdminEventManagerRequest = async (
+  accessToken: string,
+  requestId: number,
+  input: AdminEventManagerRequestReviewInput
+) => {
+  const payload = await requestJson<AdminEventManagerRequestResponse>(
+    `/api/admin/event-manager-requests/${requestId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        status: input.status,
+        review_note: input.reviewNote?.trim() || undefined,
+      }),
+    },
+    accessToken
+  );
+
+  if (!payload.request) {
+    throw new Error("변경된 신청 정보를 받지 못했습니다.");
+  }
+
+  return mapAdminEventManagerRequest(payload.request);
 };
 
 export const getAdminEvents = async (accessToken: string) => {

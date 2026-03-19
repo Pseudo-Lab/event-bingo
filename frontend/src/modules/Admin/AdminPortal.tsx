@@ -14,11 +14,13 @@ import {
   createAdminMember,
   deleteAdminMember,
   getAdminEventDetail,
+  getAdminEventManagerRequests,
   getAdminEvents,
   getAdminMe,
   getAdminMembers,
   loginAdmin,
   resetAdminEventData,
+  reviewAdminEventManagerRequest,
   updateAdminEvent,
   validateAdminSlugInput,
 } from "../../api/admin_api";
@@ -48,6 +50,7 @@ import {
   setAdminSession,
 } from "../../utils/adminSession";
 import type {
+  AdminEventManagerRequest,
   AdminEvent,
   AdminEventStatus,
   AdminMember,
@@ -55,7 +58,7 @@ import type {
   AdminSession,
 } from "./adminTypes";
 
-type AdminSection = "dashboard" | "members" | "event-settings" | "policies";
+type AdminSection = "dashboard" | "members" | "applications" | "event-settings" | "policies";
 type EventDetailTab = "overview" | "dashboard" | "participants";
 
 type EventFormState = {
@@ -127,6 +130,26 @@ const toDateInputValue = (value: string) => {
 
 const getRoleLabel = (role: AdminRole) => {
   return role === "admin" ? "Admin" : "Event Manager";
+};
+
+const getApplicationStatusLabel = (status: AdminEventManagerRequest["status"]) => {
+  if (status === "approved") {
+    return "승인";
+  }
+  if (status === "rejected") {
+    return "반려";
+  }
+  return "대기";
+};
+
+const getApplicationStatusClassName = (status: AdminEventManagerRequest["status"]) => {
+  if (status === "approved") {
+    return "bg-brand-100 text-brand-800";
+  }
+  if (status === "rejected") {
+    return "bg-rose-100 text-rose-600";
+  }
+  return "bg-amber-100 text-amber-700";
 };
 
 const getProgressPercent = (current: number, total: number) => {
@@ -409,9 +432,11 @@ const navigationItems: Array<{
   key: AdminSection;
   label: string;
   Icon: () => ReactNode;
+  adminOnly?: boolean;
 }> = [
   { key: "dashboard", label: "대시보드", Icon: DashboardIcon },
-  { key: "members", label: "회원 관리", Icon: UsersIcon },
+  { key: "members", label: "회원 관리", Icon: UsersIcon, adminOnly: true },
+  { key: "applications", label: "신청 관리", Icon: UsersIcon, adminOnly: true },
   { key: "event-settings", label: "이벤트 관리", Icon: EventIcon },
   { key: "policies", label: "이용약관 및 개인정보", Icon: FileIcon },
 ];
@@ -669,6 +694,7 @@ const AdminConsolePage = ({
 
   const [session, setSession] = useState<AdminSession | null>(initialSession);
   const [members, setMembers] = useState<AdminMember[]>([]);
+  const [applications, setApplications] = useState<AdminEventManagerRequest[]>([]);
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [selectedEventDetail, setSelectedEventDetail] = useState<AdminEvent | null>(null);
   const [memberPage, setMemberPage] = useState(1);
@@ -686,6 +712,7 @@ const AdminConsolePage = ({
   const [isConsoleLoading, setIsConsoleLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [deletingMemberId, setDeletingMemberId] = useState<number | null>(null);
+  const [reviewingApplicationId, setReviewingApplicationId] = useState<number | null>(null);
   const [resettingEventId, setResettingEventId] = useState<number | null>(null);
   const [newAdminForm, setNewAdminForm] = useState({
     email: "",
@@ -748,9 +775,12 @@ const AdminConsolePage = ({
         setIsConsoleLoading(true);
         setPageError("");
 
-        const [eventItems, memberItems] = await Promise.all([
+        const [eventItems, memberItems, applicationPayload] = await Promise.all([
           getAdminEvents(session.accessToken),
           session.role === "admin" ? getAdminMembers(session.accessToken) : Promise.resolve([]),
+          session.role === "admin"
+            ? getAdminEventManagerRequests(session.accessToken)
+            : Promise.resolve({ requests: [], pendingCount: 0 }),
         ]);
 
         if (cancelled) {
@@ -759,6 +789,7 @@ const AdminConsolePage = ({
 
         setEvents(sortAdminEvents(eventItems));
         setMembers(memberItems);
+        setApplications(applicationPayload.requests);
       } catch (error) {
         if (!cancelled) {
           setPageError(error instanceof Error ? error.message : "관리자 데이터를 불러오지 못했습니다.");
@@ -850,8 +881,12 @@ const AdminConsolePage = ({
   }, [adminEventId, eventDetailTab, events, selectedEventDetail]);
 
   const featuredEvent = selectedEvent ?? events[0] ?? null;
-  const canManageMembers = session?.role === "admin";
+  const canManageApplications = session?.role === "admin";
   const canEditSelectedEvent = !!selectedEvent?.canEdit;
+  const pendingApplicationCount = useMemo(
+    () => applications.filter((requestItem) => requestItem.status === "pending").length,
+    [applications]
+  );
 
   const selectedEventInsights = useMemo(() => {
     if (!selectedEvent?.analytics) {
@@ -947,13 +982,13 @@ const AdminConsolePage = ({
   }, [adminEventId, eventDetailTab, session]);
 
   useEffect(() => {
-    if (session?.role === "event_manager" && section === "members") {
+    if (session?.role === "event_manager" && (section === "members" || section === "applications")) {
       navigate(getAdminPath("event-settings"), { replace: true });
     }
   }, [navigate, section, session?.role]);
 
   const goToSection = (nextSection: AdminSection) => {
-    if (nextSection === "members" && session?.role !== "admin") {
+    if ((nextSection === "members" || nextSection === "applications") && session?.role !== "admin") {
       navigate(getAdminPath("event-settings"));
       return;
     }
@@ -1125,6 +1160,46 @@ const AdminConsolePage = ({
     }
   };
 
+  const handleReviewApplication = async (
+    request: AdminEventManagerRequest,
+    nextStatus: "approved" | "rejected"
+  ) => {
+    if (!session || session.role !== "admin") {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${request.name}님의 신청을 ${nextStatus === "approved" ? "승인" : "반려"}할까요?`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setReviewingApplicationId(request.id);
+      setPageError("");
+      const updatedRequest = await reviewAdminEventManagerRequest(session.accessToken, request.id, {
+        status: nextStatus,
+      });
+      setApplications((previousValue) =>
+        [...previousValue.map((item) => (item.id === updatedRequest.id ? updatedRequest : item))].sort(
+          (left, right) => {
+            const priority = (value: AdminEventManagerRequest["status"]) =>
+              value === "pending" ? 0 : value === "approved" ? 1 : 2;
+            return (
+              priority(left.status) - priority(right.status) ||
+              new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+            );
+          }
+        )
+      );
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "신청 상태를 바꾸지 못했습니다.");
+    } finally {
+      setReviewingApplicationId(null);
+    }
+  };
+
   const handleResetEventData = async () => {
     if (!session || !selectedEvent || !canEditSelectedEvent) {
       return;
@@ -1252,6 +1327,10 @@ const AdminConsolePage = ({
     return null;
   }
 
+  if (section === "applications" && session.role !== "admin") {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-brand-500 lg:grid lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[21rem_minmax(0,1fr)]">
       <aside className="flex flex-col justify-between gap-8 px-4 py-7 text-white lg:px-5 lg:py-8">
@@ -1262,7 +1341,7 @@ const AdminConsolePage = ({
 
           <nav className="grid gap-2" aria-label="admin navigation">
             {navigationItems
-              .filter(({ key }) => key !== "members" || canManageMembers)
+              .filter(({ adminOnly }) => !adminOnly || session.role === "admin")
               .map(({ key, label, Icon }) => (
               <Button
                 key={key}
@@ -1275,6 +1354,11 @@ const AdminConsolePage = ({
               >
                 <Icon />
                 <span>{label}</span>
+                {key === "applications" && pendingApplicationCount > 0 ? (
+                  <span className="ml-auto inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-white px-2 py-0.5 text-xs font-black text-brand-700">
+                    {pendingApplicationCount}
+                  </span>
+                ) : null}
               </Button>
             ))}
           </nav>
@@ -1299,9 +1383,9 @@ const AdminConsolePage = ({
         </div>
       </aside>
 
-      <main className="p-5 lg:p-7 xl:p-8">
-        <Card className="min-h-[calc(100vh-2.5rem)] rounded-[2rem] border-white/40 shadow-soft xl:min-h-[calc(100vh-4rem)]">
-          <CardContent className="space-y-8 p-7 pt-7 md:p-10 md:pt-10 xl:p-12 xl:pt-12">
+      <main className="p-4 sm:p-6 lg:p-8 xl:p-10">
+        <Card className="min-h-[calc(100vh-3rem)] rounded-[2rem] border-white/40 shadow-soft xl:min-h-[calc(100vh-5rem)]">
+          <CardContent className="space-y-8 p-6 pt-6 sm:p-8 sm:pt-8 md:p-10 md:pt-10 xl:p-12 xl:pt-12">
             {pageError ? (
               <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">
                 {pageError}
@@ -1338,6 +1422,14 @@ const AdminConsolePage = ({
                       label: "공개 이벤트 수",
                       value: `${events.filter((eventItem) => eventItem.isPublished).length}개`,
                     },
+                    ...(canManageApplications
+                      ? [
+                          {
+                            label: "승인 대기 신청",
+                            value: `${pendingApplicationCount}건`,
+                          },
+                        ]
+                      : []),
                   ].map((item) => (
                     <Card
                       key={item.label}
@@ -1489,6 +1581,131 @@ const AdminConsolePage = ({
                     </Button>
                   ))}
                 </div>
+              </>
+            ) : null}
+
+            {section === "applications" ? (
+              <>
+                <SectionHeader
+                  title="신청 관리"
+                  description="이벤트 관리자 권한 요청을 검토하고 승인 상태를 관리합니다."
+                  action={
+                    <div className="rounded-full bg-brand-100 px-4 py-2 text-sm font-bold text-brand-800">
+                      승인 대기 {pendingApplicationCount}건
+                    </div>
+                  }
+                />
+
+                {applications.length > 0 ? (
+                  <div className="overflow-hidden rounded-[1.6rem] border border-slate-100 bg-[#fbfcf8]">
+                    <div className="overflow-x-auto">
+                      <Table className="min-w-[1180px]">
+                        <TableHeader className="bg-[#f6f8ef]">
+                          <TableRow className="border-none hover:bg-transparent">
+                            <TableHead>신청일</TableHead>
+                            <TableHead>신청자</TableHead>
+                            <TableHead>행사명</TableHead>
+                            <TableHead>행사 목적</TableHead>
+                            <TableHead>예상 일정</TableHead>
+                            <TableHead>상태</TableHead>
+                            <TableHead className="text-right">관리</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {applications.map((requestItem) => (
+                            <TableRow key={requestItem.id}>
+                              <TableCell className="whitespace-nowrap text-sm text-slate-500">
+                                {formatAdminDate(requestItem.createdAt)}
+                              </TableCell>
+                              <TableCell className="min-w-[15rem]">
+                                <div className="space-y-1">
+                                  <p className="font-semibold text-slate-900">{requestItem.name}</p>
+                                  <p className="text-sm text-slate-500">{requestItem.email}</p>
+                                  {requestItem.organization ? (
+                                    <p className="text-xs font-semibold text-brand-700">
+                                      {requestItem.organization}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </TableCell>
+                              <TableCell className="min-w-[14rem] font-semibold text-slate-800">
+                                {requestItem.eventName}
+                              </TableCell>
+                              <TableCell className="min-w-[22rem] text-sm leading-6 text-slate-600">
+                                {requestItem.eventPurpose.length > 110
+                                  ? `${requestItem.eventPurpose.slice(0, 110)}...`
+                                  : requestItem.eventPurpose}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-sm text-slate-500">
+                                {requestItem.expectedEventDate
+                                  ? formatAdminDate(requestItem.expectedEventDate)
+                                  : "미정"}
+                                {requestItem.expectedAttendeeCount ? (
+                                  <p className="mt-1 text-xs font-semibold text-brand-700">
+                                    예상 {requestItem.expectedAttendeeCount}명
+                                  </p>
+                                ) : null}
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-2">
+                                  <span
+                                    className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getApplicationStatusClassName(requestItem.status)}`}
+                                  >
+                                    {getApplicationStatusLabel(requestItem.status)}
+                                  </span>
+                                  {requestItem.reviewedByName ? (
+                                    <p className="text-xs text-slate-400">
+                                      {requestItem.reviewedByName}
+                                      {requestItem.reviewedAt
+                                        ? ` · ${formatAdminDate(requestItem.reviewedAt)}`
+                                        : ""}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-full px-4"
+                                    disabled={
+                                      requestItem.status === "approved" ||
+                                      reviewingApplicationId === requestItem.id
+                                    }
+                                    onClick={() => void handleReviewApplication(requestItem, "approved")}
+                                  >
+                                    {reviewingApplicationId === requestItem.id &&
+                                    requestItem.status !== "approved"
+                                      ? "처리 중"
+                                      : "승인"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="rounded-full px-4 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                                    disabled={
+                                      requestItem.status === "rejected" ||
+                                      reviewingApplicationId === requestItem.id
+                                    }
+                                    onClick={() => void handleReviewApplication(requestItem, "rejected")}
+                                  >
+                                    반려
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ) : (
+                  <EmptyPanelState
+                    className="min-h-[18rem]"
+                    message="아직 접수된 이벤트 관리자 신청이 없습니다."
+                  />
+                )}
               </>
             ) : null}
 
@@ -1760,7 +1977,7 @@ const AdminConsolePage = ({
                               <TableHeader className="bg-[#f6f8ef]">
                                 <TableRow className="border-none hover:bg-transparent">
                                   <TableHead>이름</TableHead>
-                                  <TableHead>이메일</TableHead>
+                                  <TableHead>유저코드</TableHead>
                                   <TableHead>상태</TableHead>
                                   <TableHead>키워드</TableHead>
                                 </TableRow>
@@ -1789,14 +2006,20 @@ const AdminConsolePage = ({
                                     </TableCell>
                                     <TableCell>
                                       <div className="flex flex-wrap gap-3">
-                                        {participant.keywords.map((keyword) => (
-                                          <span
-                                            key={`${participant.id}-${keyword}`}
-                                            className="rounded-xl bg-brand-100 px-4 py-2 text-base font-semibold text-brand-700"
-                                          >
-                                            {keyword}
+                                        {participant.keywords.length > 0 ? (
+                                          participant.keywords.map((keyword) => (
+                                            <span
+                                              key={`${participant.id}-${keyword}`}
+                                              className="rounded-xl bg-brand-100 px-4 py-2 text-base font-semibold text-brand-700"
+                                            >
+                                              {keyword}
+                                            </span>
+                                          ))
+                                        ) : (
+                                          <span className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-500">
+                                            키워드 선택 전
                                           </span>
-                                        ))}
+                                        )}
                                       </div>
                                     </TableCell>
                                   </TableRow>
@@ -2124,8 +2347,8 @@ const AdminConsolePage = ({
       </main>
 
       {showAddModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 sm:p-6">
-          <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.75rem] bg-white p-6 shadow-soft sm:max-h-[calc(100dvh-3rem)] sm:p-8">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/45 p-4 sm:p-6">
+          <div className="mx-auto my-2 flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.75rem] bg-white p-6 shadow-soft sm:my-4 sm:max-h-[calc(100dvh-3rem)] sm:p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-black tracking-tight text-brand-800">관리자 추가</h2>
@@ -2277,8 +2500,8 @@ const AdminConsolePage = ({
       ) : null}
 
       {showEventModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 sm:p-6">
-          <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[39rem] flex-col overflow-hidden rounded-[1.5rem] bg-white p-6 shadow-soft sm:max-h-[calc(100dvh-3rem)] sm:p-7">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/45 p-4 sm:p-6">
+          <div className="mx-auto my-2 flex max-h-[calc(100dvh-2rem)] w-full max-w-[39rem] flex-col overflow-hidden rounded-[1.5rem] bg-white p-6 shadow-soft sm:my-4 sm:max-h-[calc(100dvh-3rem)] sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-[2rem] font-black tracking-tight text-brand-800">
@@ -2587,6 +2810,7 @@ const AdminConsolePage = ({
 export const AdminRoutesLoginPage = LoginPage;
 export const AdminDashboardPage = () => <AdminConsolePage section="dashboard" />;
 export const AdminMembersPage = () => <AdminConsolePage section="members" />;
+export const AdminApplicationsPage = () => <AdminConsolePage section="applications" />;
 export const AdminEventSettingsPage = () => <AdminConsolePage section="event-settings" />;
 export const AdminEventOverviewPage = () => (
   <AdminConsolePage section="event-settings" eventDetailTab="overview" />

@@ -239,15 +239,17 @@ export const getAdminPath = (
     | string
     | "dashboard"
     | "members"
+    | "applications"
     | "event-settings"
     | "policies"
     | null,
-  section?: "dashboard" | "members" | "event-settings" | "policies"
+  section?: "dashboard" | "members" | "applications" | "event-settings" | "policies"
 ) => {
   const resolvedSection =
     section ??
     (eventSlugOrSection === "dashboard" ||
     eventSlugOrSection === "members" ||
+    eventSlugOrSection === "applications" ||
     eventSlugOrSection === "event-settings" ||
     eventSlugOrSection === "policies"
       ? eventSlugOrSection
@@ -284,7 +286,7 @@ export const getActiveEventSlugFromLocation = (pathname?: string | null) => {
   }
 
   const [firstSegment] = segments;
-  if (firstSegment === "bingo" || firstSegment === "admin") {
+  if (firstSegment === "bingo" || firstSegment === "experience" || firstSegment === "admin") {
     return DEFAULT_EVENT_PROFILE.slug;
   }
 

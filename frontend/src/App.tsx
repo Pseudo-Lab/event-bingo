@@ -2,9 +2,12 @@ import "./App.css";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Home from "./modules/Home/Home.tsx";
 import BingoGame from "./modules/Bingo/BingoGame.tsx";
+import LandingHomePage from "./modules/Landing/LandingHomePage.tsx";
+import DemoExperiencePage from "./modules/Landing/DemoExperiencePage.tsx";
 import { CssBaseline } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import {
+  AdminApplicationsPage,
   AdminDashboardPage,
   AdminEventDashboardPage,
   AdminEventOverviewPage,
@@ -34,11 +37,13 @@ function AppRoutes() {
     <div className="app-shell">
       <main className="app-main">
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/bingo" element={<BingoGame />} />
+          <Route path="/" element={<LandingHomePage />} />
+          <Route path="/experience" element={<DemoExperiencePage />} />
+          <Route path="/bingo" element={<DemoExperiencePage />} />
           <Route path="/admin" element={<AdminRoutesLoginPage />} />
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="/admin/members" element={<AdminMembersPage />} />
+          <Route path="/admin/applications" element={<AdminApplicationsPage />} />
           <Route path="/admin/events" element={<AdminEventSettingsPage />} />
           <Route path="/admin/events/:adminEventId" element={<AdminEventOverviewPage />} />
           <Route
@@ -63,6 +68,10 @@ function AppRoutes() {
           <Route
             path="/:eventSlug/admin/members"
             element={<Navigate to={getAdminPath("members")} replace />}
+          />
+          <Route
+            path="/:eventSlug/admin/applications"
+            element={<Navigate to={getAdminPath("applications")} replace />}
           />
           <Route
             path="/:eventSlug/admin/event-settings"
