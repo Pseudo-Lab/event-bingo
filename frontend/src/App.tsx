@@ -1,8 +1,6 @@
-// import { useState } from "react";
 import "./App.css";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Home from "./modules/Home/Home.tsx";
-import Footer from "./modules/Footer/Footer.tsx";
 import BingoGame from "./modules/Bingo/BingoGame.tsx";
 import { CssBaseline } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
@@ -20,10 +18,7 @@ const defaultTheme = createTheme({
   },
 });
 
-function AppLayout() {
-  const location = useLocation();
-  const showFooter = !["/", "/bingo"].includes(location.pathname);
-
+function AppRoutes() {
   return (
     <div className="app-shell">
       <main className="app-main">
@@ -32,7 +27,6 @@ function AppLayout() {
           <Route path="/bingo" element={<BingoGame />} />
         </Routes>
       </main>
-      {showFooter ? <Footer /> : null}
     </div>
   );
 }
@@ -42,7 +36,7 @@ function App() {
     <ThemeProvider theme={defaultTheme}>
       <CssBaseline />
       <BrowserRouter>
-        <AppLayout />
+        <AppRoutes />
       </BrowserRouter>
     </ThemeProvider>
   );

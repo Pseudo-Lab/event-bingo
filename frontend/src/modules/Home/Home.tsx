@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Dialog from "@mui/material/Dialog";
 import Snackbar from "@mui/material/Snackbar";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
-import { loginBingoUser, registerBingoUser } from "../../api/bingo_api";
-import config from "../../config/settings.json";
+import {
+  clearLocalMockMode,
+  getLocalMockTesterUsers,
+  loginBingoUser,
+  loginWithLocalMockTester,
+  registerBingoUser,
+  resetLocalMockTesterData,
+} from "../../api/bingo_api";
+import type { MockTesterUser } from "../../api/bingo_api";
+import { eventConfig } from "../../config/eventConfig";
 import {
   clearAuthSession,
   getAuthSession,
@@ -17,6 +25,7 @@ import {
   saveRecentBingoAccount,
   type RecentBingoAccount,
 } from "../../utils/recentBingoAccounts";
+import { isTestModeEnabled, syncTestModeFromUrl } from "../../utils/testMode";
 import ConsentDialog from "./ConsentDialog";
 import "./Home.css";
 
@@ -41,8 +50,13 @@ const isPlaceholderValue = (value: string | undefined, placeholders: string[]) =
   return placeholders.includes(value.trim());
 };
 
+const normalizeTesterCode = (value: string | undefined | null) => {
+  return value?.trim().toUpperCase().replace(/\s/g, "") ?? "";
+};
+
 const Home = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [authMode, setAuthMode] = useState<AuthMode>("register");
   const [participantName, setParticipantName] = useState("");
@@ -60,6 +74,16 @@ const Home = () => {
   const [alertSeverity, setAlertSeverity] = useState<"error" | "success">(
     "error"
   );
+  const [testModeEnabled, setTestModeEnabledState] = useState(() => isTestModeEnabled());
+  const [mockTesterUsers, setMockTesterUsers] = useState<MockTesterUser[]>([]);
+  const [mockTesterLoading, setMockTesterLoading] = useState(false);
+  const [mockTesterResetting, setMockTesterResetting] = useState(false);
+  const [activeTesterCode, setActiveTesterCode] = useState<string | null>(null);
+  const [handledTestCode, setHandledTestCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTestModeEnabledState(syncTestModeFromUrl(location.search));
+  }, [location.search]);
 
   const refreshRecentAccounts = useCallback(() => {
     const nextAccounts = getRecentBingoAccounts();
@@ -91,35 +115,39 @@ const Home = () => {
 
   const displayBrand = useMemo(
     () =>
-      isPlaceholderValue(config.host, ["행사 주최자"])
+      isPlaceholderValue(eventConfig.host, ["행사 주최자"])
         ? DISPLAY_FALLBACKS.brand
-        : config.host,
+        : eventConfig.host,
     []
   );
 
   const displayEventName = useMemo(
     () =>
-      isPlaceholderValue(config.subTitle, ["YYYY 행사 이름"])
+      isPlaceholderValue(eventConfig.subTitle, ["YYYY 행사 이름"])
         ? DISPLAY_FALLBACKS.eventName
-        : config.subTitle,
+        : eventConfig.subTitle,
     []
   );
 
   const displayDate = useMemo(
     () =>
-      isPlaceholderValue(config.date, ["MM월 DD일"])
+      isPlaceholderValue(eventConfig.date, ["MM월 DD일"])
         ? DISPLAY_FALLBACKS.date
-        : config.date,
+        : eventConfig.date,
     []
   );
 
   const displayPlace = useMemo(
     () =>
-      isPlaceholderValue(config.place, ["장소"])
+      isPlaceholderValue(eventConfig.place, ["장소"])
         ? DISPLAY_FALLBACKS.place
-        : config.place,
+        : eventConfig.place,
     []
   );
+
+  const testCodeFromQuery = useMemo(() => {
+    return normalizeTesterCode(new URLSearchParams(location.search).get("testCode"));
+  }, [location.search]);
 
   const trimmedPassword = password.trim();
   const isPasswordValid =
@@ -131,6 +159,24 @@ const Home = () => {
     setAlertSeverity(severity);
     setAlertOpen(true);
   }, []);
+
+  const loadMockTesterUsers = useCallback(async () => {
+    if (!testModeEnabled) {
+      setMockTesterUsers([]);
+      return;
+    }
+
+    try {
+      setMockTesterLoading(true);
+      const users = await getLocalMockTesterUsers();
+      setMockTesterUsers(users);
+    } catch (error) {
+      console.error("Failed to load local tester users", error);
+      openAlert("테스트 계정 목록을 불러오지 못했습니다.");
+    } finally {
+      setMockTesterLoading(false);
+    }
+  }, [openAlert, testModeEnabled]);
 
   const applyLoginSession = useCallback(({
     userId,
@@ -155,16 +201,13 @@ const Home = () => {
   }, []);
 
   const persistRecentAccount = useCallback(({
-    userId,
     userName,
     loginId,
   }: {
-    userId: string;
     userName: string;
     loginId: string;
   }) => {
     saveRecentBingoAccount({
-      userId,
       userName,
       loginId,
     });
@@ -179,6 +222,17 @@ const Home = () => {
 
     setAgreeOpen(true);
   };
+
+  const clearCurrentSessionState = useCallback(() => {
+    clearAuthSession();
+    clearLocalMockMode();
+    setParticipantName("");
+    setPassword("");
+    setCurrentLoginId("");
+    setIsLoggedIn(false);
+    setIsAgreed(false);
+    setAuthMode(recentAccounts.length > 0 ? "login" : "register");
+  }, [recentAccounts.length]);
 
   const handleRegister = async () => {
     const trimmedName = participantName.trim();
@@ -199,6 +253,7 @@ const Home = () => {
     }
 
     try {
+      clearLocalMockMode();
       const result = await registerBingoUser(trimmedName, trimmedPassword);
 
       if (
@@ -241,6 +296,7 @@ const Home = () => {
     }
 
     try {
+      clearLocalMockMode();
       const result = await loginBingoUser(trimmedLoginId, trimmedPassword);
 
       if (
@@ -269,15 +325,94 @@ const Home = () => {
     }
   };
 
-  const clearCurrentSessionState = useCallback(() => {
-    clearAuthSession();
-    setParticipantName("");
-    setPassword("");
-    setCurrentLoginId("");
-    setIsLoggedIn(false);
-    setIsAgreed(false);
-    setAuthMode(recentAccounts.length > 0 ? "login" : "register");
-  }, [recentAccounts.length]);
+  const handleTesterLogin = useCallback(async (tester: MockTesterUser) => {
+    try {
+      setActiveTesterCode(tester.accessCode);
+
+      const result = await loginWithLocalMockTester(tester.accessCode, tester.userName);
+
+      if (
+        !result.ok ||
+        result.user_id == null ||
+        !result.user_name ||
+        !result.login_id
+      ) {
+        openAlert(result.message || "테스트 계정 전환에 실패했습니다.");
+        return;
+      }
+
+      applyLoginSession({
+        userId: String(result.user_id),
+        userName: result.user_name,
+        loginId: result.login_id,
+      });
+      openAlert(`"${result.user_name}" 계정으로 전환했습니다.`, "success");
+      navigate("/bingo", { replace: true });
+    } catch (error) {
+      console.error("Failed to switch tester session", error);
+      openAlert("테스트 계정 전환 중 오류가 발생했습니다.");
+    } finally {
+      setActiveTesterCode(null);
+    }
+  }, [applyLoginSession, navigate, openAlert]);
+
+  const handleResetMockTesterData = useCallback(async () => {
+    const shouldReset = window.confirm(
+      "로컬 테스트 보드와 교환 기록을 처음 상태로 되돌릴까요?"
+    );
+
+    if (!shouldReset) {
+      return;
+    }
+
+    try {
+      setMockTesterResetting(true);
+      setMockTesterUsers([]);
+      resetLocalMockTesterData();
+      clearCurrentSessionState();
+      navigate("/", { replace: true });
+      await loadMockTesterUsers();
+      openAlert("테스트 데이터를 처음 상태로 초기화했습니다.", "success");
+    } catch (error) {
+      console.error("Failed to reset local mock tester data", error);
+      openAlert("테스트 데이터 초기화 중 오류가 발생했습니다.");
+    } finally {
+      setMockTesterResetting(false);
+    }
+  }, [clearCurrentSessionState, loadMockTesterUsers, navigate, openAlert]);
+
+  useEffect(() => {
+    if (!testModeEnabled) {
+      setMockTesterUsers([]);
+      return;
+    }
+
+    void loadMockTesterUsers();
+  }, [loadMockTesterUsers, testModeEnabled]);
+
+  useEffect(() => {
+    if (!testModeEnabled || !testCodeFromQuery || handledTestCode === testCodeFromQuery) {
+      return;
+    }
+
+    setHandledTestCode(testCodeFromQuery);
+
+    const targetTester =
+      mockTesterUsers.find((tester) => normalizeTesterCode(tester.accessCode) === testCodeFromQuery) ?? {
+        userId: "",
+        userName: testCodeFromQuery,
+        accessCode: testCodeFromQuery,
+        hasBoard: true,
+      };
+
+    void handleTesterLogin(targetTester);
+  }, [
+    handledTestCode,
+    handleTesterLogin,
+    mockTesterUsers,
+    testCodeFromQuery,
+    testModeEnabled,
+  ]);
 
   const handleLogout = () => {
     clearCurrentSessionState();
@@ -303,6 +438,103 @@ const Home = () => {
     navigate("/bingo", { replace: true });
   };
 
+  const openTesterInNewTab = (tester: MockTesterUser) => {
+    const nextUrl = new URL(window.location.href);
+    nextUrl.pathname = "/";
+    nextUrl.search = "";
+    nextUrl.searchParams.set("testMode", "1");
+    nextUrl.searchParams.set("testCode", tester.accessCode);
+    window.open(nextUrl.toString(), "_blank", "noopener,noreferrer");
+  };
+
+  const renderTesterPanel = () => {
+    if (!testModeEnabled) {
+      return null;
+    }
+
+    return (
+      <section className="login-dev-panel" aria-label="local mock tester">
+        <div className="login-dev-panel__header">
+          <div>
+            <p className="login-dev-panel__eyebrow">테스트 모드 계정</p>
+            <h3>탭마다 다른 계정으로 바로 테스트</h3>
+          </div>
+          <div className="login-dev-panel__tools">
+            <button
+              type="button"
+              className="login-dev-panel__refresh"
+              onClick={() => {
+                void loadMockTesterUsers();
+              }}
+              disabled={mockTesterLoading || mockTesterResetting}
+            >
+              {mockTesterLoading ? "불러오는 중..." : "새로고침"}
+            </button>
+            <button
+              type="button"
+              className="login-dev-panel__reset"
+              onClick={() => {
+                void handleResetMockTesterData();
+              }}
+              disabled={mockTesterLoading || mockTesterResetting}
+            >
+              {mockTesterResetting ? "초기화 중..." : "테스트 초기화"}
+            </button>
+          </div>
+        </div>
+        <p className="login-dev-panel__description">
+          테스트 계정 로그인은 현재 탭의 `sessionStorage`를 쓰고, mock 보드와 교환
+          기록은 브라우저 전체에서 공유합니다. 그래서 여러 탭을 열어 두면 서로 다른
+          계정끼리 바로 교환 테스트를 할 수 있습니다.
+        </p>
+
+        <div className="login-dev-panel__list">
+          {mockTesterUsers.map((tester) => {
+            const isActive =
+              normalizeTesterCode(currentLoginId || loginIdInput) ===
+              normalizeTesterCode(tester.accessCode);
+
+            return (
+              <article
+                key={`${tester.userId}-${tester.accessCode}`}
+                className={`login-dev-user ${isActive ? "is-active" : ""}`}
+              >
+                <div className="login-dev-user__meta">
+                  <strong>{tester.userName}</strong>
+                  <span>ID {tester.userId}</span>
+                  <span>테스트 코드 {tester.accessCode}</span>
+                  <span>{tester.hasBoard ? "보드 준비 완료" : "보드 미준비"}</span>
+                </div>
+                <div className="login-dev-user__actions">
+                  <button
+                    type="button"
+                    className="login-dev-user__button"
+                    onClick={() => {
+                      void handleTesterLogin(tester);
+                    }}
+                    disabled={
+                      mockTesterResetting || activeTesterCode === tester.accessCode
+                    }
+                  >
+                    {activeTesterCode === tester.accessCode ? "전환 중..." : "이 탭으로"}
+                  </button>
+                  <button
+                    type="button"
+                    className="login-dev-user__button is-secondary"
+                    onClick={() => openTesterInNewTab(tester)}
+                    disabled={mockTesterResetting}
+                  >
+                    새 탭 열기
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    );
+  };
+
   const modeDescription =
     authMode === "register"
       ? "처음 참가라면 이름과 비밀번호로 계정을 만들고 로그인 코드를 발급받으세요."
@@ -324,7 +556,7 @@ const Home = () => {
 
         <section className="login-event-card" aria-label="event summary">
           <div className="login-event-card__copy">
-            <p className="login-event-card__eyebrow">{config.title}</p>
+            <p className="login-event-card__eyebrow">{eventConfig.title}</p>
             <h2>{displayEventName}</h2>
             <div className="login-event-card__meta">
               <span>
@@ -506,6 +738,8 @@ const Home = () => {
                   </div>
                 </section>
               ) : null}
+
+              {renderTesterPanel()}
             </>
           ) : (
             <div className="login-session">
@@ -535,6 +769,8 @@ const Home = () => {
                   로그아웃
                 </button>
               </div>
+
+              {renderTesterPanel()}
             </div>
           )}
         </section>
@@ -547,14 +783,16 @@ const Home = () => {
         fullWidth
         PaperProps={{ className: "login-consent-dialog" }}
       >
-        <ConsentDialog
-          host={config.host}
-          onDecline={() => setAgreeOpen(false)}
-          onAccept={() => {
-            setIsAgreed(true);
-            setAgreeOpen(false);
-          }}
-        />
+        {agreeOpen ? (
+          <ConsentDialog
+            host={eventConfig.host}
+            onDecline={() => setAgreeOpen(false)}
+            onAccept={() => {
+              setIsAgreed(true);
+              setAgreeOpen(false);
+            }}
+          />
+        ) : null}
       </Dialog>
 
       <Dialog

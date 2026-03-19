@@ -1,4 +1,4 @@
-import bingoKeywords from "./bingo-keywords.json";
+import { bingoKeywords } from "./bingoKeywords";
 
 const BOARD_SIZE = 5;
 const BOARD_CELL_COUNT = BOARD_SIZE * BOARD_SIZE;
@@ -24,7 +24,7 @@ const buildBoardKeywordPool = (keywords: string[], requiredCount: number) => {
 };
 
 export const boardKeywordPool = buildBoardKeywordPool(
-  bingoKeywords.keywords,
+  [...bingoKeywords],
   BOARD_CELL_COUNT
 );
 
@@ -34,4 +34,4 @@ export const bingoConfig = {
   boardCellCount: BOARD_CELL_COUNT,
   exchangeKeywordCount: EXCHANGE_KEYWORD_COUNT,
   bingoMissionCount: 3,
-};
+} as const;

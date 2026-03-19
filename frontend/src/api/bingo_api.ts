@@ -1,3 +1,18 @@
+import {
+  mockClearMode,
+  mockCreateBingoBoard,
+  mockCreateUserBingoInteraction,
+  mockGetBingoBoard,
+  mockGetOrCreateTesterUsers,
+  mockGetUserAllInteraction,
+  mockIsModeEnabled,
+  mockLoginBingoUser,
+  mockLoginWithTester,
+  mockRegisterBingoUser,
+  mockResetState,
+} from "./mockBingoApi";
+import type { MockTesterUser } from "./mockBingoApi";
+
 type ApiResponseBase = {
   ok: boolean;
   message: string;
@@ -25,28 +40,13 @@ type BingoBoardResponse = ApiResponseBase & {
   user_interaction_count?: number | null;
 };
 
-type UserSelectedWordsResponse = ApiResponseBase & {
-  selected_words?: string[] | null;
-};
-
-type UpdateBingoStatusResponse = ApiResponseBase & {
-  send_user_id?: number | null;
-  receive_user_id?: number | null;
-  updated_words?: string[] | null;
-  bingo_count?: number | null;
-};
-
-type ReviewResponse = ApiResponseBase & {
-  user_id?: number | null;
-  rating?: number | null;
-  review?: string | null;
-};
-
 export type BingoInteractionRecord = {
   interaction_id?: number;
   word_id_list: string;
   send_user_id: number;
   receive_user_id: number;
+  send_user_name?: string;
+  receive_user_name?: string;
   created_at: string;
 };
 
@@ -55,17 +55,29 @@ type BingoInteractionResponse = ApiResponseBase & {
   word_id_list?: string | null;
   send_user_id?: number | null;
   receive_user_id?: number | null;
+  updated_words?: string[] | null;
+  bingo_count?: number | null;
+  send_user_name?: string | null;
+  receive_user_name?: string | null;
   created_at?: string | null;
 };
 
-type UpdateBingoFromQrResponse = ApiResponseBase & {
-  user_id?: number | null;
-  booth_id?: number | null;
-  updated_words?: string[] | null;
-  bingo_count?: number | null;
+type BingoExchangeResult = {
+  ok: true;
+  message: string;
+  interaction: BingoInteractionRecord;
+  updatedWords: string[];
+  bingoCount?: number;
+};
+
+type BingoExchangeFailure = {
+  ok: false;
+  message: string;
 };
 
 const API_URL = import.meta.env.VITE_API_URL?.trim().replace(/\/$/, "") ?? "";
+const hasApiUrl = API_URL.length > 0;
+const shouldUseMockApi = () => !hasApiUrl || mockIsModeEnabled();
 
 const createApiUrl = (
   path: string,
@@ -145,30 +157,59 @@ const toBoardItems = (boardData?: Record<string, BingoBoardCell> | null) => {
     }));
 };
 
+const toInteractionRecord = (
+  interaction: BingoInteractionResponse
+): BingoInteractionRecord | null => {
+  if (
+    typeof interaction.word_id_list !== "string" ||
+    typeof interaction.send_user_id !== "number" ||
+    typeof interaction.receive_user_id !== "number" ||
+    typeof interaction.created_at !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    interaction_id: interaction.interaction_id ?? undefined,
+    word_id_list: interaction.word_id_list,
+    send_user_id: interaction.send_user_id,
+    receive_user_id: interaction.receive_user_id,
+    send_user_name: interaction.send_user_name ?? undefined,
+    receive_user_name: interaction.receive_user_name ?? undefined,
+    created_at: interaction.created_at,
+  };
+};
+
 const toInteractionRecords = (interactions: BingoInteractionResponse[]) => {
   return interactions.flatMap((interaction): BingoInteractionRecord[] => {
-    if (
-      typeof interaction.word_id_list !== "string" ||
-      typeof interaction.send_user_id !== "number" ||
-      typeof interaction.receive_user_id !== "number" ||
-      typeof interaction.created_at !== "string"
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        interaction_id: interaction.interaction_id ?? undefined,
-        word_id_list: interaction.word_id_list,
-        send_user_id: interaction.send_user_id,
-        receive_user_id: interaction.receive_user_id,
-        created_at: interaction.created_at,
-      },
-    ];
+    const parsedInteraction = toInteractionRecord(interaction);
+    return parsedInteraction ? [parsedInteraction] : [];
   });
 };
 
+export type { MockTesterUser };
+
+export const getLocalMockTesterUsers = async (): Promise<MockTesterUser[]> => {
+  return mockGetOrCreateTesterUsers();
+};
+
+export const loginWithLocalMockTester = async (accessCode: string, userName: string) => {
+  return mockLoginWithTester(accessCode, userName);
+};
+
+export const clearLocalMockMode = () => {
+  mockClearMode();
+};
+
+export const resetLocalMockTesterData = () => {
+  mockResetState();
+};
+
 export const registerBingoUser = async (userName: string, password: string) => {
+  if (shouldUseMockApi()) {
+    return mockRegisterBingoUser(userName, password);
+  }
+
   return requestJson<BingoUserResponse>(
     "/api/auth/bingo/register",
     {
@@ -182,6 +223,10 @@ export const registerBingoUser = async (userName: string, password: string) => {
 };
 
 export const loginBingoUser = async (loginId: string, password: string) => {
+  if (shouldUseMockApi()) {
+    return mockLoginBingoUser(loginId, password);
+  }
+
   return requestJson<BingoUserResponse>(
     "/api/auth/bingo/login",
     {
@@ -194,22 +239,16 @@ export const loginBingoUser = async (loginId: string, password: string) => {
   );
 };
 
-export const getUser = async (username: string) => {
-  const data = await requestJson<BingoUserResponse>(
-    "/api/auth/bingo/get-user-by-name",
-    { method: "GET" },
-    { username }
-  );
-
-  return data.ok ? data : null;
-};
-
 export const createBingoBoard = async (
   userId: string,
   boardData: {
     [key: string]: { value: string; status: number; selected: number };
   }
 ) => {
+  if (shouldUseMockApi()) {
+    return mockCreateBingoBoard(userId, boardData);
+  }
+
   const data = await requestJson<BingoBoardResponse>("/api/bingo/boards", {
     method: "POST",
     body: JSON.stringify({ board_data: boardData, user_id: Number(userId) }),
@@ -219,6 +258,10 @@ export const createBingoBoard = async (
 };
 
 export const getBingoBoard = async (userId: string) => {
+  if (shouldUseMockApi()) {
+    return mockGetBingoBoard(userId);
+  }
+
   const data = await requestJson<BingoBoardResponse>(
     `/api/bingo/boards/${userId}`
   );
@@ -230,54 +273,45 @@ export const getBingoBoard = async (userId: string) => {
   return toBoardItems(data.board_data);
 };
 
-export const getSelectedWords = async (userId: string) => {
-  const data = await requestJson<UserSelectedWordsResponse>(
-    `/api/bingo/boards/selected_words/${userId}`
-  );
-
-  if (!data.ok) {
-    return [];
-  }
-
-  return data.selected_words ?? [];
-};
-
-export const updateBingoBoard = async (
-  send_user_id: string,
-  receive_user_id: string
-) => {
-  const data = await requestJson<UpdateBingoStatusResponse>(
-    `/api/bingo/boards/bingo_status/${send_user_id}/${receive_user_id}`,
-    { method: "PUT" }
-  );
-
-  return data.ok;
-};
-
-export const submitReview = async (
-  userId: string,
-  rating: number,
-  review: string
-) => {
-  const data = await requestJson<ReviewResponse>(`/api/reviews/${userId}`, {
-    method: "POST",
-    body: JSON.stringify({ rating, review }),
-  });
-
-  return data.ok;
-};
-
 export const createUserBingoInteraction = async (
   word_id_list: string,
   send_user_id: number,
   receive_user_id: number
 ) => {
-  const data = await requestJson<ApiResponseBase>("/api/bingo/interactions", {
-    method: "POST",
-    body: JSON.stringify({ word_id_list, send_user_id, receive_user_id }),
-  });
+  const data = shouldUseMockApi()
+    ? await mockCreateUserBingoInteraction(
+        word_id_list,
+        send_user_id,
+        receive_user_id
+      )
+    : await requestJson<BingoInteractionResponse>("/api/bingo/interactions", {
+        method: "POST",
+        body: JSON.stringify({ word_id_list, send_user_id, receive_user_id }),
+      });
 
-  return data.ok;
+  if (!data.ok) {
+    return {
+      ok: false,
+      message: data.message,
+    } satisfies BingoExchangeFailure;
+  }
+
+  const interaction = toInteractionRecord(data);
+  if (!interaction) {
+    return {
+      ok: false,
+      message: "키워드 기록 응답을 해석하지 못했습니다.",
+    } satisfies BingoExchangeFailure;
+  }
+
+  return {
+    ok: true,
+    message: data.message,
+    interaction,
+    updatedWords: data.updated_words ?? [],
+    bingoCount:
+      typeof data.bingo_count === "number" ? data.bingo_count : undefined,
+  } satisfies BingoExchangeResult;
 };
 
 export const getUserLatestInteraction = async (
@@ -293,12 +327,21 @@ export const getUserLatestInteraction = async (
   return Array.isArray(data) ? toInteractionRecords(data) : [];
 };
 
-export const getUserAllInteraction = async (userId: string) => {
-  const data = await requestJson<
-    ApiResponseBase & { interactions?: BingoInteractionResponse[] | null }
-  >(
-    `/api/bingo/interactions/${userId}/all`
-  );
+export const getUserAllInteraction = async (
+  userId: string,
+  afterInteractionId?: number
+) => {
+  const data = shouldUseMockApi()
+    ? await mockGetUserAllInteraction(userId, afterInteractionId)
+    : await requestJson<
+        ApiResponseBase & { interactions?: BingoInteractionResponse[] | null }
+      >(
+        `/api/bingo/interactions/${userId}/all`,
+        { method: "GET" },
+        typeof afterInteractionId === "number"
+          ? { after_interaction_id: afterInteractionId }
+          : undefined
+      );
 
   if (!data.ok) {
     return {
@@ -311,23 +354,4 @@ export const getUserAllInteraction = async (userId: string) => {
     ...data,
     interactions: toInteractionRecords(data.interactions ?? []),
   };
-};
-
-export const getUserName = async (userId: string) => {
-  const data = await requestJson<BingoUserResponse>(
-    `/api/auth/bingo/get-user/${userId}`
-  );
-
-  if (!data.ok) {
-    return "";
-  }
-
-  return data.user_name ?? "";
-};
-
-export const updateBingoFromQR = async (userId: string, targetId: string) => {
-  return requestJson<UpdateBingoFromQrResponse>(
-    `/api/bingo/boards/update/${userId}/${targetId}`,
-    { method: "PATCH" }
-  );
 };

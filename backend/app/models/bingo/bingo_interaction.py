@@ -25,7 +25,23 @@ class BingoInteraction(Base):
             word_id_list=word_id_list, send_user_id=send_user_id, receive_user_id=receive_user_id
         )
         session.add(new_interaction)
+        await session.flush()
         return new_interaction
+
+    @classmethod
+    async def has_directional_interaction(
+        cls,
+        session: AsyncSession,
+        *,
+        send_user_id: int,
+        receive_user_id: int,
+    ) -> bool:
+        stmt = select(cls.interaction_id).where(
+            cls.send_user_id == send_user_id,
+            cls.receive_user_id == receive_user_id,
+        ).limit(1)
+        res = await session.execute(stmt)
+        return res.scalar_one_or_none() is not None
 
     @classmethod
     async def get_user_latest_interaction(cls, session: AsyncSession, user_id: int, limit: int):
@@ -38,10 +54,20 @@ class BingoInteraction(Base):
         return res.scalars().all()
 
     @classmethod
-    async def get_user_all_interactions(cls, session: AsyncSession, user_id: int):
-        res = await session.execute(
+    async def get_user_all_interactions(
+        cls,
+        session: AsyncSession,
+        user_id: int,
+        after_interaction_id: int | None = None,
+    ):
+        stmt = (
             select(cls)
             .where((cls.receive_user_id == user_id) | (cls.send_user_id == user_id))
-            .order_by(cls.created_at.desc())
+            .order_by(cls.created_at.desc(), cls.interaction_id.desc())
         )
+
+        if after_interaction_id is not None:
+            stmt = stmt.where(cls.interaction_id > after_interaction_id)
+
+        res = await session.execute(stmt)
         return res.scalars().all()

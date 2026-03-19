@@ -16,6 +16,10 @@ class BingoInteractionResponse(BaseSchema):
     word_id_list: Optional[str] = Field(title="단어 ID 리스트", default=None)
     send_user_id: Optional[int] = Field(title="보낸 유저 ID", default=None)
     receive_user_id: Optional[int] = Field(title="받은 유저 ID", default=None)
+    updated_words: Optional[list[str]] = Field(title="업데이트된 단어들", default=None)
+    bingo_count: Optional[int] = Field(title="업데이트된 빙고 갯수", default=None)
+    send_user_name: Optional[str] = Field(title="보낸 유저 이름", default=None)
+    receive_user_name: Optional[str] = Field(title="받은 유저 이름", default=None)
     created_at: Optional[datetime] = Field(title="생성일", default=None)
 
 
