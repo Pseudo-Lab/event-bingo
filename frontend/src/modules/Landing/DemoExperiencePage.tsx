@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
-import { buildBoardKeywordPool } from "../../config/bingoConfig";
 import { getAdminPath } from "../../config/eventProfiles";
 import type { BingoCell } from "../Bingo/bingoGameTypes";
 import { getCompletedLines, shuffleArray } from "../Bingo/bingoGameUtils";
@@ -43,6 +42,11 @@ const DEMO_KEYWORDS = [
   "개발",
   "투자",
   "파트너십",
+  "브랜드",
+  "세일즈",
+  "리더십",
+  "운영전략",
+  "커리어",
 ] as const;
 
 const DEMO_VISITOR_NAMES = [
@@ -57,14 +61,42 @@ const DEMO_VISITOR_NAMES = [
 ] as const;
 
 const DEMO_GOAL_LINES = 3;
+const DEMO_VISITOR_INDEX_GROUPS = [
+  [0, 1, 2],
+  [3, 4, 5],
+  [6, 7, 8],
+  [9, 10, 11],
+  [12, 13, 14],
+  [15, 16, 17],
+  [18, 19, 20],
+  [21, 22, 23],
+] as const;
+const DEMO_STEPS = [
+  {
+    title: "키워드 고르기",
+    description: "관심 키워드를 3개 이상 고르고 데모를 시작합니다.",
+    className: "bg-[#eef8f2] text-brand-900",
+  },
+  {
+    title: "랜덤 참가자 만나기",
+    description: "한 번 만날 때마다 상대가 가진 3개 키워드가 보드에 반영됩니다.",
+    className: "bg-[#f3f7ff] text-slate-900",
+  },
+  {
+    title: "빙고 변화 보기",
+    description: "줄이 완성되는 흐름과 만남 기록을 한 화면에서 빠르게 확인합니다.",
+    className: "bg-[#fff7ea] text-slate-900",
+  },
+] as const;
 
 const createDemoBoard = (selectedKeywords: string[]) => {
-  const pool = buildBoardKeywordPool(
-    shuffleArray([...selectedKeywords, ...DEMO_KEYWORDS]),
-    25
+  const uniqueSelectedKeywords = [...new Set(selectedKeywords)];
+  const remainingKeywords = shuffleArray(
+    DEMO_KEYWORDS.filter((keyword) => !uniqueSelectedKeywords.includes(keyword))
   );
+  const pool = [...uniqueSelectedKeywords, ...remainingKeywords].slice(0, 25);
 
-  return pool.slice(0, 25).map<BingoCell>((value, index) => ({
+  return pool.map<BingoCell>((value, index) => ({
     id: index,
     value,
     selected: 0,
@@ -76,18 +108,14 @@ const createDemoVisitors = (board: BingoCell[]): DemoVisitor[] => {
   const boardWords = board.map((cell) => cell.value);
 
   return DEMO_VISITOR_NAMES.map(([name, role], index) => {
-    const startIndex = (index * 3) % boardWords.length;
-    const keywords = [
-      boardWords[startIndex],
-      boardWords[(startIndex + 7) % boardWords.length],
-      boardWords[(startIndex + 13) % boardWords.length],
-    ];
+    const keywordIndexes = DEMO_VISITOR_INDEX_GROUPS[index] ?? [0, 1, 2];
+    const keywords = keywordIndexes.map((keywordIndex) => boardWords[keywordIndex]).filter(Boolean);
 
     return {
       id: index + 1,
       name,
       role,
-      keywords: [...new Set(keywords)],
+      keywords,
     };
   });
 };
@@ -183,7 +211,7 @@ const DemoExperiencePage = () => {
 
     const nextCandidate =
       candidates[Math.floor(Math.random() * candidates.length)];
-    const appliedKeywords = nextCandidate.pendingKeywords.slice(0, 2);
+    const appliedKeywords = nextCandidate.pendingKeywords.slice(0, 3);
     const createdAt = new Date().toISOString();
 
     setBoard((previousValue) =>
@@ -219,7 +247,7 @@ const DemoExperiencePage = () => {
       />
 
       <main className="relative mx-auto flex max-w-7xl flex-col gap-8 px-5 py-6 sm:px-8 lg:px-10">
-        <header className="flex flex-col gap-4 rounded-[2rem] border border-white/70 bg-white/80 px-6 py-5 shadow-soft backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <header className="flex flex-col gap-5 rounded-[2rem] border border-white/70 bg-white/80 px-7 py-6 shadow-soft backdrop-blur sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand-700">
               Demo Experience
@@ -227,7 +255,7 @@ const DemoExperiencePage = () => {
             <h1 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950 sm:text-4xl">
               로그인 없이 빙고 흐름을 빠르게 체험해 보세요
             </h1>
-            <p className="mt-2 text-sm leading-7 text-slate-600">
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
               키워드를 고르고, 랜덤 참가자를 만나며, 빙고판이 어떻게 바뀌는지 바로 확인할 수
               있습니다.
             </p>
@@ -249,14 +277,30 @@ const DemoExperiencePage = () => {
           </div>
         </header>
 
+        <section className="grid gap-4 md:grid-cols-3">
+          {DEMO_STEPS.map((step, index) => (
+            <div
+              key={step.title}
+              className={`rounded-[1.6rem] border border-white/70 px-6 py-5 shadow-soft ${step.className}`}
+            >
+              <p className="text-xs font-black uppercase tracking-[0.2em] opacity-70">
+                Step {index + 1}
+              </p>
+              <h2 className="mt-3 text-xl font-black tracking-[-0.04em]">
+                {step.title}
+              </h2>
+              <p className="mt-3 text-sm leading-7 opacity-80">
+                {step.description}
+              </p>
+            </div>
+          ))}
+        </section>
+
         {!isStarted ? (
           <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
             <Card className="rounded-[2rem] border-white/70 bg-white/85 shadow-soft">
-              <CardContent className="space-y-6 p-6 sm:p-8">
+              <CardContent className="space-y-6 p-7 sm:p-9">
                 <div className="space-y-2">
-                  <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand-700">
-                    Step 1
-                  </p>
                   <h2 className="text-3xl font-black tracking-[-0.05em] text-slate-950">
                     관심 키워드를 3개 이상 고르세요
                   </h2>
@@ -317,21 +361,22 @@ const DemoExperiencePage = () => {
             </Card>
 
             <Card className="rounded-[2rem] border-[#d8eee3] bg-[#eaf7f1] shadow-soft">
-              <CardContent className="space-y-5 p-6 sm:p-8">
+              <CardContent className="space-y-6 p-7 sm:p-9">
                 <div className="space-y-2">
-                  <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand-700">
-                    Step 2
-                  </p>
                   <h2 className="text-3xl font-black tracking-[-0.05em] text-slate-950">
                     랜덤 참가자와 만나면 키워드가 보드에 반영됩니다
                   </h2>
+                  <p className="text-sm leading-7 text-slate-600">
+                    데모에서는 한 번 만날 때마다 상대가 가진 3개 키워드가 보드에 반영됩니다.
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-5 gap-3 rounded-[1.8rem] bg-white p-4 shadow-sm">
-                  {buildBoardKeywordPool([...DEMO_KEYWORDS], 25).slice(0, 25).map((keyword, index) => (
+                <div className="mx-auto w-full max-w-[31rem]">
+                  <div className="grid grid-cols-5 gap-2.5 rounded-[1.8rem] bg-white p-4 shadow-sm sm:gap-3">
+                    {DEMO_KEYWORDS.slice(0, 25).map((keyword, index) => (
                     <div
                       key={`${keyword}-${index}`}
-                      className={`flex aspect-square items-center justify-center rounded-[1.1rem] border px-2 text-center text-xs font-bold leading-5 ${
+                      className={`flex aspect-square items-center justify-center rounded-[1rem] border px-2 text-center text-[0.72rem] font-bold leading-4 sm:text-xs sm:leading-5 ${
                         index % 6 === 0
                           ? "border-brand-200 bg-brand-100 text-brand-800"
                           : "border-slate-100 bg-[#fbfcf8] text-slate-600"
@@ -340,63 +385,46 @@ const DemoExperiencePage = () => {
                       {keyword}
                     </div>
                   ))}
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {[
-                    "키워드 선택",
-                    "랜덤 참가자 만나기",
-                    "빙고 변화 확인",
-                  ].map((stepLabel, index) => (
-                    <div key={stepLabel} className="rounded-[1.4rem] bg-white px-4 py-4 shadow-sm">
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-700">
-                        Step {index + 1}
-                      </p>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-                        {stepLabel}
-                      </p>
-                    </div>
-                  ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </section>
         ) : (
-          <section className="grid gap-6 xl:grid-cols-[0.72fr_1.28fr]">
-            <div className="space-y-6">
+          <section className="grid gap-6 xl:grid-cols-[21rem_minmax(0,1fr)] xl:items-stretch">
+            <div className="flex min-h-0 flex-col gap-6 xl:h-[54rem]">
               <Card className="rounded-[2rem] border-white/70 bg-white/85 shadow-soft">
-                <CardContent className="space-y-5 p-6">
+                <CardContent className="space-y-4 p-6 pt-7">
                   <div className="space-y-2">
-                    <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand-700">
+                    <p className="pt-0.5 text-sm font-bold uppercase tracking-[0.22em] text-brand-700">
                       Demo Status
                     </p>
-                    <h2 className="text-2xl font-black tracking-[-0.05em] text-slate-950">
-                      지금은 이런 식으로 보드가 변합니다
-                    </h2>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                     {[
                       { label: "만난 사람", value: `${metCount}명` },
-                      { label: "완성된 줄 수", value: `${bingoCount}줄` },
-                      { label: "목표까지", value: `${Math.max(0, DEMO_GOAL_LINES - bingoCount)}줄` },
+                      {
+                        label: "완성 줄 수 / 목표",
+                        value: `${bingoCount}줄 / ${DEMO_GOAL_LINES}줄`,
+                      },
                     ].map((metric) => (
-                      <div key={metric.label} className="rounded-[1.4rem] bg-[#f6f9f5] px-4 py-4">
-                        <p className="text-sm font-semibold text-slate-500">{metric.label}</p>
-                        <p className="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
+                      <div key={metric.label} className="rounded-[1.35rem] bg-[#f6f9f5] px-4 py-3.5">
+                        <p className="text-[0.92rem] font-semibold text-slate-500">{metric.label}</p>
+                        <p className="mt-1.5 text-[1.65rem] font-black tracking-[-0.04em] text-slate-950">
                           {metric.value}
                         </p>
                       </div>
                     ))}
                   </div>
 
-                  <div className="rounded-[1.5rem] bg-brand-50 px-5 py-5">
-                    <p className="text-sm font-semibold text-brand-700">선택한 키워드</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="rounded-[1.45rem] bg-brand-50 px-4 py-4">
+                    <p className="text-[0.92rem] font-semibold text-brand-700">선택한 키워드</p>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
                       {selectedKeywords.map((keyword) => (
                         <span
                           key={keyword}
-                          className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-brand-800"
+                          className="rounded-full bg-white px-3 py-1.5 text-[0.92rem] font-semibold text-brand-800"
                         >
                           {keyword}
                         </span>
@@ -405,18 +433,18 @@ const DemoExperiencePage = () => {
                   </div>
 
                   {currentEncounter ? (
-                    <div className="rounded-[1.5rem] bg-brand-900 px-5 py-5 text-white">
-                      <p className="text-sm font-semibold text-white/70">
+                    <div className="rounded-[1.45rem] bg-brand-900 px-4 py-4 text-white">
+                      <p className="text-[0.92rem] font-semibold text-white/70">
                         방금 만난 참가자
                       </p>
-                      <p className="mt-1 text-xl font-black tracking-[-0.04em]">
+                      <p className="mt-1 text-[1.08rem] font-black tracking-[-0.04em]">
                         {currentEncounter.visitorName} · {currentEncounter.visitorRole}
                       </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-2.5 flex flex-wrap gap-2">
                         {currentEncounter.appliedKeywords.map((keyword) => (
                           <span
                             key={keyword}
-                            className="rounded-full bg-white/15 px-3 py-1.5 text-sm font-semibold text-white"
+                            className="rounded-full bg-white/15 px-3 py-1.5 text-[0.88rem] font-semibold text-white"
                           >
                             {keyword}
                           </span>
@@ -440,12 +468,12 @@ const DemoExperiencePage = () => {
                 </CardContent>
               </Card>
 
-              <Card className="rounded-[2rem] border-white/70 bg-white/85 shadow-soft">
-                <CardContent className="space-y-4 p-6">
+              <Card className="flex min-h-0 flex-1 overflow-hidden rounded-[2rem] border-white/70 bg-white/85 shadow-soft">
+                <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-6 pt-7">
                   <h3 className="text-xl font-black tracking-[-0.04em] text-slate-950">
                     만남 기록
                   </h3>
-                  <div className="space-y-3">
+                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-3 [scrollbar-gutter:stable_both-edges]">
                     {history.length > 0 ? (
                       history.map((encounter) => (
                         <div
@@ -485,14 +513,14 @@ const DemoExperiencePage = () => {
               </Card>
             </div>
 
-            <Card className="rounded-[2rem] border-[#d8eee3] bg-white shadow-soft">
-              <CardContent className="space-y-6 p-6">
+            <Card className="flex overflow-hidden rounded-[2rem] border-[#d8eee3] bg-white shadow-soft xl:h-[54rem]">
+              <CardContent className="flex min-h-0 flex-1 flex-col gap-5 p-6 pt-7">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand-700">
+                    <p className="pt-0.5 text-sm font-bold uppercase tracking-[0.22em] text-brand-700">
                       Demo Board
                     </p>
-                    <h2 className="text-2xl font-black tracking-[-0.05em] text-slate-950">
+                    <h2 className="text-[1.55rem] font-black tracking-[-0.05em] text-slate-950">
                       보드가 채워지는 흐름을 관찰해 보세요
                     </h2>
                   </div>
@@ -501,23 +529,25 @@ const DemoExperiencePage = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-5 gap-3 rounded-[1.8rem] bg-[#f3f8f4] p-4">
-                  {board.map((cell) => (
-                    <div
-                      key={cell.id}
-                      className={`flex aspect-square items-center justify-center rounded-[1.15rem] border px-2 text-center text-xs font-bold leading-5 transition-colors sm:text-sm ${
-                        cell.status === 1
-                          ? "border-brand-300 bg-brand-100 text-brand-900"
-                          : "border-white bg-white text-slate-600"
-                      }`}
-                    >
-                      {cell.value}
-                    </div>
-                  ))}
+                <div className="mx-auto w-full max-w-[33rem] shrink-0">
+                  <div className="grid grid-cols-5 gap-2.5 rounded-[1.8rem] bg-[#f3f8f4] p-4 sm:gap-3">
+                    {board.map((cell) => (
+                      <div
+                        key={cell.id}
+                        className={`flex aspect-square items-center justify-center rounded-[1rem] border px-2 text-center text-[0.72rem] font-bold leading-4 transition-colors sm:text-[0.82rem] sm:leading-5 ${
+                          cell.status === 1
+                            ? "border-brand-300 bg-brand-100 text-brand-900"
+                            : "border-white bg-white text-slate-600"
+                        }`}
+                      >
+                        {cell.value}
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-[1.5rem] bg-[#f6f9f5] px-5 py-5">
+                <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-2">
+                  <div className="h-full min-h-0 rounded-[1.5rem] bg-[#f6f9f5] px-5 py-5">
                     <p className="text-sm font-semibold text-slate-500">완성된 라인</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {completedLines.length > 0 ? (
@@ -541,13 +571,13 @@ const DemoExperiencePage = () => {
                     </div>
                   </div>
 
-                  <div className="rounded-[1.5rem] bg-brand-900 px-5 py-5 text-white">
+                  <div className="h-full rounded-[1.5rem] bg-brand-900 px-5 py-5 text-white">
                     <p className="text-sm font-semibold text-white/70">다음 액션</p>
                     <p className="mt-2 text-lg font-black tracking-[-0.04em]">
                       더 많은 사람을 만나며 같은 키워드를 받을수록 보드가 채워집니다.
                     </p>
                     <p className="mt-3 text-sm leading-6 text-white/75">
-                      실제 이벤트에서는 이 흐름이 행사별 URL 안에서 참가자 로그인 후 이어집니다.
+                      실제 행사에서는 참가자가 로그인한 뒤 같은 흐름으로 빙고를 이어가게 됩니다.
                     </p>
                   </div>
                 </div>

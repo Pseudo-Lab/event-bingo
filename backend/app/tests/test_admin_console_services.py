@@ -2,9 +2,11 @@ import pytest
 
 from api.admin.console_services import (
     validate_admin_member_deletion,
+    validate_event_schedule,
     validate_event_slug,
     validate_publish_transition,
 )
+from datetime import datetime
 from models.admin import AdminRole
 from models.event import EventPublishState
 
@@ -26,6 +28,14 @@ def test_validate_publish_transition_blocks_published_to_draft():
 
 def test_validate_publish_transition_allows_draft_to_published():
     validate_publish_transition(EventPublishState.DRAFT, EventPublishState.PUBLISHED)
+
+
+def test_validate_event_schedule_blocks_invalid_range():
+    start_at = datetime.fromisoformat("2026-05-17T15:00:00+09:00")
+    end_at = datetime.fromisoformat("2026-05-17T14:00:00+09:00")
+
+    with pytest.raises(ValueError, match="종료 시각"):
+        validate_event_schedule(start_at, end_at)
 
 
 def test_validate_admin_member_deletion_blocks_self_delete():

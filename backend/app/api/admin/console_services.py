@@ -72,6 +72,11 @@ def can_edit_event(actor: Admin, event: Event) -> bool:
     return actor.role == AdminRole.ADMIN or actor.id == event.admin_id
 
 
+def validate_event_schedule(start_at: datetime, end_at: datetime) -> None:
+    if end_at <= start_at:
+        raise ValueError("행사 종료 시각은 시작 시각보다 늦어야 합니다.")
+
+
 async def serialize_event_manager_request(
     session: AsyncSession,
     request: EventManagerRequest,
@@ -214,7 +219,10 @@ async def build_event_summary(
         created_by_id=event.admin_id,
         created_by_email=creator.email,
         created_by_name=creator.name,
-        event_date=event.start_time,
+        location=event.location,
+        event_team=event.event_team,
+        start_at=event.start_time,
+        end_at=event.end_time,
         admin_email=event.admin_email,
         board_size=event.bingo_size,
         bingo_mission_count=event.success_condition,
@@ -257,7 +265,7 @@ async def build_event_detail(
             AdminEventParticipantItem(
                 id=user.user_id,
                 name=user.user_name,
-                email=user.login_id,
+                user_code=user.login_id,
                 progress_percent=progress_percent,
                 keywords=keywords,
             )

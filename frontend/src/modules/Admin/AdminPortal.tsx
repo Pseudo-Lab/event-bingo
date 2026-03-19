@@ -68,11 +68,15 @@ type EventFormState = {
   isPublished: boolean;
   wasPublished: boolean;
   name: string;
+  location: string;
+  eventTeam: string;
   boardSize: "3" | "5";
   bingoMissionCount: string;
   keywords: string[];
   keywordDraft: string;
   date: string;
+  startTime: string;
+  endTime: string;
   adminEmail: string;
   participantCount: string;
   progressCurrent: string;
@@ -108,10 +112,26 @@ const formatAdminDate = (value: string) => {
 
 const formatEventRowDate = (value: string) => {
   try {
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
+    return new Intl.DateTimeFormat("ko-KR", {
       year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Seoul",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+};
+
+const formatTimeText = (value: string) => {
+  try {
+    return new Intl.DateTimeFormat("ko-KR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
       timeZone: "Asia/Seoul",
     }).format(new Date(value));
   } catch {
@@ -125,7 +145,35 @@ const toDateInputValue = (value: string) => {
     return "";
   }
 
-  return parsedDate.toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Asia/Seoul",
+  }).formatToParts(parsedDate);
+
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  return `${year}-${month}-${day}`;
+};
+
+const toTimeInputValue = (value: string) => {
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "";
+  }
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Seoul",
+  }).formatToParts(parsedDate);
+
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+  return `${hour}:${minute}`;
 };
 
 const getRoleLabel = (role: AdminRole) => {
@@ -161,7 +209,14 @@ const getProgressPercent = (current: number, total: number) => {
 };
 
 const sortAdminEvents = (items: AdminEvent[]) => {
-  return [...items].sort((left, right) => right.id - left.id);
+  return [...items].sort((left, right) => {
+    const leftTime = new Date(left.startAt).getTime();
+    const rightTime = new Date(right.startAt).getTime();
+    if (leftTime !== rightTime) {
+      return leftTime - rightTime;
+    }
+    return left.name.localeCompare(right.name, "ko-KR");
+  });
 };
 
 const upsertAdminEvent = (items: AdminEvent[], nextItem: AdminEvent) => {
@@ -176,7 +231,16 @@ const getAdminEventDetailPath = (eventId: number | string, tab: EventDetailTab =
 const getEventDateParts = (value: string) => {
   try {
     const parsedDate = new Date(value);
+    const year = new Intl.DateTimeFormat("ko-KR", {
+      year: "numeric",
+      timeZone: "Asia/Seoul",
+    }).format(parsedDate);
+    const month = new Intl.DateTimeFormat("ko-KR", {
+      month: "long",
+      timeZone: "Asia/Seoul",
+    }).format(parsedDate);
     return {
+      yearMonth: `${year} ${month}`,
       day: new Intl.DateTimeFormat("en-US", {
         day: "2-digit",
         timeZone: "Asia/Seoul",
@@ -187,17 +251,17 @@ const getEventDateParts = (value: string) => {
       }).format(parsedDate),
     };
   } catch {
-    return { day: "--", weekday: "" };
+    return { yearMonth: "", day: "--", weekday: "" };
   }
 };
 
-const getTimeRangeLabel = (value: string) => {
-  const parsedDate = new Date(value);
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value;
+const getTimeRangeLabel = (startAt: string, endAt: string) => {
+  const startDate = new Date(startAt);
+  const endDate = new Date(endAt);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return startAt;
   }
 
-  const endDate = new Date(parsedDate.getTime() + 90 * 60 * 1000);
   const formatTime = (date: Date) => {
     const parts = new Intl.DateTimeFormat("en-US", {
       hour: "numeric",
@@ -216,7 +280,7 @@ const getTimeRangeLabel = (value: string) => {
     };
   };
 
-  const startLabel = formatTime(parsedDate);
+  const startLabel = formatTime(startDate);
   const endLabel = formatTime(endDate);
 
   if (startLabel.dayPeriod === endLabel.dayPeriod) {
@@ -247,11 +311,15 @@ const createEventFormState = (adminEmail: string, eventItem?: AdminEvent): Event
       isPublished: eventItem.isPublished,
       wasPublished: eventItem.isPublished,
       name: eventItem.name,
+      location: eventItem.location,
+      eventTeam: eventItem.eventTeam,
       boardSize: String(eventItem.boardSize) as "3" | "5",
       bingoMissionCount: String(eventItem.bingoMissionCount),
       keywords: [...eventItem.keywords],
       keywordDraft: "",
-      date: toDateInputValue(eventItem.eventDate),
+      date: toDateInputValue(eventItem.startAt),
+      startTime: toTimeInputValue(eventItem.startAt),
+      endTime: toTimeInputValue(eventItem.endAt),
       adminEmail: eventItem.adminEmail,
       participantCount: String(eventItem.participantCount),
       progressCurrent: String(eventItem.progressCurrent),
@@ -266,11 +334,15 @@ const createEventFormState = (adminEmail: string, eventItem?: AdminEvent): Event
     isPublished: false,
     wasPublished: false,
     name: "",
+    location: "",
+    eventTeam: "",
     boardSize: "5",
     bingoMissionCount: "4",
     keywords: [],
     keywordDraft: "",
     date: "",
+    startTime: "15:00",
+    endTime: "18:00",
     adminEmail,
     participantCount: "0",
     progressCurrent: "0",
@@ -294,6 +366,10 @@ const normalizeSlugInput = (value: string) => {
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "");
+};
+
+const combineDateAndTimeToIso = (date: string, time: string) => {
+  return `${date}T${time}:00+09:00`;
 };
 
 const IconBase = ({
@@ -1250,6 +1326,16 @@ const AdminConsolePage = ({
       return;
     }
 
+    if (!eventForm.eventTeam.trim()) {
+      setEventFormError("Event team을 입력해 주세요.");
+      return;
+    }
+
+    if (!eventForm.location.trim()) {
+      setEventFormError("행사 위치를 입력해 주세요.");
+      return;
+    }
+
     if (!eventForm.slug.trim()) {
       setEventFormError("URL에 사용할 slug를 입력해 주세요.");
       return;
@@ -1263,6 +1349,19 @@ const AdminConsolePage = ({
 
     if (!eventForm.date) {
       setEventFormError("날짜를 입력해 주세요.");
+      return;
+    }
+
+    if (!eventForm.startTime || !eventForm.endTime) {
+      setEventFormError("시작 시간과 종료 시간을 입력해 주세요.");
+      return;
+    }
+
+    const startAt = combineDateAndTimeToIso(eventForm.date, eventForm.startTime);
+    const endAt = combineDateAndTimeToIso(eventForm.date, eventForm.endTime);
+
+    if (new Date(endAt).getTime() <= new Date(startAt).getTime()) {
+      setEventFormError("행사 종료 시각은 시작 시각보다 늦어야 합니다.");
       return;
     }
 
@@ -1281,7 +1380,10 @@ const AdminConsolePage = ({
         ? await updateAdminEvent(session.accessToken, eventForm.id, {
             slug: eventForm.slug,
             name: eventForm.name,
-            eventDate: `${eventForm.date}T09:00:00+09:00`,
+            location: eventForm.location,
+            eventTeam: eventForm.eventTeam,
+            startAt,
+            endAt,
             adminEmail: eventForm.adminEmail,
             boardSize: Number(eventForm.boardSize) === 3 ? 3 : 5,
             bingoMissionCount: Number(eventForm.bingoMissionCount),
@@ -1291,7 +1393,10 @@ const AdminConsolePage = ({
         : await createAdminEvent(session.accessToken, {
             slug: eventForm.slug,
             name: eventForm.name,
-            eventDate: `${eventForm.date}T09:00:00+09:00`,
+            location: eventForm.location,
+            eventTeam: eventForm.eventTeam,
+            startAt,
+            endAt,
             adminEmail: eventForm.adminEmail,
             boardSize: Number(eventForm.boardSize) === 3 ? 3 : 5,
             bingoMissionCount: Number(eventForm.bingoMissionCount),
@@ -1313,10 +1418,10 @@ const AdminConsolePage = ({
   };
 
   const selectedEventDateParts = selectedEvent
-    ? getEventDateParts(selectedEvent.eventDate)
+    ? getEventDateParts(selectedEvent.startAt)
     : null;
   const selectedEventTimeRange = selectedEvent
-    ? getTimeRangeLabel(selectedEvent.eventDate)
+    ? getTimeRangeLabel(selectedEvent.startAt, selectedEvent.endAt)
     : "";
 
   if (!session) {
@@ -1383,9 +1488,9 @@ const AdminConsolePage = ({
         </div>
       </aside>
 
-      <main className="p-4 sm:p-6 lg:p-8 xl:p-10">
-        <Card className="min-h-[calc(100vh-3rem)] rounded-[2rem] border-white/40 shadow-soft xl:min-h-[calc(100vh-5rem)]">
-          <CardContent className="space-y-8 p-6 pt-6 sm:p-8 sm:pt-8 md:p-10 md:pt-10 xl:p-12 xl:pt-12">
+      <main className="p-5 sm:p-7 lg:p-9 xl:p-10">
+        <Card className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-[2rem] border-white/40 shadow-soft xl:h-[calc(100vh-6rem)]">
+          <CardContent className="min-h-0 flex-1 overflow-y-auto space-y-8 p-6 pt-6 pr-5 sm:p-8 sm:pt-8 sm:pr-6 md:p-9 md:pt-9 md:pr-7 xl:p-10 xl:pt-10 xl:pr-8 [scrollbar-gutter:stable_both-edges]">
             {pageError ? (
               <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">
                 {pageError}
@@ -1404,7 +1509,7 @@ const AdminConsolePage = ({
                   description="이벤트 현황과 현재 라우팅, 관리자 구성, 빙고 설정을 한 화면에서 빠르게 확인할 수 있습니다."
                 />
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   {[
                     {
                       label: "대표 이벤트",
@@ -1435,11 +1540,11 @@ const AdminConsolePage = ({
                       key={item.label}
                       className="rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none"
                     >
-                      <CardContent className="flex min-h-[9rem] flex-col justify-between p-6 md:p-7">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      <CardContent className="flex min-h-[7.9rem] flex-col justify-between gap-4 p-6">
+                        <p className="pt-0.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                           {item.label}
                         </p>
-                        <p className="text-[1.8rem] font-black tracking-tight leading-tight text-slate-900">
+                        <p className="text-[1.45rem] font-black tracking-tight leading-tight text-slate-900 xl:text-[1.6rem]">
                           {item.value}
                         </p>
                       </CardContent>
@@ -1457,7 +1562,9 @@ const AdminConsolePage = ({
                       {featuredEvent ? (
                         [
                           ["행사명", featuredEvent.name],
-                          ["시작 일시", formatEventDateLabel(featuredEvent.eventDate)],
+                          ["Event team", featuredEvent.eventTeam],
+                          ["행사 위치", featuredEvent.location],
+                          ["행사 일정", `${formatEventDateLabel(featuredEvent.startAt)} - ${formatTimeText(featuredEvent.endAt)}`],
                           ["담당 관리자", featuredEvent.adminEmail],
                           ["빙고 크기", `${featuredEvent.boardSize}X${featuredEvent.boardSize}`],
                           ["성공 조건", `${featuredEvent.bingoMissionCount}줄`],
@@ -1599,7 +1706,7 @@ const AdminConsolePage = ({
                 {applications.length > 0 ? (
                   <div className="overflow-hidden rounded-[1.6rem] border border-slate-100 bg-[#fbfcf8]">
                     <div className="overflow-x-auto">
-                      <Table className="min-w-[1180px]">
+                      <Table className="min-w-[1060px]">
                         <TableHeader className="bg-[#f6f8ef]">
                           <TableRow className="border-none hover:bg-transparent">
                             <TableHead>신청일</TableHead>
@@ -1617,7 +1724,7 @@ const AdminConsolePage = ({
                               <TableCell className="whitespace-nowrap text-sm text-slate-500">
                                 {formatAdminDate(requestItem.createdAt)}
                               </TableCell>
-                              <TableCell className="min-w-[15rem]">
+                              <TableCell className="min-w-[12rem]">
                                 <div className="space-y-1">
                                   <p className="font-semibold text-slate-900">{requestItem.name}</p>
                                   <p className="text-sm text-slate-500">{requestItem.email}</p>
@@ -1628,10 +1735,10 @@ const AdminConsolePage = ({
                                   ) : null}
                                 </div>
                               </TableCell>
-                              <TableCell className="min-w-[14rem] font-semibold text-slate-800">
+                              <TableCell className="min-w-[11rem] font-semibold text-slate-800 break-words">
                                 {requestItem.eventName}
                               </TableCell>
-                              <TableCell className="min-w-[22rem] text-sm leading-6 text-slate-600">
+                              <TableCell className="min-w-[16rem] text-sm leading-6 text-slate-600">
                                 {requestItem.eventPurpose.length > 110
                                   ? `${requestItem.eventPurpose.slice(0, 110)}...`
                                   : requestItem.eventPurpose}
@@ -1785,6 +1892,9 @@ const AdminConsolePage = ({
                           </div>
                           <div className="flex flex-col gap-5 md:flex-row md:items-center">
                             <div className="w-20 shrink-0 text-center">
+                              <div className="text-sm font-bold uppercase tracking-[0.16em] text-slate-400">
+                                {selectedEventDateParts?.yearMonth}
+                              </div>
                               <div className="text-5xl font-black tracking-tight text-slate-900">
                                 {selectedEventDateParts?.day}
                               </div>
@@ -1800,6 +1910,14 @@ const AdminConsolePage = ({
                               <p className="mt-1 text-[2rem] font-black tracking-tight text-slate-900">
                                 {selectedEvent.name}
                               </p>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <span className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-brand-700">
+                                  {selectedEvent.eventTeam}
+                                </span>
+                                <span className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-600">
+                                  {selectedEvent.location}
+                                </span>
+                              </div>
                             </div>
 
                             <div className="self-start md:self-center">
@@ -1897,7 +2015,7 @@ const AdminConsolePage = ({
                               <p className="text-lg font-black text-brand-700">비율</p>
                             </div>
                             {selectedEventInsights.bingoRows.length > 0 ? (
-                              <div className="-mr-2 mt-4 flex-1 overflow-y-auto pr-2 [scrollbar-gutter:stable]">
+                              <div className="-mr-2 mt-4 flex-1 overflow-y-auto pr-4 [scrollbar-gutter:stable_both-edges]">
                                 <div className="grid grid-cols-[1.2fr_0.8fr_0.7fr] gap-x-4 gap-y-4 pb-1">
                                   {selectedEventInsights.bingoRows.map((bingoRow) => (
                                     <Fragment key={bingoRow.lineLabel}>
@@ -1935,7 +2053,7 @@ const AdminConsolePage = ({
                               <p className="text-lg font-black text-brand-700">선택한 사람 수</p>
                             </div>
                             {selectedEventInsights.keywordRows.length > 0 ? (
-                              <div className="-mr-2 mt-4 flex-1 overflow-y-auto pr-2 [scrollbar-gutter:stable]">
+                              <div className="-mr-2 mt-4 flex-1 overflow-y-auto pr-4 [scrollbar-gutter:stable_both-edges]">
                                 <div className="grid grid-cols-[0.6fr_1.5fr_1fr] gap-x-4 gap-y-4 pb-1">
                                   {selectedEventInsights.keywordRows.map((keywordRow) => (
                                     <Fragment key={keywordRow.keyword}>
@@ -1989,7 +2107,7 @@ const AdminConsolePage = ({
                                       {participant.name}
                                     </TableCell>
                                     <TableCell className="text-[1.05rem] text-slate-800">
-                                      {participant.email}
+                                      {participant.userCode}
                                     </TableCell>
                                     <TableCell className="min-w-[24rem]">
                                       <div className="flex items-center gap-3">
@@ -2140,14 +2258,14 @@ const AdminConsolePage = ({
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {visibleEvents.map((eventItem) => (
+                          {visibleEvents.map((eventItem, index) => (
                             <TableRow
                               key={eventItem.id}
                               className="cursor-pointer"
                               onClick={() => goToEventDetail(eventItem.id)}
                             >
                               <TableCell className="font-bold text-slate-900">
-                                {eventItem.id}
+                                {(eventPage - 1) * ITEMS_PER_PAGE + index + 1}
                               </TableCell>
                               <TableCell className="font-semibold text-slate-800">
                                 <div className="space-y-2">
@@ -2173,7 +2291,7 @@ const AdminConsolePage = ({
                               </TableCell>
                               <TableCell>
                                 <span className="inline-flex rounded-lg bg-slate-100 px-3 py-2 font-medium text-slate-700">
-                                  {formatEventRowDate(eventItem.eventDate)}
+                                  {formatEventRowDate(eventItem.startAt)}
                                 </span>
                               </TableCell>
                               <TableCell className="text-lg font-medium text-slate-800">
@@ -2260,8 +2378,8 @@ const AdminConsolePage = ({
                   description="서비스 홈 동의 팝업에 들어갈 기본 템플릿을 미리 확인할 수 있습니다."
                 />
 
-                <div className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
-                  <Card className="rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
+                <div className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)] xl:min-h-[calc(100vh-16rem)]">
+                  <Card className="overflow-hidden rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
                     <CardHeader className="space-y-2 p-7 pb-0">
                       <CardTitle>템플릿 안내</CardTitle>
                       <CardDescription>서비스 홈의 동의 팝업에 바로 연결되는 기본 문안입니다.</CardDescription>
@@ -2286,14 +2404,14 @@ const AdminConsolePage = ({
                     </CardContent>
                   </Card>
 
-                  <Card className="rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
+                  <Card className="flex min-h-0 flex-col overflow-hidden rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
                     <CardHeader className="space-y-2 p-7 pb-0">
                       <CardTitle>기본 동의 템플릿</CardTitle>
                       <CardDescription>마크다운 템플릿을 동일한 여백으로 읽기 쉽게 정리했습니다.</CardDescription>
                     </CardHeader>
-                    <CardContent className="p-7 pt-6">
+                    <CardContent className="flex min-h-0 flex-1 flex-col p-7 pt-6">
                       {policyContent ? (
-                        <div className="max-h-[calc(100vh-18rem)] overflow-y-auto rounded-[1.5rem] border border-white/90 bg-white/90 p-6 md:p-8 [scrollbar-gutter:stable]">
+                        <div className="min-h-0 flex-1 overflow-y-auto rounded-[1.5rem] border border-white/90 bg-white/90 p-6 pr-7 md:p-8 md:pr-9 [scrollbar-gutter:stable_both-edges]">
                           <ReactMarkdown
                             components={{
                               h1: ({ children }) => (
@@ -2348,7 +2466,7 @@ const AdminConsolePage = ({
 
       {showAddModal ? (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/45 p-4 sm:p-6">
-          <div className="mx-auto my-2 flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.75rem] bg-white p-6 shadow-soft sm:my-4 sm:max-h-[calc(100dvh-3rem)] sm:p-8">
+          <div className="mx-auto my-4 flex max-h-[calc(100dvh-4rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.75rem] bg-white p-6 shadow-soft sm:my-6 sm:max-h-[calc(100dvh-5rem)] sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-black tracking-tight text-brand-800">관리자 추가</h2>
@@ -2370,7 +2488,7 @@ const AdminConsolePage = ({
             </div>
 
             <form className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={handleCreateAdmin}>
-              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-4 [scrollbar-gutter:stable_both-edges]">
                 <div className="space-y-2">
                   <Label htmlFor="new-admin-email">이메일</Label>
                   <Input
@@ -2501,14 +2619,14 @@ const AdminConsolePage = ({
 
       {showEventModal ? (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/45 p-4 sm:p-6">
-          <div className="mx-auto my-2 flex max-h-[calc(100dvh-2rem)] w-full max-w-[39rem] flex-col overflow-hidden rounded-[1.5rem] bg-white p-6 shadow-soft sm:my-4 sm:max-h-[calc(100dvh-3rem)] sm:p-7">
+          <div className="mx-auto my-5 flex max-h-[calc(100dvh-7rem)] w-full max-w-[38rem] flex-col overflow-hidden rounded-[1.5rem] bg-white p-5 shadow-soft sm:my-7 sm:max-h-[calc(100dvh-8rem)] sm:p-[1.375rem]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-[2rem] font-black tracking-tight text-brand-800">
                   {eventForm.id ? "이벤트 수정" : "새 이벤트 등록"}
                 </h2>
                 <p className="mt-2 text-sm text-slate-500">
-                  행사명은 자유롭게 바꿀 수 있지만, 공개 후에는 URL slug가 잠깁니다.
+                  행사명, 위치, 시간, Event team, 키워드를 행사별로 설정할 수 있습니다.
                 </p>
               </div>
 
@@ -2525,8 +2643,8 @@ const AdminConsolePage = ({
               </Button>
             </div>
 
-            <form className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={handleSaveEvent}>
-              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
+            <form className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={handleSaveEvent}>
+              <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto pr-4 [scrollbar-gutter:stable_both-edges]">
                 <div className="space-y-2">
                   <Label htmlFor="event-modal-name">행사 이름</Label>
                   <Input
@@ -2536,6 +2654,39 @@ const AdminConsolePage = ({
                     placeholder="행사이름을 적어주세요."
                     className="h-12 rounded-xl"
                   />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="event-modal-team">Event team</Label>
+                    <Input
+                      id="event-modal-team"
+                      value={eventForm.eventTeam}
+                      onChange={(event) =>
+                        setEventForm((previousValue) => ({
+                          ...previousValue,
+                          eventTeam: event.target.value,
+                        }))
+                      }
+                      placeholder="PseudoLab"
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="event-modal-location">행사 위치</Label>
+                    <Input
+                      id="event-modal-location"
+                      value={eventForm.location}
+                      onChange={(event) =>
+                        setEventForm((previousValue) => ({
+                          ...previousValue,
+                          location: event.target.value,
+                        }))
+                      }
+                      placeholder="서울 성수 XYZ홀"
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -2576,6 +2727,9 @@ const AdminConsolePage = ({
                     <p className="font-semibold text-brand-700">
                       공개 URL: {eventForm.slug ? getEventHomePath(eventForm.slug) : "/{slug}"}
                     </p>
+                    <p className="font-semibold text-rose-500">
+                      Published로 저장하는 순간 slug가 고정되며, 이후에는 변경할 수 없습니다.
+                    </p>
                   </div>
                 </div>
 
@@ -2606,11 +2760,66 @@ const AdminConsolePage = ({
                       </Button>
                     ))}
                   </div>
-                  {eventForm.wasPublished ? (
-                    <p className="text-xs font-semibold text-slate-400">
-                      한 번 공개된 이벤트는 다시 Draft로 내릴 수 없습니다.
-                    </p>
-                  ) : null}
+                  <p className="text-xs font-semibold text-rose-500">
+                    {eventForm.wasPublished
+                      ? "한 번 공개된 이벤트는 다시 Draft로 내릴 수 없고 slug도 변경할 수 없습니다."
+                      : "Published로 저장하면 slug가 즉시 고정되고, 이후에는 Draft로 되돌릴 수 없습니다."}
+                  </p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-[1.1fr_0.9fr_0.9fr]">
+                  <div className="space-y-2">
+                    <Label htmlFor="event-modal-date">날짜</Label>
+                    <div className="relative">
+                      <Input
+                        id="event-modal-date"
+                        type="date"
+                        value={eventForm.date}
+                        onChange={(event) =>
+                          setEventForm((previousValue) => ({
+                            ...previousValue,
+                            date: event.target.value,
+                          }))
+                        }
+                        className="h-12 rounded-xl pr-11"
+                      />
+                      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-brand-700">
+                        <ChevronDownIcon />
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="event-modal-start-time">시작 시간</Label>
+                    <Input
+                      id="event-modal-start-time"
+                      type="time"
+                      value={eventForm.startTime}
+                      onChange={(event) =>
+                        setEventForm((previousValue) => ({
+                          ...previousValue,
+                          startTime: event.target.value,
+                        }))
+                      }
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="event-modal-end-time">종료 시간</Label>
+                    <Input
+                      id="event-modal-end-time"
+                      type="time"
+                      value={eventForm.endTime}
+                      onChange={(event) =>
+                        setEventForm((previousValue) => ({
+                          ...previousValue,
+                          endTime: event.target.value,
+                        }))
+                      }
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -2752,27 +2961,6 @@ const AdminConsolePage = ({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="event-modal-date">날짜</Label>
-                  <div className="relative">
-                    <Input
-                      id="event-modal-date"
-                      type="date"
-                      value={eventForm.date}
-                      onChange={(event) =>
-                        setEventForm((previousValue) => ({
-                          ...previousValue,
-                          date: event.target.value,
-                        }))
-                      }
-                      className="h-12 rounded-xl pr-11"
-                    />
-                    <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-brand-700">
-                      <ChevronDownIcon />
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="event-modal-email">관리자 이메일</Label>
                   <Input
                     id="event-modal-email"
@@ -2790,7 +2978,7 @@ const AdminConsolePage = ({
                 </div>
               </div>
 
-              <div className="mt-5 shrink-0 space-y-4 border-t border-slate-100 pt-4">
+              <div className="mt-4 shrink-0 space-y-3 border-t border-slate-100 pt-4">
                 {eventFormError ? (
                   <p className="text-sm font-semibold text-rose-600">{eventFormError}</p>
                 ) : null}

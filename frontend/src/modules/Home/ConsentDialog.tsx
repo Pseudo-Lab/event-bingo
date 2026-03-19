@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 type ConsentDialogProps = {
-  host: string;
+  eventTeam: string;
   onDecline: () => void;
   onAccept: () => void;
 };
@@ -20,7 +20,7 @@ type ParsedConsentContent = {
 
 const FALLBACK_TEMPLATE = `# [필수] 개인정보 수집 및 이용 동의서
 
-**{host}**는 본 행사 운영 및 네트워킹 서비스 제공을 위해 아래와 같이 개인정보를 수집 및 이용합니다.
+**{eventTeam}**는 본 행사 운영 및 네트워킹 서비스 제공을 위해 아래와 같이 개인정보를 수집 및 이용합니다.
 
 ■ 수집 항목
 이름, 이메일 주소, 키워드 선택 내역, 후기 및 별점, 빙고 보드 구성 정보, 키워드 교환 및 상호작용 기록
@@ -44,8 +44,12 @@ const normalizeMarkdown = (lines: string[]) =>
     .replace(/^\s*\\-\s*/gm, "- ")
     .trim();
 
-const parseConsentTemplate = (template: string, host: string): ParsedConsentContent => {
-  const interpolated = template.replace(/{host}/g, host).replace(/\r\n/g, "\n").trim();
+const parseConsentTemplate = (template: string, eventTeam: string): ParsedConsentContent => {
+  const interpolated = template
+    .replace(/{eventTeam}/g, eventTeam)
+    .replace(/{host}/g, eventTeam)
+    .replace(/\r\n/g, "\n")
+    .trim();
   const lines = interpolated.split("\n");
   const firstLine = lines[0]?.trim();
 
@@ -105,12 +109,12 @@ const parseConsentTemplate = (template: string, host: string): ParsedConsentCont
 };
 
 const ConsentDialog: React.FC<ConsentDialogProps> = ({
-  host,
+  eventTeam,
   onDecline,
   onAccept,
 }) => {
   const [content, setContent] = useState<ParsedConsentContent>(() =>
-    parseConsentTemplate(FALLBACK_TEMPLATE, host)
+    parseConsentTemplate(FALLBACK_TEMPLATE, eventTeam)
   );
 
   useEffect(() => {
@@ -127,13 +131,13 @@ const ConsentDialog: React.FC<ConsentDialogProps> = ({
         const template = await response.text();
 
         if (isMounted) {
-          setContent(parseConsentTemplate(template, host));
+          setContent(parseConsentTemplate(template, eventTeam));
         }
       } catch (error) {
         console.error("Failed to load consent template", error);
 
         if (isMounted) {
-          setContent(parseConsentTemplate(FALLBACK_TEMPLATE, host));
+          setContent(parseConsentTemplate(FALLBACK_TEMPLATE, eventTeam));
         }
       }
     };
@@ -143,7 +147,7 @@ const ConsentDialog: React.FC<ConsentDialogProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [host]);
+  }, [eventTeam]);
 
   return (
     <div className="consent-sheet">

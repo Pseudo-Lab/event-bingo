@@ -29,6 +29,7 @@ from .console_services import (
     serialize_admin_member,
     serialize_admin_session,
     validate_admin_member_deletion,
+    validate_event_schedule,
     validate_publish_transition,
 )
 from .schema import (
@@ -302,12 +303,15 @@ async def create_admin_event(
         publish_state = to_publish_state(payload.publish_state)
         validate_publish_transition(None, publish_state)
         slug = await ensure_unique_event_slug(db, payload.slug)
-        start_time = payload.event_date
-        end_time = start_time + timedelta(hours=6)
+        start_time = payload.start_at
+        end_time = payload.end_at
+        validate_event_schedule(start_time, end_time)
         event = await Event.create(
             db,
             name=payload.name.strip(),
             slug=slug,
+            location=payload.location.strip(),
+            event_team=payload.event_team.strip(),
             start_time=start_time,
             end_time=end_time,
             admin_id=actor.id,
@@ -350,6 +354,7 @@ async def update_admin_event(
         publish_state = to_publish_state(payload.publish_state)
         validate_publish_transition(event.publish_state, publish_state)
         slug = await ensure_unique_event_slug(db, payload.slug, current_event_id=event.id)
+        validate_event_schedule(payload.start_at, payload.end_at)
         if event.publish_state == EventPublishState.PUBLISHED and event.slug != slug:
             raise ValueError("공개된 이후에는 slug를 변경할 수 없습니다.")
 
@@ -358,8 +363,10 @@ async def update_admin_event(
             event_id=event.id,
             name=payload.name.strip(),
             slug=slug,
-            start_time=payload.event_date,
-            end_time=payload.event_date + timedelta(hours=6),
+            location=payload.location.strip(),
+            event_team=payload.event_team.strip(),
+            start_time=payload.start_at,
+            end_time=payload.end_at,
             admin_email=payload.admin_email.strip().lower(),
             bingo_size=payload.board_size,
             success_condition=payload.bingo_mission_count,

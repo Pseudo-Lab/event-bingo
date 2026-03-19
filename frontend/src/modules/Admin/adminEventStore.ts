@@ -13,6 +13,7 @@ const hasWindow = () => typeof window !== "undefined";
 
 const createSeedEvents = (): AdminEvent[] => {
   const defaultProfile = resolveEventProfile("bingo-networking");
+  const defaultEndAt = defaultProfile.endAt;
 
   return [
     {
@@ -23,6 +24,10 @@ const createSeedEvents = (): AdminEvent[] => {
       createdByEmail: "uni@laivdata.com",
       createdByName: "김길동",
       eventDate: defaultProfile.startAt,
+      startAt: defaultProfile.startAt,
+      endAt: defaultEndAt,
+      location: defaultProfile.place,
+      eventTeam: defaultProfile.eventTeam,
       adminEmail: "uni@laivdata.com",
       boardSize: defaultProfile.boardSize,
       bingoMissionCount: defaultProfile.bingoMissionCount,
@@ -43,6 +48,10 @@ const createSeedEvents = (): AdminEvent[] => {
       createdByEmail: "manager@laivdata.com",
       createdByName: "김철수",
       eventDate: "2026-06-10T09:00:00+09:00",
+      startAt: "2026-06-10T09:00:00+09:00",
+      endAt: "2026-06-10T11:30:00+09:00",
+      location: "서울 코엑스",
+      eventTeam: "Festival Team",
       adminEmail: "manager@laivdata.com",
       boardSize: 5,
       bingoMissionCount: 4,
@@ -63,6 +72,10 @@ const createSeedEvents = (): AdminEvent[] => {
       createdByEmail: "manager@laivdata.com",
       createdByName: "김철수",
       eventDate: "2026-07-10T09:00:00+09:00",
+      startAt: "2026-07-10T09:00:00+09:00",
+      endAt: "2026-07-10T12:00:00+09:00",
+      location: "대전 컨퍼런스 홀",
+      eventTeam: "Campus Sprint",
       adminEmail: "manager@laivdata.com",
       boardSize: 5,
       bingoMissionCount: 4,
@@ -83,6 +96,10 @@ const createSeedEvents = (): AdminEvent[] => {
       createdByEmail: "ops@laivdata.com",
       createdByName: "이준호",
       eventDate: "2026-08-24T10:00:00+09:00",
+      startAt: "2026-08-24T10:00:00+09:00",
+      endAt: "2026-08-24T12:30:00+09:00",
+      location: "부산 오션 센터",
+      eventTeam: "Team Builder",
       adminEmail: "ops@laivdata.com",
       boardSize: 3,
       bingoMissionCount: 3,
@@ -203,6 +220,10 @@ export const saveAdminEvent = (
     slug: string;
     name: string;
     eventDate: string;
+    startAt?: string;
+    endAt?: string;
+    location?: string;
+    eventTeam?: string;
     adminEmail: string;
     boardSize: 3 | 5;
     bingoMissionCount: number;
@@ -249,6 +270,10 @@ export const saveAdminEvent = (
     createdByEmail: existingEvent?.createdByEmail ?? actor.email,
     createdByName: existingEvent?.createdByName ?? actor.name,
     eventDate: input.eventDate,
+    startAt: input.startAt ?? input.eventDate,
+    endAt: input.endAt ?? input.eventDate,
+    location: input.location ?? existingEvent?.location ?? "행사 장소",
+    eventTeam: input.eventTeam ?? existingEvent?.eventTeam ?? "Event Team",
     adminEmail: input.adminEmail.trim().toLowerCase(),
     boardSize: input.boardSize,
     bingoMissionCount: input.bingoMissionCount,
@@ -272,9 +297,10 @@ export const saveAdminEvent = (
   const profileUpdates = {
     title: baseProfile.title,
     subTitle: input.name.trim(),
-    startAt: new Date(input.eventDate).toISOString(),
-    host: baseProfile.host,
-    place: baseProfile.place,
+    startAt: new Date(input.startAt ?? input.eventDate).toISOString(),
+    endAt: new Date(input.endAt ?? input.eventDate).toISOString(),
+    eventTeam: input.eventTeam ?? baseProfile.eventTeam,
+    place: input.location ?? baseProfile.place,
     boardSize: input.boardSize,
     bingoMissionCount: input.bingoMissionCount,
     exchangeKeywordCount: Math.min(baseProfile.exchangeKeywordCount, input.boardSize * input.boardSize),

@@ -33,15 +33,15 @@ type ApplicationFormState = {
 const FEATURE_CARDS = [
   {
     title: "행사별 빙고 설정",
-    description: "빙고 크기, 목표 줄 수, 키워드를 행사마다 따로 운영할 수 있습니다.",
+    description: "행사 성격에 맞게 보드 크기, 목표 줄 수, 키워드를 손쉽게 조정할 수 있습니다.",
   },
   {
-    title: "운영 데이터 확인",
-    description: "참가자 수, 진행률, 키워드 선택 현황을 관리자 화면에서 바로 확인합니다.",
+    title: "행사 현황 한눈에",
+    description: "참가자 수, 진행률, 키워드 선택 흐름을 관리자 화면에서 빠르게 살펴볼 수 있습니다.",
   },
   {
-    title: "현장 몰입도 강화",
-    description: "참가자가 서로 만나며 키워드를 교환하고 빙고를 완성하는 흐름으로 네트워킹을 유도합니다.",
+    title: "자연스러운 대화 유도",
+    description: "참가자가 사람을 만나며 키워드를 채워 나가도록 설계해 현장 대화를 자연스럽게 만듭니다.",
   },
 ] as const;
 
@@ -226,13 +226,13 @@ const LandingHomePage = () => {
       />
 
       <main className="relative mx-auto flex w-full max-w-7xl flex-col gap-16 px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
-        <header className="flex flex-col gap-4 rounded-[2rem] border border-white/60 bg-white/70 px-6 py-5 shadow-soft backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <header className="flex flex-col gap-5 rounded-[2rem] border border-white/60 bg-white/70 px-7 py-6 shadow-soft backdrop-blur sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.26em] text-brand-700">
               Bingo Networking
             </p>
             <h1 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-900 sm:text-3xl">
-              행사를 더 빨리 열고, 현장 네트워킹은 더 자연스럽게
+              행사를 더 빠르게 준비하고, 현장 네트워킹은 더 자연스럽게
             </h1>
           </div>
 
@@ -249,33 +249,33 @@ const LandingHomePage = () => {
           </div>
         </header>
 
-        <section className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
+        <section className="grid gap-8 lg:grid-cols-[1fr_1fr] lg:items-center">
           <div className="space-y-8">
             <div className="inline-flex rounded-full bg-brand-100 px-4 py-2 text-sm font-bold text-brand-800">
-              운영자가 처음 보는 진입 페이지
+              행사 운영팀을 위한 빙고 네트워킹
             </div>
             <div className="space-y-5">
               <h2 className="max-w-3xl text-4xl font-black tracking-[-0.07em] text-slate-950 sm:text-5xl lg:text-6xl">
-                오프라인 만남을
+                행사 네트워킹을
                 <br />
-                빙고 하나로 연결하는 행사 운영 도구
+                더 쉽고 재미있게 만드는 빙고 플랫폼
               </h2>
               <p className="max-w-2xl text-lg leading-8 text-slate-600">
-                참가자는 행사 URL로 들어와 로그인하고, 키워드를 고른 뒤 현장에서 사람을 만나며
-                빙고를 완성합니다. 운영팀은 행사별 빙고 규칙과 현황을 한 곳에서 관리할 수
+                참가자는 행사 페이지에 입장해 키워드를 고르고, 현장에서 사람을 만나며 빙고를
+                완성합니다. 운영팀은 행사별 설정, 진행 현황, 결과 데이터를 한 화면에서 관리할 수
                 있습니다.
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-[0.9fr_0.9fr_1.15fr]">
               {[
                 { label: "공개 행사", value: `${publishedEventCount}개` },
                 { label: "진행 중 행사", value: `${activeEventCount}개` },
                 { label: "즉시 체험", value: "로그인 없이 가능" },
               ].map((metric) => (
                 <Card key={metric.label} className="rounded-[1.6rem] border-white/70 bg-white/80 shadow-soft">
-                  <CardContent className="space-y-2 p-5">
-                    <p className="text-sm font-semibold text-slate-500">{metric.label}</p>
+                  <CardContent className="space-y-3 p-6 pt-7">
+                    <p className="pt-0.5 text-sm font-semibold text-slate-500">{metric.label}</p>
                     <p className="text-2xl font-black tracking-[-0.04em] text-slate-950">
                       {metric.value}
                     </p>
@@ -286,18 +286,18 @@ const LandingHomePage = () => {
           </div>
 
           <Card className="overflow-hidden rounded-[2.4rem] border-[#d3eadf] bg-[#e9f7f0] shadow-soft">
-            <CardContent className="grid gap-6 p-6 sm:p-8">
+            <CardContent className="grid gap-7 p-7 sm:p-9">
               <div className="grid gap-4 sm:grid-cols-[1.05fr_0.95fr] sm:items-center">
                 <div className="space-y-4">
                   <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand-700">
                     빠르게 경험해보기
                   </p>
                   <h3 className="text-3xl font-black tracking-[-0.05em] text-slate-950">
-                    키워드 선택부터 랜덤 만남까지
+                    키워드 선택부터 빙고 완성까지
                   </h3>
                   <p className="text-base leading-7 text-slate-600">
-                    실제 운영 전, 예시 빙고 보드가 어떻게 바뀌는지 데모로 바로 확인할 수
-                    있습니다.
+                    키워드를 고르고, 랜덤 참가자를 만나며, 보드가 어떻게 채워지는지 바로
+                    확인할 수 있습니다.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {DEMO_KEYWORDS.slice(0, 6).map((keyword) => (
@@ -311,10 +311,12 @@ const LandingHomePage = () => {
                   </div>
                 </div>
 
-                <PreviewBoard />
+                <div className="mx-auto w-full max-w-[18rem]">
+                  <PreviewBoard />
+                </div>
               </div>
 
-              <div className="rounded-[1.7rem] bg-brand-900 px-5 py-5 text-white">
+              <div className="rounded-[1.7rem] bg-brand-900 px-6 py-6 text-white">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-white/70">
@@ -328,7 +330,7 @@ const LandingHomePage = () => {
                     to="/experience"
                     className="inline-flex items-center justify-center rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-brand-900 transition-colors hover:bg-white/90"
                   >
-                    경험해보기 시작
+                    경험해보기
                   </Link>
                 </div>
               </div>
@@ -337,11 +339,11 @@ const LandingHomePage = () => {
         </section>
 
         <section className="grid gap-5 lg:grid-cols-3">
-          {FEATURE_CARDS.map((feature) => (
+          {FEATURE_CARDS.map((feature, index) => (
             <Card key={feature.title} className="rounded-[1.9rem] border-white/70 bg-white/80 shadow-soft">
-              <CardContent className="space-y-4 p-6">
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-100 text-xl font-black text-brand-800">
-                  {feature.title.slice(0, 1)}
+              <CardContent className="space-y-5 p-7 pt-8">
+                <div className="mt-0.5 inline-flex items-center justify-center rounded-full bg-brand-100 px-3.5 py-1.5 text-sm font-black text-brand-800">
+                  {String(index + 1).padStart(2, "0")}
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-xl font-black tracking-[-0.04em] text-slate-950">
@@ -356,14 +358,17 @@ const LandingHomePage = () => {
 
         <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
           <Card className="rounded-[2rem] border-white/70 bg-white/85 shadow-soft">
-            <CardContent className="space-y-6 p-6 sm:p-8">
+            <CardContent className="space-y-6 p-7 sm:p-9">
               <div className="space-y-2">
                 <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand-700">
-                  공개 행사
+                  현재 열려 있는 행사
                 </p>
                 <h3 className="text-3xl font-black tracking-[-0.05em] text-slate-950">
-                  참가자 입장 URL은 행사별로 분리됩니다
+                  지금 참여할 수 있는 행사를 확인해 보세요
                 </h3>
+                <p className="text-sm leading-7 text-slate-600">
+                  행사 페이지에서 바로 입장하고 빙고를 시작할 수 있습니다.
+                </p>
               </div>
 
               {isLoadingEvents ? (
@@ -379,7 +384,7 @@ const LandingHomePage = () => {
                   {events.slice(0, 4).map((eventItem) => (
                     <div
                       key={eventItem.id}
-                      className="rounded-[1.5rem] border border-slate-100 bg-[#fbfcf8] px-5 py-5"
+                      className="rounded-[1.5rem] border border-slate-100 bg-[#fbfcf8] px-6 py-6"
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="space-y-2">
@@ -389,9 +394,6 @@ const LandingHomePage = () => {
                             >
                               {getStatusLabel(eventItem.status)}
                             </span>
-                            <code className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
-                              {getEventHomePath(eventItem.slug)}
-                            </code>
                           </div>
                           <p className="text-xl font-black tracking-[-0.04em] text-slate-950">
                             {eventItem.name}
@@ -411,7 +413,7 @@ const LandingHomePage = () => {
                 </div>
               ) : (
                 <div className="rounded-[1.5rem] bg-[#f6f9f5] px-5 py-8 text-center text-sm font-semibold text-slate-400">
-                  아직 공개된 행사가 없습니다. 관리자 승인 후 행사별 URL이 열립니다.
+                  아직 공개된 행사가 없습니다. 곧 참가할 수 있는 행사가 열리면 여기에서 확인할 수 있습니다.
                 </div>
               )}
             </CardContent>
@@ -421,17 +423,16 @@ const LandingHomePage = () => {
             id="apply"
             className="rounded-[2rem] border-brand-100 bg-gradient-to-br from-white to-brand-50 shadow-soft"
           >
-            <CardContent className="space-y-6 p-6 sm:p-8">
+            <CardContent className="space-y-6 p-7 sm:p-9">
               <div className="space-y-2">
                 <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand-700">
                   이벤트 관리자 신청
                 </p>
                 <h3 className="text-3xl font-black tracking-[-0.05em] text-slate-950">
-                  운영 권한이 필요하면 여기서 요청하세요
+                  행사 운영 권한이 필요하신가요?
                 </h3>
                 <p className="text-sm leading-7 text-slate-600">
-                  이름, 이메일, 행사 목적을 남기면 admin 계정에서 신청 내역을 확인하고 검토할 수
-                  있습니다.
+                  이름과 행사 정보를 남겨주시면 검토 후 운영 계정 발급 여부를 안내드릴게요.
                 </p>
               </div>
 
@@ -538,7 +539,7 @@ const LandingHomePage = () => {
                     {isSubmitting ? "접수 중..." : "관리자 권한 신청 보내기"}
                   </Button>
                   <p className="text-sm text-slate-500">
-                    신청 내역은 admin 콘솔의 신청 관리 화면에서만 보입니다.
+                    접수 후 순차적으로 검토해 연락드립니다.
                   </p>
                 </div>
               </form>

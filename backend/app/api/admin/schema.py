@@ -91,7 +91,7 @@ class AdminEventManagerRequestResponse(BaseSchema):
 class AdminEventParticipantItem(BaseModel):
     id: int
     name: str
-    email: str
+    user_code: str
     progress_percent: int
     keywords: list[str] = Field(default_factory=list)
 
@@ -126,7 +126,10 @@ class AdminEventSummary(BaseModel):
     created_by_id: int
     created_by_email: str
     created_by_name: str
-    event_date: datetime
+    location: str
+    event_team: str
+    start_at: datetime
+    end_at: datetime
     admin_email: str
     board_size: int
     bingo_mission_count: int
@@ -156,7 +159,10 @@ class AdminEventDetailResponse(BaseSchema):
 class AdminEventUpsertRequest(BaseModel):
     slug: str = Field(..., min_length=3, max_length=50)
     name: str = Field(..., min_length=1, max_length=100)
-    event_date: datetime
+    location: str = Field(..., min_length=1, max_length=200)
+    event_team: str = Field(..., min_length=1, max_length=120)
+    start_at: datetime
+    end_at: datetime
     admin_email: str = Field(..., min_length=3, max_length=100)
     board_size: Literal[3, 5]
     bingo_mission_count: int = Field(..., ge=1, le=5)

@@ -10,7 +10,10 @@ class PublicEventProfileItem(BaseModel):
     id: int
     slug: str
     name: str
+    location: str
+    event_team: str
     start_at: datetime
+    end_at: datetime
     board_size: int
     bingo_mission_count: int
     keywords: list[str] = Field(default_factory=list)

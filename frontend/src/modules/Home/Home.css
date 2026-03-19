@@ -156,6 +156,13 @@
   letter-spacing: -0.04em;
 }
 
+.login-event-card__team {
+  margin: 0.75rem 0 0;
+  color: rgba(214, 255, 240, 0.88);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
 .login-event-card__meta {
   display: flex;
   flex-wrap: wrap;

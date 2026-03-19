@@ -28,7 +28,7 @@ export type AdminEventStatus = "ended" | "in_progress" | "scheduled";
 export type AdminEventParticipant = {
   id: number;
   name: string;
-  email: string;
+  userCode: string;
   progressPercent: number;
   keywords: string[];
 };
@@ -81,6 +81,10 @@ export type AdminEvent = {
   createdByEmail: string;
   createdByName: string;
   eventDate: string;
+  startAt: string;
+  endAt: string;
+  location: string;
+  eventTeam: string;
   adminEmail: string;
   boardSize: 3 | 5;
   bingoMissionCount: number;

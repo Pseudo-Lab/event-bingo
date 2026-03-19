@@ -40,12 +40,13 @@ type AuthMode = "register" | "login";
 const PASSWORD_MIN_LENGTH = 4;
 
 const DISPLAY_FALLBACKS = {
-  brand: "PseudoLab",
+  brand: "Bingo Networking",
   title: "Bingo Networking",
   subtitle: "빙고로 즐기는 새로운 네트워킹",
   eventName: "가짜연구소 2025\nGrand Gathering",
   date: "2025년 11월 15일",
   place: "서울 컨벤션 센터",
+  eventTeam: "행사 운영팀",
 } as const;
 
 const isPlaceholderValue = (value: string | undefined, placeholders: string[]) => {
@@ -130,10 +131,16 @@ const Home = () => {
   }, []);
 
   const displayBrand = useMemo(() => {
-    return isPlaceholderValue(eventProfile.host, ["행사 주최자"])
+    return isPlaceholderValue(eventProfile.eventTeam, ["행사 주최자", "Event Team"])
       ? DISPLAY_FALLBACKS.brand
-      : eventProfile.host;
-  }, [eventProfile.host]);
+      : eventProfile.eventTeam;
+  }, [eventProfile.eventTeam]);
+
+  const displayEventTeam = useMemo(() => {
+    return isPlaceholderValue(eventProfile.eventTeam, ["행사 주최자", "Event Team"])
+      ? DISPLAY_FALLBACKS.eventTeam
+      : eventProfile.eventTeam;
+  }, [eventProfile.eventTeam]);
 
   const displayEventName = useMemo(() => {
     return isPlaceholderValue(eventProfile.subTitle, ["YYYY 행사 이름"])
@@ -567,6 +574,7 @@ const Home = () => {
           <div className="login-event-card__copy">
             <p className="login-event-card__eyebrow">{eventProfile.title}</p>
             <h2>{displayEventName}</h2>
+            <p className="login-event-card__team">Event team · {displayEventTeam}</p>
             <div className="login-event-card__meta">
               <span>
                 <CalendarMonthOutlinedIcon fontSize="inherit" />
@@ -794,7 +802,7 @@ const Home = () => {
       >
         {agreeOpen ? (
           <ConsentDialog
-            host={eventProfile.host}
+            eventTeam={displayEventTeam}
             onDecline={() => setAgreeOpen(false)}
             onAccept={() => {
               setIsAgreed(true);

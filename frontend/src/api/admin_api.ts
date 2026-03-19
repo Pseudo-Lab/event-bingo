@@ -77,7 +77,7 @@ type AdminEventManagerRequestResponse = ApiResponseBase & {
 type AdminEventParticipantPayload = {
   id: number;
   name: string;
-  email: string;
+  user_code: string;
   progress_percent: number;
   keywords: string[];
 };
@@ -112,7 +112,10 @@ type AdminEventPayload = {
   created_by_id: number;
   created_by_email: string;
   created_by_name: string;
-  event_date: string;
+  location: string;
+  event_team: string;
+  start_at: string;
+  end_at: string;
   admin_email: string;
   board_size: 3 | 5;
   bingo_mission_count: number;
@@ -150,7 +153,10 @@ type AdminEventResetResponse = ApiResponseBase & {
 export type AdminEventUpsertInput = {
   slug: string;
   name: string;
-  eventDate: string;
+  location: string;
+  eventTeam: string;
+  startAt: string;
+  endAt: string;
   adminEmail: string;
   boardSize: 3 | 5;
   bingoMissionCount: number;
@@ -271,7 +277,7 @@ const mapParticipants = (
   return (payloads ?? []).map((participant) => ({
     id: participant.id,
     name: participant.name,
-    email: participant.email,
+    userCode: participant.user_code,
     progressPercent: participant.progress_percent,
     keywords: participant.keywords,
   }));
@@ -312,7 +318,11 @@ const mapAdminEvent = (payload: AdminEventPayload): AdminEvent => {
     createdById: payload.created_by_id,
     createdByEmail: payload.created_by_email,
     createdByName: payload.created_by_name,
-    eventDate: payload.event_date,
+    eventDate: payload.start_at,
+    startAt: payload.start_at,
+    endAt: payload.end_at,
+    location: payload.location,
+    eventTeam: payload.event_team,
     adminEmail: payload.admin_email,
     boardSize: payload.board_size,
     bingoMissionCount: payload.bingo_mission_count,
@@ -474,7 +484,10 @@ export const createAdminEvent = async (accessToken: string, input: AdminEventUps
       body: JSON.stringify({
         slug: input.slug,
         name: input.name,
-        event_date: input.eventDate,
+        location: input.location,
+        event_team: input.eventTeam,
+        start_at: input.startAt,
+        end_at: input.endAt,
         admin_email: input.adminEmail,
         board_size: input.boardSize,
         bingo_mission_count: input.bingoMissionCount,
@@ -504,7 +517,10 @@ export const updateAdminEvent = async (
       body: JSON.stringify({
         slug: input.slug,
         name: input.name,
-        event_date: input.eventDate,
+        location: input.location,
+        event_team: input.eventTeam,
+        start_at: input.startAt,
+        end_at: input.endAt,
         admin_email: input.adminEmail,
         board_size: input.boardSize,
         bingo_mission_count: input.bingoMissionCount,

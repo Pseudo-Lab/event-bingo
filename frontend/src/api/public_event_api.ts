@@ -32,7 +32,10 @@ type PublicEventPayload = {
   id: number;
   slug: string;
   name: string;
+  location: string;
+  event_team: string;
   start_at: string;
+  end_at: string;
   board_size: 3 | 5;
   bingo_mission_count: number;
   keywords: string[];
@@ -126,6 +129,9 @@ const mergeEventProfile = (
     slug: payload.slug,
     subTitle: payload.name,
     startAt: payload.start_at,
+    endAt: payload.end_at,
+    place: payload.location || fallbackProfile.place,
+    eventTeam: payload.event_team || fallbackProfile.eventTeam,
     boardSize,
     bingoMissionCount: payload.bingo_mission_count,
     keywords: buildBoardKeywordPool(payload.keywords ?? fallbackProfile.keywords, boardCellCount),

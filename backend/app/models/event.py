@@ -27,6 +27,8 @@ class Event(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    location: Mapped[str] = mapped_column(String(200), nullable=False, default="행사 장소")
+    event_team: Mapped[str] = mapped_column(String(120), nullable=False, default="Event Team")
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     admin_id: Mapped[int] = mapped_column(Integer, ForeignKey("admins.id"), nullable=False)
@@ -81,6 +83,8 @@ class Event(Base):
         session: AsyncSession,
         name: str,
         slug: str,
+        location: str,
+        event_team: str,
         start_time: datetime,
         end_time: datetime,
         admin_id: int,
@@ -102,6 +106,8 @@ class Event(Base):
         new_event = Event(
             name=name,
             slug=slug,
+            location=location,
+            event_team=event_team,
             start_time=start_time,
             end_time=end_time,
             admin_id=admin_id,
@@ -143,6 +149,8 @@ class Event(Base):
         event_id: int,
         name: Optional[str] = None,
         slug: Optional[str] = None,
+        location: Optional[str] = None,
+        event_team: Optional[str] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         bingo_size: Optional[int] = None,
@@ -159,6 +167,10 @@ class Event(Base):
             event.name = name
         if slug is not None:
             event.slug = slug
+        if location is not None:
+            event.location = location
+        if event_team is not None:
+            event.event_team = event_team
         if start_time is not None:
             event.start_time = start_time
         if end_time is not None:

@@ -13,8 +13,9 @@ export type EventProfile = {
   title: string;
   subTitle: string;
   startAt: string;
+  endAt: string;
   place: string;
-  host: string;
+  eventTeam: string;
   boardSize: BoardSize;
   exchangeKeywordCount: number;
   bingoMissionCount: number;
@@ -30,8 +31,9 @@ const DEFAULT_EVENT_PROFILE: EventProfile = {
   title: "빙고 네트워킹",
   subTitle: "가짜연구소 2026\nBingo Networking Day",
   startAt: "2026-05-17T15:00:00+09:00",
+  endAt: "2026-05-17T18:00:00+09:00",
   place: "서울 컨벤션 센터",
-  host: "PseudoLab",
+  eventTeam: "PseudoLab",
   boardSize: DEFAULT_BOARD_SIZE as BoardSize,
   exchangeKeywordCount: DEFAULT_EXCHANGE_KEYWORD_COUNT,
   bingoMissionCount: DEFAULT_BINGO_MISSION_COUNT,
@@ -126,9 +128,14 @@ const buildFallbackEventProfile = (eventSlug: string): EventProfile => {
     slug: eventSlug,
     subTitle: `${eventLabel}\nNetworking Event`,
     place: "행사 장소",
-    host: "Event Team",
+    eventTeam: "Event Team",
     keywords: [...DEFAULT_EVENT_PROFILE.keywords],
   };
+};
+
+export const resolvePublicEventFallbackProfile = (eventSlug?: string | null): EventProfile => {
+  const normalizedSlug = normalizeEventSlug(eventSlug);
+  return buildFallbackEventProfile(normalizedSlug);
 };
 
 const sanitizeEventProfile = (eventSlug: string, source: EventProfileOverrides): EventProfile => {
@@ -150,14 +157,19 @@ const sanitizeEventProfile = (eventSlug: string, source: EventProfileOverrides):
   const sourceKeywords = Array.isArray(source.keywords)
     ? source.keywords.filter((keyword): keyword is string => typeof keyword === "string")
     : fallbackProfile.keywords;
+  const legacySource = source as Record<string, unknown>;
 
   return {
     slug: eventSlug,
     title: trimText(source.title, fallbackProfile.title),
     subTitle: trimText(source.subTitle, fallbackProfile.subTitle),
     startAt: trimText(source.startAt, fallbackProfile.startAt),
+    endAt: trimText(legacySource.endAt, fallbackProfile.endAt),
     place: trimText(source.place, fallbackProfile.place),
-    host: trimText(source.host, fallbackProfile.host),
+    eventTeam: trimText(
+      legacySource.eventTeam ?? legacySource.host,
+      fallbackProfile.eventTeam
+    ),
     boardSize,
     exchangeKeywordCount,
     bingoMissionCount,
