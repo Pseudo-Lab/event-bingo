@@ -4,10 +4,14 @@ import type {
   AdminEventAnalytics,
   AdminEventParticipant,
   AdminEventManagerRequest,
+  AdminEventManagerRequestReviewResult,
+  AdminInvitationPreview,
   AdminMember,
+  AdminPolicyTemplate,
   AdminPublishState,
   AdminSession,
 } from "../modules/Admin/adminTypes";
+import { getApiBaseUrl } from "../lib/apiBase";
 
 type ApiResponseBase = {
   ok: boolean;
@@ -72,6 +76,35 @@ type AdminEventManagerRequestListResponse = ApiResponseBase & {
 
 type AdminEventManagerRequestResponse = ApiResponseBase & {
   request?: AdminEventManagerRequestPayload | null;
+  invited_admin?: AdminMemberPayload | null;
+  invite_link?: string | null;
+  invite_email_sent?: boolean | null;
+  invite_expires_at?: string | null;
+};
+
+type AdminInvitationPreviewPayload = {
+  email: string;
+  name: string;
+  expires_at: string;
+};
+
+type AdminInvitationPreviewResponse = ApiResponseBase & {
+  invitation?: AdminInvitationPreviewPayload | null;
+};
+
+type AdminInvitationCompleteResponse = ApiResponseBase & {
+  member?: AdminMemberPayload | null;
+};
+
+type AdminPolicyTemplatePayload = {
+  key: string;
+  content: string;
+  updated_at: string;
+  updated_by_name?: string | null;
+};
+
+type AdminPolicyTemplateResponse = ApiResponseBase & {
+  template?: AdminPolicyTemplatePayload | null;
 };
 
 type AdminEventParticipantPayload = {
@@ -169,7 +202,7 @@ export type AdminEventManagerRequestReviewInput = {
   reviewNote?: string;
 };
 
-const API_URL = import.meta.env.VITE_API_URL?.trim().replace(/\/$/, "") ?? "";
+const API_URL = getApiBaseUrl();
 
 const createApiUrl = (path: string) => {
   const baseUrl =
@@ -215,7 +248,14 @@ const requestJson = async <T>(
   init: RequestInit = {},
   accessToken?: string
 ): Promise<T> => {
-  const response = await fetch(createApiUrl(path), withHeaders(init, accessToken));
+  let response: Response;
+
+  try {
+    response = await fetch(createApiUrl(path), withHeaders(init, accessToken));
+  } catch {
+    throw new Error("API 서버에 연결하지 못했습니다. 백엔드 실행 상태와 주소를 확인해 주세요.");
+  }
+
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
@@ -247,6 +287,35 @@ const mapAdminMember = (payload: AdminMemberPayload): AdminMember => {
     phone: payload.phone,
     createdAt: payload.created_at,
     role: payload.role,
+  };
+};
+
+const mapAdminInvitationPreview = (
+  payload: AdminInvitationPreviewPayload | null | undefined
+): AdminInvitationPreview => {
+  if (!payload) {
+    throw new Error("초대 정보를 받지 못했습니다.");
+  }
+
+  return {
+    email: payload.email,
+    name: payload.name,
+    expiresAt: payload.expires_at,
+  };
+};
+
+const mapAdminPolicyTemplate = (
+  payload: AdminPolicyTemplatePayload | null | undefined
+): AdminPolicyTemplate => {
+  if (!payload) {
+    throw new Error("정책 템플릿 정보를 받지 못했습니다.");
+  }
+
+  return {
+    key: payload.key,
+    content: payload.content,
+    updatedAt: payload.updated_at,
+    updatedByName: payload.updated_by_name ?? undefined,
   };
 };
 
@@ -437,7 +506,7 @@ export const reviewAdminEventManagerRequest = async (
   accessToken: string,
   requestId: number,
   input: AdminEventManagerRequestReviewInput
-) => {
+) : Promise<AdminEventManagerRequestReviewResult> => {
   const payload = await requestJson<AdminEventManagerRequestResponse>(
     `/api/admin/event-manager-requests/${requestId}`,
     {
@@ -454,7 +523,70 @@ export const reviewAdminEventManagerRequest = async (
     throw new Error("변경된 신청 정보를 받지 못했습니다.");
   }
 
-  return mapAdminEventManagerRequest(payload.request);
+  return {
+    request: mapAdminEventManagerRequest(payload.request),
+    invitedAdmin: payload.invited_admin ? mapAdminMember(payload.invited_admin) : undefined,
+    inviteLink: payload.invite_link ?? undefined,
+    inviteEmailSent: payload.invite_email_sent ?? false,
+    inviteExpiresAt: payload.invite_expires_at ?? undefined,
+    message: payload.message,
+  };
+};
+
+export const getAdminInvitationPreview = async (token: string) => {
+  const payload = await requestJson<AdminInvitationPreviewResponse>(
+    `/api/admin/invitations/${encodeURIComponent(token)}`
+  );
+  return mapAdminInvitationPreview(payload.invitation);
+};
+
+export const completeAdminInvitation = async (token: string, password: string) => {
+  const payload = await requestJson<AdminInvitationCompleteResponse>(
+    `/api/admin/invitations/${encodeURIComponent(token)}/complete`,
+    {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    }
+  );
+
+  if (!payload.member) {
+    throw new Error("초대 완료 결과를 받지 못했습니다.");
+  }
+
+  return {
+    member: mapAdminMember(payload.member),
+    message: payload.message,
+  };
+};
+
+export const getAdminPolicyTemplate = async (accessToken: string) => {
+  const payload = await requestJson<AdminPolicyTemplateResponse>(
+    "/api/admin/policy-template",
+    {
+      cache: "no-store",
+    },
+    accessToken
+  );
+
+  return mapAdminPolicyTemplate(payload.template);
+};
+
+export const updateAdminPolicyTemplate = async (
+  accessToken: string,
+  input: { content: string }
+) => {
+  const payload = await requestJson<AdminPolicyTemplateResponse>(
+    "/api/admin/policy-template",
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        content: input.content,
+      }),
+    },
+    accessToken
+  );
+
+  return mapAdminPolicyTemplate(payload.template);
 };
 
 export const getAdminEvents = async (accessToken: string) => {

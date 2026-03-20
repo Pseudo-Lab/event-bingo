@@ -1,10 +1,15 @@
 import { expect, test } from "@playwright/test";
-import { mockConsentTemplate, mockEmptyBoardBootstrap } from "./support/bingoApi";
+import {
+  mockConsentTemplate,
+  mockEmptyBoardBootstrap,
+  mockPublicEventProfile,
+} from "./support/bingoApi";
 
 test("registers a user and completes initial keyword setup", async ({ page }) => {
   const createdBoardPayloads: Array<Record<string, unknown>> = [];
 
   await mockConsentTemplate(page);
+  await mockPublicEventProfile(page);
   await mockEmptyBoardBootstrap(page, 7);
 
   await page.route("**/api/auth/bingo/register", async (route) => {
@@ -35,7 +40,7 @@ test("registers a user and completes initial keyword setup", async ({ page }) =>
     });
   });
 
-  await page.goto("/");
+  await page.goto("/bingo-networking");
 
   await page.getByRole("button", { name: "내용 보기" }).click();
   await page.getByRole("button", { name: "동의하고 계속" }).click();

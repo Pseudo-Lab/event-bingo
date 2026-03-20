@@ -36,7 +36,7 @@ const FEATURE_CARDS = [
     description: "행사 성격에 맞게 보드 크기, 목표 줄 수, 키워드를 손쉽게 조정할 수 있습니다.",
   },
   {
-    title: "행사 현황 한눈에",
+    title: "행사 현황을 한눈에",
     description: "참가자 수, 진행률, 키워드 선택 흐름을 관리자 화면에서 빠르게 살펴볼 수 있습니다.",
   },
   {
@@ -405,7 +405,7 @@ const LandingHomePage = () => {
                         </div>
 
                         <Link to={getEventHomePath(eventItem.slug)} className={outlineLinkClassName}>
-                          행사 홈 보기
+                          링크
                         </Link>
                       </div>
                     </div>

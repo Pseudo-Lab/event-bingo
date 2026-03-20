@@ -574,7 +574,7 @@ const Home = () => {
           <div className="login-event-card__copy">
             <p className="login-event-card__eyebrow">{eventProfile.title}</p>
             <h2>{displayEventName}</h2>
-            <p className="login-event-card__team">Event team · {displayEventTeam}</p>
+            <p className="login-event-card__team">{displayEventTeam}</p>
             <div className="login-event-card__meta">
               <span>
                 <CalendarMonthOutlinedIcon fontSize="inherit" />

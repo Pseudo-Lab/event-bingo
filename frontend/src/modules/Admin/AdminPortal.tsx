@@ -5,6 +5,7 @@ import {
   type ReactNode,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import ReactMarkdown from "react-markdown";
@@ -18,9 +19,11 @@ import {
   getAdminEvents,
   getAdminMe,
   getAdminMembers,
+  getAdminPolicyTemplate,
   loginAdmin,
   resetAdminEventData,
   reviewAdminEventManagerRequest,
+  updateAdminPolicyTemplate,
   updateAdminEvent,
   validateAdminSlugInput,
 } from "../../api/admin_api";
@@ -34,6 +37,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { Textarea } from "../../components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -52,11 +56,14 @@ import {
 import type {
   AdminEventManagerRequest,
   AdminEvent,
+  AdminEventManagerRequestReviewResult,
   AdminEventStatus,
   AdminMember,
+  AdminPolicyTemplate,
   AdminRole,
   AdminSession,
 } from "./adminTypes";
+import { getEventDateParts } from "./adminEventDate";
 
 type AdminSection = "dashboard" | "members" | "applications" | "event-settings" | "policies";
 type EventDetailTab = "overview" | "dashboard" | "participants";
@@ -88,6 +95,7 @@ const ITEMS_PER_PAGE = 4;
 const DETAIL_PARTICIPANTS_PER_PAGE = 8;
 const DEFAULT_MEMBER_PASSWORD = "Admin1234!";
 const DEFAULT_SUPERADMIN_EMAIL = "superadmin@laivdata.com";
+const POLICY_PREVIEW_HOST = "샘플 행사 운영팀";
 const EVENT_DETAIL_TABS: Array<{ key: EventDetailTab; label: string }> = [
   { key: "overview", label: "개요" },
   { key: "dashboard", label: "대시보드" },
@@ -226,33 +234,6 @@ const upsertAdminEvent = (items: AdminEvent[], nextItem: AdminEvent) => {
 const getAdminEventDetailPath = (eventId: number | string, tab: EventDetailTab = "overview") => {
   const basePath = `${getAdminPath("event-settings")}/${eventId}`;
   return tab === "overview" ? basePath : `${basePath}/${tab}`;
-};
-
-const getEventDateParts = (value: string) => {
-  try {
-    const parsedDate = new Date(value);
-    const year = new Intl.DateTimeFormat("ko-KR", {
-      year: "numeric",
-      timeZone: "Asia/Seoul",
-    }).format(parsedDate);
-    const month = new Intl.DateTimeFormat("ko-KR", {
-      month: "long",
-      timeZone: "Asia/Seoul",
-    }).format(parsedDate);
-    return {
-      yearMonth: `${year} ${month}`,
-      day: new Intl.DateTimeFormat("en-US", {
-        day: "2-digit",
-        timeZone: "Asia/Seoul",
-      }).format(parsedDate),
-      weekday: new Intl.DateTimeFormat("en-US", {
-        weekday: "short",
-        timeZone: "Asia/Seoul",
-      }).format(parsedDate),
-    };
-  } catch {
-    return { yearMonth: "", day: "--", weekday: "" };
-  }
 };
 
 const getTimeRangeLabel = (startAt: string, endAt: string) => {
@@ -496,6 +477,14 @@ const ChevronDownIcon = () => (
   </IconBase>
 );
 
+const ExternalLinkIcon = () => (
+  <IconBase>
+    <path d="M14 5h5v5" />
+    <path d="M10 14 19 5" />
+    <path d="M19 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" />
+  </IconBase>
+);
+
 const InfoIcon = () => (
   <IconBase className="h-4 w-4">
     <circle cx="12" cy="12" r="9" />
@@ -557,7 +546,7 @@ const SectionHeader = ({
   action?: ReactNode;
 }) => {
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div className="space-y-1">
         <h1 className="text-3xl font-black tracking-tight text-brand-800">{title}</h1>
         {description ? <p className="max-w-3xl text-sm leading-6 text-slate-500">{description}</p> : null}
@@ -767,6 +756,7 @@ const AdminConsolePage = ({
   const navigate = useNavigate();
   const { adminEventId } = useParams();
   const initialSession = getAdminSession();
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [session, setSession] = useState<AdminSession | null>(initialSession);
   const [members, setMembers] = useState<AdminMember[]>([]);
@@ -784,9 +774,17 @@ const AdminConsolePage = ({
   const [addFormError, setAddFormError] = useState("");
   const [eventFormError, setEventFormError] = useState("");
   const [pageError, setPageError] = useState("");
-  const [policyContent, setPolicyContent] = useState("");
+  const [pageNotice, setPageNotice] = useState("");
+  const [inviteReviewResult, setInviteReviewResult] =
+    useState<AdminEventManagerRequestReviewResult | null>(null);
+  const [policyTemplate, setPolicyTemplate] = useState<AdminPolicyTemplate | null>(null);
+  const [policyDraft, setPolicyDraft] = useState("");
+  const [policyNotice, setPolicyNotice] = useState("");
+  const [policyError, setPolicyError] = useState("");
   const [isConsoleLoading, setIsConsoleLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [isPolicyLoading, setIsPolicyLoading] = useState(false);
+  const [isPolicySaving, setIsPolicySaving] = useState(false);
   const [deletingMemberId, setDeletingMemberId] = useState<number | null>(null);
   const [reviewingApplicationId, setReviewingApplicationId] = useState<number | null>(null);
   const [resettingEventId, setResettingEventId] = useState<number | null>(null);
@@ -885,7 +883,7 @@ const AdminConsolePage = ({
   }, [session]);
 
   useEffect(() => {
-    if (section !== "policies") {
+    if (section !== "policies" || !session) {
       return;
     }
 
@@ -893,21 +891,25 @@ const AdminConsolePage = ({
 
     const loadPolicy = async () => {
       try {
-        const response = await fetch("/templates/consent.md");
-        if (!response.ok) {
-          throw new Error(`Policy template request failed (${response.status})`);
-        }
-
-        const markdown = await response.text();
+        setIsPolicyLoading(true);
+        setPolicyError("");
+        setPolicyNotice("");
+        const template = await getAdminPolicyTemplate(session.accessToken);
         if (!cancelled) {
-          setPolicyContent(markdown);
+          setPolicyTemplate(template);
+          setPolicyDraft(template.content);
         }
       } catch (error) {
-        console.error("Failed to load consent template", error);
         if (!cancelled) {
-          setPolicyContent(
-            "# 이용약관 및 개인정보\n\n현재 연결된 템플릿을 불러오지 못했습니다. 추후 Supabase 동의 템플릿과 연결하면 됩니다."
+          setPolicyError(
+            error instanceof Error
+              ? error.message
+              : "이용약관 및 개인정보 템플릿을 불러오지 못했습니다."
           );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsPolicyLoading(false);
         }
       }
     };
@@ -917,7 +919,7 @@ const AdminConsolePage = ({
     return () => {
       cancelled = true;
     };
-  }, [section]);
+  }, [section, session]);
 
   const visibleMembers = useMemo(() => {
     const startIndex = (memberPage - 1) * ITEMS_PER_PAGE;
@@ -1069,6 +1071,10 @@ const AdminConsolePage = ({
       return;
     }
 
+    if (nextSection !== "applications") {
+      setPageNotice("");
+      setInviteReviewResult(null);
+    }
     navigate(getAdminPath(nextSection));
   };
 
@@ -1254,11 +1260,11 @@ const AdminConsolePage = ({
     try {
       setReviewingApplicationId(request.id);
       setPageError("");
-      const updatedRequest = await reviewAdminEventManagerRequest(session.accessToken, request.id, {
+      const reviewResult = await reviewAdminEventManagerRequest(session.accessToken, request.id, {
         status: nextStatus,
       });
       setApplications((previousValue) =>
-        [...previousValue.map((item) => (item.id === updatedRequest.id ? updatedRequest : item))].sort(
+        [...previousValue.map((item) => (item.id === reviewResult.request.id ? reviewResult.request : item))].sort(
           (left, right) => {
             const priority = (value: AdminEventManagerRequest["status"]) =>
               value === "pending" ? 0 : value === "approved" ? 1 : 2;
@@ -1269,10 +1275,33 @@ const AdminConsolePage = ({
           }
         )
       );
+      if (nextStatus === "approved") {
+        setInviteReviewResult(reviewResult);
+        setPageNotice(reviewResult.message);
+      } else {
+        setInviteReviewResult(null);
+        setPageNotice("신청을 반려했습니다.");
+      }
+      contentScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "신청 상태를 바꾸지 못했습니다.");
+      setPageNotice("");
+      setInviteReviewResult(null);
     } finally {
       setReviewingApplicationId(null);
+    }
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (!inviteReviewResult?.inviteLink) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(inviteReviewResult.inviteLink);
+      setPageNotice("초대 링크를 복사했습니다.");
+    } catch {
+      setPageError("초대 링크를 복사하지 못했습니다.");
     }
   };
 
@@ -1311,6 +1340,45 @@ const AdminConsolePage = ({
       setPageError(error instanceof Error ? error.message : "이벤트 데이터를 초기화하지 못했습니다.");
     } finally {
       setResettingEventId(null);
+    }
+  };
+
+  const handleResetPolicyDraft = () => {
+    setPolicyDraft(policyTemplate?.content ?? "");
+    setPolicyError("");
+    setPolicyNotice("");
+  };
+
+  const handleSavePolicyTemplate = async () => {
+    if (!session || session.role !== "admin") {
+      return;
+    }
+
+    const nextContent = policyDraft.trim();
+    if (!nextContent) {
+      setPolicyError("템플릿 내용은 비워둘 수 없습니다.");
+      setPolicyNotice("");
+      return;
+    }
+
+    try {
+      setIsPolicySaving(true);
+      setPolicyError("");
+      const savedTemplate = await updateAdminPolicyTemplate(session.accessToken, {
+        content: nextContent,
+      });
+      setPolicyTemplate(savedTemplate);
+      setPolicyDraft(savedTemplate.content);
+      setPolicyNotice("이용약관 및 개인정보 템플릿을 저장했습니다.");
+    } catch (error) {
+      setPolicyError(
+        error instanceof Error
+          ? error.message
+          : "이용약관 및 개인정보 템플릿을 저장하지 못했습니다."
+      );
+      setPolicyNotice("");
+    } finally {
+      setIsPolicySaving(false);
     }
   };
 
@@ -1420,9 +1488,19 @@ const AdminConsolePage = ({
   const selectedEventDateParts = selectedEvent
     ? getEventDateParts(selectedEvent.startAt)
     : null;
+  const selectedEventHomePath = selectedEvent
+    ? selectedEvent.publicPath || getEventHomePath(selectedEvent.slug)
+    : "";
   const selectedEventTimeRange = selectedEvent
     ? getTimeRangeLabel(selectedEvent.startAt, selectedEvent.endAt)
     : "";
+  const canEditPolicyTemplate = session?.role === "admin";
+  const hasPolicyChanges = policyTemplate !== null && policyDraft.trim() !== policyTemplate.content.trim();
+  const policyPreviewContent = useMemo(() => {
+    return policyDraft
+      .replace(/{eventTeam}/g, POLICY_PREVIEW_HOST)
+      .replace(/{host}/g, POLICY_PREVIEW_HOST);
+  }, [policyDraft]);
 
   if (!session) {
     return null;
@@ -1452,18 +1530,20 @@ const AdminConsolePage = ({
                 key={key}
                 variant="ghost"
                 className={cn(
-                  "h-auto justify-start rounded-2xl px-5 py-4 text-left text-[1.05rem] font-bold text-white/90 hover:bg-white/15 hover:text-white",
+                  "h-auto w-full justify-start rounded-2xl px-5 py-4 text-left text-[1.05rem] font-bold text-white/90 hover:bg-white/15 hover:text-white",
                   section === key && "bg-white/30 text-brand-900 hover:bg-white/30"
                 )}
                 onClick={() => goToSection(key)}
               >
-                <Icon />
-                <span>{label}</span>
-                {key === "applications" && pendingApplicationCount > 0 ? (
-                  <span className="ml-auto inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-white px-2 py-0.5 text-xs font-black text-brand-700">
-                    {pendingApplicationCount}
-                  </span>
-                ) : null}
+                <span className="flex items-center gap-3">
+                  <Icon />
+                  <span>{label}</span>
+                  {key === "applications" && pendingApplicationCount > 0 ? (
+                    <span className="inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-white px-2 py-0.5 text-xs font-black text-brand-700">
+                      {pendingApplicationCount}
+                    </span>
+                  ) : null}
+                </span>
               </Button>
             ))}
           </nav>
@@ -1490,17 +1570,18 @@ const AdminConsolePage = ({
 
       <main className="p-5 sm:p-7 lg:p-9 xl:p-10">
         <Card className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-[2rem] border-white/40 shadow-soft xl:h-[calc(100vh-6rem)]">
-          <CardContent className="min-h-0 flex-1 overflow-y-auto space-y-8 p-6 pt-6 pr-5 sm:p-8 sm:pt-8 sm:pr-6 md:p-9 md:pt-9 md:pr-7 xl:p-10 xl:pt-10 xl:pr-8 [scrollbar-gutter:stable_both-edges]">
-            {pageError ? (
-              <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">
-                {pageError}
-              </div>
-            ) : null}
-            {isConsoleLoading ? (
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
-                관리자 데이터를 불러오는 중입니다.
-              </div>
-            ) : null}
+          <CardContent className="min-h-0 flex-1 p-0">
+            <div ref={contentScrollRef} className="min-h-0 h-full overflow-y-auto space-y-8 p-6 pt-6 pr-5 sm:p-8 sm:pt-8 sm:pr-6 md:p-9 md:pt-9 md:pr-7 xl:p-10 xl:pt-10 xl:pr-8 [scrollbar-gutter:stable_both-edges]">
+              {pageError ? (
+                <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">
+                  {pageError}
+                </div>
+              ) : null}
+              {isConsoleLoading ? (
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
+                  관리자 데이터를 불러오는 중입니다.
+                </div>
+              ) : null}
 
             {section === "dashboard" ? (
               <>
@@ -1540,8 +1621,8 @@ const AdminConsolePage = ({
                       key={item.label}
                       className="rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none"
                     >
-                      <CardContent className="flex min-h-[7.9rem] flex-col justify-between gap-4 p-6">
-                        <p className="pt-0.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      <CardContent className="flex min-h-[7.9rem] flex-col justify-between gap-4 px-6 pb-6 pt-7">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                           {item.label}
                         </p>
                         <p className="text-[1.45rem] font-black tracking-tight leading-tight text-slate-900 xl:text-[1.6rem]">
@@ -1638,7 +1719,7 @@ const AdminConsolePage = ({
                           <TableHead>전화번호</TableHead>
                           <TableHead>생성일</TableHead>
                           <TableHead>권한</TableHead>
-                          <TableHead className="text-right">관리</TableHead>
+                          <TableHead className="text-left">관리</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1654,18 +1735,20 @@ const AdminConsolePage = ({
                                 {getRoleLabel(member.role)}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-left">
                               {member.id === session.id || member.email === DEFAULT_SUPERADMIN_EMAIL ? (
                                 <span className="text-xs font-semibold text-slate-400">보호됨</span>
                               ) : (
-                                <Button
-                                  variant="ghost"
-                                  className="h-9 rounded-full px-4 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                                  disabled={deletingMemberId === member.id}
-                                  onClick={() => void handleDeleteMember(member)}
-                                >
-                                  {deletingMemberId === member.id ? "삭제 중" : "삭제"}
-                                </Button>
+                                <div className="flex justify-start">
+                                  <Button
+                                    variant="ghost"
+                                    className="h-9 rounded-full px-4 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                                    disabled={deletingMemberId === member.id}
+                                    onClick={() => void handleDeleteMember(member)}
+                                  >
+                                    {deletingMemberId === member.id ? "삭제 중" : "삭제"}
+                                  </Button>
+                                </div>
                               )}
                             </TableCell>
                           </TableRow>
@@ -1697,11 +1780,48 @@ const AdminConsolePage = ({
                   title="신청 관리"
                   description="이벤트 관리자 권한 요청을 검토하고 승인 상태를 관리합니다."
                   action={
-                    <div className="rounded-full bg-brand-100 px-4 py-2 text-sm font-bold text-brand-800">
+                    <div className="self-start rounded-full bg-brand-100 px-4 py-2 text-sm font-bold text-brand-800 md:self-auto">
                       승인 대기 {pendingApplicationCount}건
                     </div>
                   }
                 />
+
+                {pageNotice ? (
+                  <div className="rounded-2xl border border-brand-100 bg-brand-50 px-4 py-4 text-sm font-semibold text-brand-800">
+                    <p>{pageNotice}</p>
+                    {inviteReviewResult?.inviteLink ? (
+                      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-600">
+                            초대 링크
+                          </p>
+                          <code className="block break-all rounded-2xl bg-white px-4 py-3 text-xs font-semibold leading-6 text-brand-700">
+                            {inviteReviewResult.inviteLink}
+                          </code>
+                          <p className="text-xs text-brand-700/80">
+                            {inviteReviewResult.invitedAdmin
+                              ? `생성 계정: ${inviteReviewResult.invitedAdmin.email}`
+                              : "기존 관리자 계정을 사용합니다."}
+                            {inviteReviewResult.inviteExpiresAt
+                              ? ` · 만료 ${formatAdminDate(inviteReviewResult.inviteExpiresAt)}`
+                              : ""}
+                            {inviteReviewResult.inviteEmailSent
+                              ? " · 초대 메일 발송 완료"
+                              : " · 메일 설정이 없거나 발송에 실패해 링크를 직접 전달해 주세요."}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-full px-5"
+                          onClick={() => void handleCopyInviteLink()}
+                        >
+                          링크 복사
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {applications.length > 0 ? (
                   <div className="overflow-hidden rounded-[1.6rem] border border-slate-100 bg-[#fbfcf8]">
@@ -1715,7 +1835,7 @@ const AdminConsolePage = ({
                             <TableHead>행사 목적</TableHead>
                             <TableHead>예상 일정</TableHead>
                             <TableHead>상태</TableHead>
-                            <TableHead className="text-right">관리</TableHead>
+                            <TableHead className="w-[13rem] text-center">관리</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1724,7 +1844,7 @@ const AdminConsolePage = ({
                               <TableCell className="whitespace-nowrap text-sm text-slate-500">
                                 {formatAdminDate(requestItem.createdAt)}
                               </TableCell>
-                              <TableCell className="min-w-[12rem]">
+                              <TableCell className="min-w-[10rem]">
                                 <div className="space-y-1">
                                   <p className="font-semibold text-slate-900">{requestItem.name}</p>
                                   <p className="text-sm text-slate-500">{requestItem.email}</p>
@@ -1738,7 +1858,7 @@ const AdminConsolePage = ({
                               <TableCell className="min-w-[11rem] font-semibold text-slate-800 break-words">
                                 {requestItem.eventName}
                               </TableCell>
-                              <TableCell className="min-w-[16rem] text-sm leading-6 text-slate-600">
+                              <TableCell className="min-w-[14rem] text-sm leading-6 text-slate-600">
                                 {requestItem.eventPurpose.length > 110
                                   ? `${requestItem.eventPurpose.slice(0, 110)}...`
                                   : requestItem.eventPurpose}
@@ -1770,29 +1890,29 @@ const AdminConsolePage = ({
                                   ) : null}
                                 </div>
                               </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end gap-2">
+                              <TableCell className="w-[13rem] text-center">
+                                <div className="flex justify-center gap-2">
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="rounded-full px-4"
+                                    className="min-w-[4.75rem] whitespace-nowrap rounded-full px-4"
                                     disabled={
-                                      requestItem.status === "approved" ||
+                                      requestItem.status !== "pending" ||
                                       reviewingApplicationId === requestItem.id
                                     }
                                     onClick={() => void handleReviewApplication(requestItem, "approved")}
                                   >
                                     {reviewingApplicationId === requestItem.id &&
-                                    requestItem.status !== "approved"
+                                    requestItem.status === "pending"
                                       ? "처리 중"
                                       : "승인"}
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="rounded-full px-4 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                                    className="min-w-[4.75rem] whitespace-nowrap rounded-full px-4 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                                     disabled={
-                                      requestItem.status === "rejected" ||
+                                      requestItem.status !== "pending" ||
                                       reviewingApplicationId === requestItem.id
                                     }
                                     onClick={() => void handleReviewApplication(requestItem, "rejected")}
@@ -1845,6 +1965,16 @@ const AdminConsolePage = ({
                               읽기 전용
                             </span>
                           ) : null}
+                          <a
+                            href={selectedEventHomePath}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={selectedEventHomePath}
+                            className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-brand-700 bg-white px-5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                          >
+                            이벤트 홈
+                            <ExternalLinkIcon />
+                          </a>
                           <Button
                             variant="destructive"
                             className="rounded-full px-5"
@@ -1891,15 +2021,24 @@ const AdminConsolePage = ({
                             행사 정보
                           </div>
                           <div className="flex flex-col gap-5 md:flex-row md:items-center">
-                            <div className="w-20 shrink-0 text-center">
-                              <div className="text-sm font-bold uppercase tracking-[0.16em] text-slate-400">
-                                {selectedEventDateParts?.yearMonth}
-                              </div>
-                              <div className="text-5xl font-black tracking-tight text-slate-900">
-                                {selectedEventDateParts?.day}
-                              </div>
-                              <div className="mt-1 text-xl text-slate-300">
-                                {selectedEventDateParts?.weekday}
+                            <div className="shrink-0 rounded-[1.25rem] bg-white px-4 py-4 shadow-[0_12px_32px_rgba(15,23,42,0.06)] ring-1 ring-slate-100 max-md:w-full md:w-[8.5rem]">
+                              <div className="flex items-center justify-between gap-4 md:flex-col md:justify-center md:gap-3">
+                                <div className="flex flex-wrap items-center gap-2 md:justify-center">
+                                  <span className="whitespace-nowrap rounded-full bg-slate-100 px-2.5 py-1 text-[0.7rem] font-bold text-slate-500">
+                                    {selectedEventDateParts?.yearLabel}
+                                  </span>
+                                  <span className="whitespace-nowrap rounded-full bg-brand-100 px-2.5 py-1 text-[0.7rem] font-bold text-brand-700">
+                                    {selectedEventDateParts?.monthLabel}
+                                  </span>
+                                </div>
+                                <div className="text-right md:text-center">
+                                  <div className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">
+                                    {selectedEventDateParts?.day}
+                                  </div>
+                                  <div className="mt-1 text-xs font-bold uppercase tracking-[0.28em] text-slate-400">
+                                    {selectedEventDateParts?.weekday}
+                                  </div>
+                                </div>
                               </div>
                             </div>
 
@@ -2375,14 +2514,50 @@ const AdminConsolePage = ({
               <>
                 <SectionHeader
                   title="이용약관 및 개인정보"
-                  description="서비스 홈 동의 팝업에 들어갈 기본 템플릿을 미리 확인할 수 있습니다."
+                  description="서비스 홈 동의 팝업과 같은 원본 템플릿을 이 화면에서 확인하고, Admin만 수정할 수 있습니다."
+                  action={
+                    canEditPolicyTemplate ? (
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          variant="outline"
+                          className="rounded-full px-5"
+                          disabled={!hasPolicyChanges || isPolicySaving}
+                          onClick={handleResetPolicyDraft}
+                        >
+                          되돌리기
+                        </Button>
+                        <Button
+                          className="rounded-full px-5"
+                          disabled={!hasPolicyChanges || isPolicySaving}
+                          onClick={() => void handleSavePolicyTemplate()}
+                        >
+                          {isPolicySaving ? "저장 중" : "템플릿 저장"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="self-start rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-500 md:self-auto">
+                        조회 전용
+                      </span>
+                    )
+                  }
                 />
+
+                {policyError ? (
+                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">
+                    {policyError}
+                  </div>
+                ) : null}
+                {policyNotice ? (
+                  <div className="rounded-2xl border border-brand-100 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-800">
+                    {policyNotice}
+                  </div>
+                ) : null}
 
                 <div className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)] xl:min-h-[calc(100vh-16rem)]">
                   <Card className="overflow-hidden rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
                     <CardHeader className="space-y-2 p-7 pb-0">
                       <CardTitle>템플릿 안내</CardTitle>
-                      <CardDescription>서비스 홈의 동의 팝업에 바로 연결되는 기본 문안입니다.</CardDescription>
+                      <CardDescription>저장 즉시 서비스 홈 동의 팝업에도 같은 원본이 반영됩니다.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3 p-7 pt-6">
                       <div className="rounded-[1.35rem] border border-white/90 bg-white/90 px-4 py-4">
@@ -2395,71 +2570,141 @@ const AdminConsolePage = ({
                       </div>
                       <div className="rounded-[1.35rem] border border-white/90 bg-white/90 px-4 py-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                          검토 포인트
+                          수정 권한
                         </p>
                         <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-                          문구, 항목 순서, 개인정보 고지 범위를 이 화면에서 먼저 확인하세요.
+                          Admin만 수정할 수 있고, Event Manager는 같은 문안을 읽기 전용으로 확인합니다.
+                        </p>
+                      </div>
+                      <div className="rounded-[1.35rem] border border-white/90 bg-white/90 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          치환 변수
+                        </p>
+                        <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
+                          <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
+                            {"{host}"}
+                          </code>
+                          와
+                          <code className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
+                            {"{eventTeam}"}
+                          </code>
+                          는 실제 행사 팀명으로 치환됩니다.
+                        </p>
+                      </div>
+                      <div className="rounded-[1.35rem] border border-white/90 bg-white/90 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          마지막 수정
+                        </p>
+                        <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
+                          {policyTemplate
+                            ? `${policyTemplate.updatedByName ?? "시스템 기본값"} · ${formatAdminDate(
+                                policyTemplate.updatedAt
+                              )}`
+                            : "아직 불러오지 않았습니다."}
                         </p>
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card className="flex min-h-0 flex-col overflow-hidden rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
-                    <CardHeader className="space-y-2 p-7 pb-0">
-                      <CardTitle>기본 동의 템플릿</CardTitle>
-                      <CardDescription>마크다운 템플릿을 동일한 여백으로 읽기 쉽게 정리했습니다.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex min-h-0 flex-1 flex-col p-7 pt-6">
-                      {policyContent ? (
-                        <div className="min-h-0 flex-1 overflow-y-auto rounded-[1.5rem] border border-white/90 bg-white/90 p-6 pr-7 md:p-8 md:pr-9 [scrollbar-gutter:stable_both-edges]">
-                          <ReactMarkdown
-                            components={{
-                              h1: ({ children }) => (
-                                <h1 className="mb-6 text-3xl font-black tracking-tight text-brand-800">
-                                  {children}
-                                </h1>
-                              ),
-                              h2: ({ children }) => (
-                                <h2 className="mb-4 mt-10 text-xl font-black text-slate-900">{children}</h2>
-                              ),
-                              h3: ({ children }) => (
-                                <h3 className="mb-3 mt-7 text-lg font-bold text-slate-900">{children}</h3>
-                              ),
-                              p: ({ children }) => (
-                                <p className="mb-4 whitespace-pre-wrap text-sm leading-7 text-slate-600">
-                                  {children}
-                                </p>
-                              ),
-                              ul: ({ children }) => (
-                                <ul className="mb-5 list-disc space-y-3 pl-5 text-sm leading-7 text-slate-600">
-                                  {children}
-                                </ul>
-                              ),
-                              ol: ({ children }) => (
-                                <ol className="mb-5 list-decimal space-y-3 pl-5 text-sm leading-7 text-slate-600">
-                                  {children}
-                                </ol>
-                              ),
-                              li: ({ children }) => <li className="pl-1">{children}</li>,
-                              strong: ({ children }) => (
-                                <strong className="font-bold text-slate-900">{children}</strong>
-                              ),
-                            }}
-                          >
-                            {policyContent}
-                          </ReactMarkdown>
-                        </div>
-                      ) : (
-                        <EmptyPanelState
-                          className="min-h-[24rem]"
-                          message="이용약관 및 개인정보 템플릿을 불러오는 중입니다."
-                        />
-                      )}
-                    </CardContent>
-                  </Card>
+                  <div className="grid min-h-0 gap-4">
+                    {canEditPolicyTemplate ? (
+                      <Card className="overflow-hidden rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
+                        <CardHeader className="space-y-2 p-7 pb-0">
+                          <CardTitle>템플릿 편집</CardTitle>
+                          <CardDescription>마크다운 원문을 저장하면 홈 동의 팝업도 같은 문안을 사용합니다.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-7 pt-6">
+                          {isPolicyLoading ? (
+                            <EmptyPanelState
+                              className="min-h-[16rem]"
+                              message="이용약관 및 개인정보 템플릿을 불러오는 중입니다."
+                            />
+                          ) : (
+                            <div className="space-y-3">
+                              <Label htmlFor="policy-template-editor">마크다운 원문</Label>
+                              <Textarea
+                                id="policy-template-editor"
+                                value={policyDraft}
+                                onChange={(event) => {
+                                  setPolicyDraft(event.target.value);
+                                  if (policyNotice) {
+                                    setPolicyNotice("");
+                                  }
+                                }}
+                                className="min-h-[20rem] rounded-[1.25rem] border-white/90 bg-white/90 font-mono text-xs leading-6 shadow-none"
+                                placeholder="# [필수] 개인정보 수집 및 이용 동의서"
+                              />
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ) : null}
+
+                    <Card className="flex min-h-0 flex-col overflow-hidden rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
+                      <CardHeader className="space-y-2 p-7 pb-0">
+                        <CardTitle>미리보기</CardTitle>
+                        <CardDescription>
+                          치환 변수는 미리보기에서 `{POLICY_PREVIEW_HOST}` 기준으로 표시됩니다.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex min-h-0 flex-1 flex-col p-7 pt-6">
+                        {isPolicyLoading ? (
+                          <EmptyPanelState
+                            className="min-h-[24rem]"
+                            message="이용약관 및 개인정보 템플릿을 불러오는 중입니다."
+                          />
+                        ) : policyDraft ? (
+                          <div className="min-h-0 flex-1 overflow-y-auto rounded-[1.5rem] border border-white/90 bg-white/90 p-6 pr-7 md:p-8 md:pr-9 [scrollbar-gutter:stable_both-edges]">
+                            <ReactMarkdown
+                              components={{
+                                h1: ({ children }) => (
+                                  <h1 className="mb-6 text-3xl font-black tracking-tight text-brand-800">
+                                    {children}
+                                  </h1>
+                                ),
+                                h2: ({ children }) => (
+                                  <h2 className="mb-4 mt-10 text-xl font-black text-slate-900">{children}</h2>
+                                ),
+                                h3: ({ children }) => (
+                                  <h3 className="mb-3 mt-7 text-lg font-bold text-slate-900">{children}</h3>
+                                ),
+                                p: ({ children }) => (
+                                  <p className="mb-4 whitespace-pre-wrap text-sm leading-7 text-slate-600">
+                                    {children}
+                                  </p>
+                                ),
+                                ul: ({ children }) => (
+                                  <ul className="mb-5 list-disc space-y-3 pl-5 text-sm leading-7 text-slate-600">
+                                    {children}
+                                  </ul>
+                                ),
+                                ol: ({ children }) => (
+                                  <ol className="mb-5 list-decimal space-y-3 pl-5 text-sm leading-7 text-slate-600">
+                                    {children}
+                                  </ol>
+                                ),
+                                li: ({ children }) => <li className="pl-1">{children}</li>,
+                                strong: ({ children }) => (
+                                  <strong className="font-bold text-slate-900">{children}</strong>
+                                ),
+                              }}
+                            >
+                              {policyPreviewContent}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          <EmptyPanelState
+                            className="min-h-[24rem]"
+                            message="아직 표시할 템플릿 내용이 없습니다."
+                          />
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
               </>
             ) : null}
+            </div>
           </CardContent>
         </Card>
       </main>

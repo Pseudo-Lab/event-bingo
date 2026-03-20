@@ -1,6 +1,14 @@
 from collections import Counter
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
+from email.utils import formataddr
+import hashlib
+import os
 import re
+import secrets
+import smtplib
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, func, select
@@ -11,7 +19,8 @@ from models.bingo.bingo_boards import BingoBoards
 from models.bingo.bingo_interaction import BingoInteraction
 from models.event import Event, EventPublishState, EventStatus
 from models.event_attendee import EventAttendee
-from models.event_manager_request import EventManagerRequest
+from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
+from models.policy_template import PolicyTemplate
 from models.team import Team
 from models.user import BingoUser
 
@@ -24,16 +33,28 @@ from .schema import (
     AdminEventSummary,
     AdminEventManagerRequestItem,
     AdminMemberItem,
+    AdminPolicyTemplateItem,
     AdminSessionInfo,
 )
 
 
 DEFAULT_ADMIN_PHONE = "010-0000-0000"
+KST = ZoneInfo("Asia/Seoul")
 RESERVED_EVENT_SLUGS = {"admin", "login", "bingo", "api", "assets"}
 SLUG_PATTERN = re.compile(r"^[a-z0-9-]{3,50}$")
 DEFAULT_ADMIN_PASSWORD = "Admin1234!"
 DEFAULT_BOOTSTRAP_ADMIN_EMAIL = "superadmin@laivdata.com"
 DEFAULT_BOOTSTRAP_ADMIN_NAME = "어드민의 아버지"
+ADMIN_INVITE_TOKEN_EXPIRE_HOURS = int(os.getenv("ADMIN_INVITE_TOKEN_EXPIRE_HOURS", "72"))
+ADMIN_INVITE_URL_BASE = os.getenv("ADMIN_INVITE_URL_BASE", "http://localhost:5173/admin/invite")
+ADMIN_SMTP_HOST = os.getenv("ADMIN_SMTP_HOST", "").strip()
+ADMIN_SMTP_PORT = int(os.getenv("ADMIN_SMTP_PORT", "587"))
+ADMIN_SMTP_USERNAME = os.getenv("ADMIN_SMTP_USERNAME", "").strip()
+ADMIN_SMTP_PASSWORD = os.getenv("ADMIN_SMTP_PASSWORD", "")
+ADMIN_SMTP_FROM_EMAIL = os.getenv("ADMIN_SMTP_FROM_EMAIL", "").strip()
+ADMIN_SMTP_FROM_NAME = os.getenv("ADMIN_SMTP_FROM_NAME", "Bingo Networking Admin").strip()
+ADMIN_SMTP_USE_TLS = os.getenv("ADMIN_SMTP_USE_TLS", "true").strip().lower() != "false"
+ADMIN_SMTP_USE_SSL = os.getenv("ADMIN_SMTP_USE_SSL", "false").strip().lower() == "true"
 LEGACY_SEED_ADMIN_EMAILS = {
     "manager@laivdata.com",
     "ops@laivdata.com",
@@ -46,6 +67,15 @@ LEGACY_SEED_EVENT_SLUGS = {
     "campus-sprint-2026",
     "team-builder-beta",
 }
+
+
+@dataclass
+class AdminInvitationResult:
+    admin: Admin
+    invite_link: str | None
+    invite_expires_at: datetime | None
+    invite_email_sent: bool
+    created_admin: bool
 
 
 def serialize_admin_session(admin: Admin) -> AdminSessionInfo:
@@ -68,6 +98,23 @@ def serialize_admin_member(admin: Admin) -> AdminMemberItem:
     )
 
 
+async def serialize_policy_template(
+    session: AsyncSession,
+    template: PolicyTemplate,
+) -> AdminPolicyTemplateItem:
+    updated_by_name = None
+    if template.updated_by_admin_id is not None:
+        updated_by = await Admin.get_by_id(session, template.updated_by_admin_id)
+        updated_by_name = updated_by.name
+
+    return AdminPolicyTemplateItem(
+        key=template.template_key,
+        content=template.content_markdown,
+        updated_at=template.updated_at,
+        updated_by_name=updated_by_name,
+    )
+
+
 def can_edit_event(actor: Admin, event: Event) -> bool:
     return actor.role == AdminRole.ADMIN or actor.id == event.admin_id
 
@@ -75,6 +122,96 @@ def can_edit_event(actor: Admin, event: Event) -> bool:
 def validate_event_schedule(start_at: datetime, end_at: datetime) -> None:
     if end_at <= start_at:
         raise ValueError("행사 종료 시각은 시작 시각보다 늦어야 합니다.")
+
+
+def validate_event_manager_request_transition(
+    current_status: EventManagerRequestStatus,
+    next_status: EventManagerRequestStatus,
+) -> None:
+    if current_status != EventManagerRequestStatus.PENDING:
+        raise ValueError("이미 검토가 완료된 신청입니다.")
+
+    if next_status == current_status:
+        raise ValueError("같은 상태로는 다시 변경할 수 없습니다.")
+
+
+def validate_admin_password(password: str) -> None:
+    if len(password) < 8 or not any(character.isupper() for character in password):
+        raise ValueError("비밀번호는 영어 대문자를 포함해 8자 이상이어야 합니다.")
+
+
+def to_kst_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=KST)
+    return value.astimezone(KST)
+
+
+def hash_admin_invite_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def build_admin_invite_link(token: str) -> str:
+    parsed_url = urlsplit(ADMIN_INVITE_URL_BASE)
+    query_items = dict(parse_qsl(parsed_url.query, keep_blank_values=True))
+    query_items["token"] = token
+    return urlunsplit(
+        (
+            parsed_url.scheme,
+            parsed_url.netloc,
+            parsed_url.path,
+            urlencode(query_items),
+            parsed_url.fragment,
+        )
+    )
+
+
+def _build_invitation_email(name: str, invite_link: str, expires_at: datetime) -> EmailMessage:
+    message = EmailMessage()
+    message["Subject"] = "[Bingo Networking] 이벤트 관리자 초대"
+    message["From"] = formataddr((ADMIN_SMTP_FROM_NAME, ADMIN_SMTP_FROM_EMAIL or "no-reply@example.com"))
+    expires_text = to_kst_datetime(expires_at).strftime("%Y-%m-%d %H:%M")
+    message.set_content(
+        "\n".join(
+            [
+                f"{name}님, 안녕하세요.",
+                "",
+                "이벤트 관리자 권한 신청이 승인되었습니다.",
+                "아래 링크에서 비밀번호를 설정하면 관리자 콘솔에 로그인할 수 있습니다.",
+                "",
+                invite_link,
+                "",
+                f"링크 유효 시간: {expires_text} (KST)",
+            ]
+        )
+    )
+    return message
+
+
+def send_admin_invitation_email(
+    *,
+    recipient_email: str,
+    recipient_name: str,
+    invite_link: str,
+    expires_at: datetime,
+) -> bool:
+    if not ADMIN_SMTP_HOST or not ADMIN_SMTP_FROM_EMAIL:
+        return False
+
+    message = _build_invitation_email(recipient_name, invite_link, expires_at)
+    message["To"] = recipient_email
+
+    try:
+        smtp_cls = smtplib.SMTP_SSL if ADMIN_SMTP_USE_SSL else smtplib.SMTP
+        with smtp_cls(ADMIN_SMTP_HOST, ADMIN_SMTP_PORT, timeout=10) as server:
+            if not ADMIN_SMTP_USE_SSL and ADMIN_SMTP_USE_TLS:
+                server.starttls()
+            if ADMIN_SMTP_USERNAME:
+                server.login(ADMIN_SMTP_USERNAME, ADMIN_SMTP_PASSWORD)
+            server.send_message(message)
+        return True
+    except Exception as error:  # pragma: no cover - external integration
+        print(f"Failed to send admin invitation email: {error}")
+        return False
 
 
 async def serialize_event_manager_request(
@@ -409,6 +546,102 @@ def resolve_first_published_at(
         return existing_first_published_at or datetime.now(timezone.utc)
 
     return existing_first_published_at
+
+
+async def approve_event_manager_request(
+    session: AsyncSession,
+    request: EventManagerRequest,
+) -> AdminInvitationResult:
+    normalized_email = request.email.strip().lower()
+    existing_admin = await Admin.get_by_email(session, normalized_email)
+
+    if existing_admin and (
+        existing_admin.role == AdminRole.ADMIN
+        or (existing_admin.role == AdminRole.EVENT_MANAGER and not existing_admin.password_setup_required)
+    ):
+        return AdminInvitationResult(
+            admin=existing_admin,
+            invite_link=None,
+            invite_expires_at=None,
+            invite_email_sent=False,
+            created_admin=False,
+        )
+
+    raw_invite_token = secrets.token_urlsafe(32)
+    invite_token_hash = hash_admin_invite_token(raw_invite_token)
+    invite_expires_at = datetime.now(KST) + timedelta(hours=ADMIN_INVITE_TOKEN_EXPIRE_HOURS)
+
+    if existing_admin is None:
+        provisioned_admin = await Admin.create(
+            session,
+            email=normalized_email,
+            password=secrets.token_urlsafe(32) + "A1",
+            name=request.name.strip(),
+            role=AdminRole.EVENT_MANAGER,
+            password_setup_required=True,
+            invite_token_hash=invite_token_hash,
+            invite_token_expires_at=invite_expires_at,
+        )
+        created_admin = True
+    else:
+        provisioned_admin = await Admin.store_invitation(
+            session,
+            existing_admin.id,
+            invite_token_hash=invite_token_hash,
+            invite_token_expires_at=invite_expires_at,
+        )
+        created_admin = False
+
+    invite_link = build_admin_invite_link(raw_invite_token)
+    invite_email_sent = send_admin_invitation_email(
+        recipient_email=normalized_email,
+        recipient_name=provisioned_admin.name,
+        invite_link=invite_link,
+        expires_at=invite_expires_at,
+    )
+    if invite_email_sent:
+        provisioned_admin = await Admin.mark_invitation_sent(
+            session,
+            provisioned_admin.id,
+            sent_at=datetime.now(KST),
+        )
+
+    return AdminInvitationResult(
+        admin=provisioned_admin,
+        invite_link=invite_link,
+        invite_expires_at=invite_expires_at,
+        invite_email_sent=invite_email_sent,
+        created_admin=created_admin,
+    )
+
+
+async def get_invited_admin_by_token(
+    session: AsyncSession,
+    invite_token: str,
+) -> Admin:
+    token_hash = hash_admin_invite_token(invite_token.strip())
+    admin = await Admin.get_by_invite_token_hash(session, token_hash)
+    if not admin or not admin.invite_token_expires_at:
+        raise ValueError("유효한 초대 링크를 찾을 수 없습니다.")
+
+    if to_kst_datetime(admin.invite_token_expires_at) < datetime.now(KST):
+        raise ValueError("초대 링크가 만료되었습니다. 관리자에게 재발송을 요청해 주세요.")
+
+    return admin
+
+
+async def complete_admin_invitation(
+    session: AsyncSession,
+    invite_token: str,
+    password: str,
+) -> Admin:
+    validate_admin_password(password)
+    invited_admin = await get_invited_admin_by_token(session, invite_token)
+    return await Admin.complete_password_setup(
+        session,
+        invited_admin.id,
+        password=password,
+    )
 
 
 async def ensure_admin_console_seed_data(session: AsyncSession) -> None:

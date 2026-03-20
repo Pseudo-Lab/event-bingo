@@ -3,11 +3,14 @@ from fastapi import APIRouter, HTTPException, status
 from core.db import AsyncSessionDepends
 from models.event import Event, EventPublishState, EventStatus
 from models.event_manager_request import EventManagerRequest
+from models.policy_template import PolicyTemplate
 
 from .schema import (
     EventManagerRequestCreateItem,
     EventManagerRequestCreateRequest,
     EventManagerRequestCreateResponse,
+    PublicConsentTemplateItem,
+    PublicConsentTemplateResponse,
     PublicEventListResponse,
     PublicEventProfileItem,
     PublicEventProfileResponse,
@@ -84,6 +87,26 @@ async def create_event_manager_request(
             id=created_request.id,
             status=created_request.status.value,
             created_at=created_request.created_at,
+        ),
+    )
+
+
+@events_router.get(
+    "/consent-template",
+    response_model=PublicConsentTemplateResponse,
+    summary="공개 동의 템플릿 조회",
+)
+async def get_public_consent_template(
+    db: AsyncSessionDepends,
+):
+    template = await PolicyTemplate.ensure_consent_template(db)
+
+    return PublicConsentTemplateResponse(
+        ok=True,
+        message="공개 동의 템플릿을 불러왔습니다.",
+        template=PublicConsentTemplateItem(
+            content=template.content_markdown,
+            updated_at=template.updated_at,
         ),
     )
 

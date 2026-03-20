@@ -86,6 +86,43 @@ class AdminEventManagerRequestUpdateRequest(BaseModel):
 
 class AdminEventManagerRequestResponse(BaseSchema):
     request: Optional[AdminEventManagerRequestItem] = None
+    invited_admin: Optional[AdminMemberItem] = None
+    invite_link: Optional[str] = None
+    invite_email_sent: bool = False
+    invite_expires_at: Optional[datetime] = None
+
+
+class AdminInvitationPreviewItem(BaseModel):
+    email: str
+    name: str
+    expires_at: datetime
+
+
+class AdminInvitationPreviewResponse(BaseSchema):
+    invitation: Optional[AdminInvitationPreviewItem] = None
+
+
+class AdminInvitationCompleteRequest(BaseModel):
+    password: str = Field(..., min_length=8, max_length=100)
+
+
+class AdminInvitationCompleteResponse(BaseSchema):
+    member: Optional[AdminMemberItem] = None
+
+
+class AdminPolicyTemplateItem(BaseModel):
+    key: str
+    content: str
+    updated_at: datetime
+    updated_by_name: Optional[str] = None
+
+
+class AdminPolicyTemplateResponse(BaseSchema):
+    template: Optional[AdminPolicyTemplateItem] = None
+
+
+class AdminPolicyTemplateUpdateRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=20000)
 
 
 class AdminEventParticipantItem(BaseModel):

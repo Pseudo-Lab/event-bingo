@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 from typing import Optional
 import enum
 
-from sqlalchemy import String, Enum, select
+from sqlalchemy import Boolean, DateTime, Enum, String, select
 from sqlalchemy.orm import Mapped, mapped_column
 from core.db import AsyncSession
 from models.base import Base
@@ -23,6 +23,10 @@ class Admin(Base):
     password: Mapped[str] = mapped_column(String(255), nullable=False)  # bcrypt hash는 60자이지만 여유있게
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[AdminRole] = mapped_column(Enum(AdminRole), nullable=False, default=AdminRole.EVENT_MANAGER)
+    password_setup_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    invite_token_hash: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    invite_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    invitation_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )
@@ -39,7 +43,11 @@ class Admin(Base):
         email: str, 
         password: str, 
         name: str, 
-        role: AdminRole = AdminRole.EVENT_MANAGER
+        role: AdminRole = AdminRole.EVENT_MANAGER,
+        password_setup_required: bool = False,
+        invite_token_hash: Optional[str] = None,
+        invite_token_expires_at: Optional[datetime] = None,
+        invitation_sent_at: Optional[datetime] = None,
     ):
         """새 Admin 생성 (비밀번호 자동 해싱)"""
         # 이메일 중복 체크
@@ -54,7 +62,11 @@ class Admin(Base):
             email=email,
             password=password_hash,
             name=name,
-            role=role
+            role=role,
+            password_setup_required=password_setup_required,
+            invite_token_hash=invite_token_hash,
+            invite_token_expires_at=invite_token_expires_at,
+            invitation_sent_at=invitation_sent_at,
         )
         session.add(new_admin)
         await session.commit()
@@ -88,7 +100,11 @@ class Admin(Base):
         admin_id: int, 
         name: Optional[str] = None,
         role: Optional[AdminRole] = None,
-        password: Optional[str] = None
+        password: Optional[str] = None,
+        password_setup_required: Optional[bool] = None,
+        invite_token_hash: Optional[str] = None,
+        invite_token_expires_at: Optional[datetime] = None,
+        invitation_sent_at: Optional[datetime] = None,
     ):
         """Admin 정보 수정"""
         admin = await cls.get_by_id(session, admin_id)
@@ -99,6 +115,11 @@ class Admin(Base):
             admin.role = role
         if password is not None:
             admin.password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        if password_setup_required is not None:
+            admin.password_setup_required = password_setup_required
+        admin.invite_token_hash = invite_token_hash
+        admin.invite_token_expires_at = invite_token_expires_at
+        admin.invitation_sent_at = invitation_sent_at
         
         await session.commit()
         await session.refresh(admin)
@@ -111,6 +132,67 @@ class Admin(Base):
         await session.delete(admin)
         await session.commit()
         return True
+
+    @classmethod
+    async def get_by_invite_token_hash(
+        cls,
+        session: AsyncSession,
+        invite_token_hash: str,
+    ) -> Optional["Admin"]:
+        result = await session.execute(
+            select(cls).where(cls.invite_token_hash == invite_token_hash)
+        )
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def store_invitation(
+        cls,
+        session: AsyncSession,
+        admin_id: int,
+        *,
+        invite_token_hash: str,
+        invite_token_expires_at: datetime,
+        password_setup_required: bool = True,
+    ) -> "Admin":
+        admin = await cls.get_by_id(session, admin_id)
+        admin.password_setup_required = password_setup_required
+        admin.invite_token_hash = invite_token_hash
+        admin.invite_token_expires_at = invite_token_expires_at
+        admin.invitation_sent_at = None
+        await session.commit()
+        await session.refresh(admin)
+        return admin
+
+    @classmethod
+    async def mark_invitation_sent(
+        cls,
+        session: AsyncSession,
+        admin_id: int,
+        *,
+        sent_at: datetime,
+    ) -> "Admin":
+        admin = await cls.get_by_id(session, admin_id)
+        admin.invitation_sent_at = sent_at
+        await session.commit()
+        await session.refresh(admin)
+        return admin
+
+    @classmethod
+    async def complete_password_setup(
+        cls,
+        session: AsyncSession,
+        admin_id: int,
+        *,
+        password: str,
+    ) -> "Admin":
+        admin = await cls.get_by_id(session, admin_id)
+        admin.password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        admin.password_setup_required = False
+        admin.invite_token_hash = None
+        admin.invite_token_expires_at = None
+        await session.commit()
+        await session.refresh(admin)
+        return admin
 
     def verify_password(self, password: str) -> bool:
         """비밀번호 검증"""

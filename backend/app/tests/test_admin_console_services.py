@@ -1,7 +1,13 @@
+import api.admin.console_services as console_services
 import pytest
 
 from api.admin.console_services import (
+    build_admin_invite_link,
+    hash_admin_invite_token,
+    to_kst_datetime,
+    validate_admin_password,
     validate_admin_member_deletion,
+    validate_event_manager_request_transition,
     validate_event_schedule,
     validate_event_slug,
     validate_publish_transition,
@@ -9,6 +15,7 @@ from api.admin.console_services import (
 from datetime import datetime
 from models.admin import AdminRole
 from models.event import EventPublishState
+from models.event_manager_request import EventManagerRequestStatus
 
 
 def test_validate_event_slug_accepts_expected_pattern():
@@ -36,6 +43,48 @@ def test_validate_event_schedule_blocks_invalid_range():
 
     with pytest.raises(ValueError, match="종료 시각"):
         validate_event_schedule(start_at, end_at)
+
+
+def test_validate_admin_password_blocks_short_or_weak_password():
+    with pytest.raises(ValueError, match="비밀번호"):
+        validate_admin_password("weakpass")
+
+
+def test_validate_admin_password_allows_expected_format():
+    validate_admin_password("Admin1234!")
+
+
+def test_hash_admin_invite_token_is_deterministic():
+    assert hash_admin_invite_token("sample-token") == hash_admin_invite_token("sample-token")
+
+
+def test_to_kst_datetime_accepts_naive_datetime():
+    normalized = to_kst_datetime(datetime(2026, 3, 20, 10, 0, 0))
+
+    assert normalized.tzinfo is not None
+    assert normalized.utcoffset() is not None
+
+
+def test_build_admin_invite_link_uses_query_token(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(console_services, "ADMIN_INVITE_URL_BASE", "https://example.com/admin/invite")
+    invite_link = build_admin_invite_link("abc123")
+
+    assert invite_link == "https://example.com/admin/invite?token=abc123"
+
+
+def test_validate_event_manager_request_transition_allows_pending_review():
+    validate_event_manager_request_transition(
+        EventManagerRequestStatus.PENDING,
+        EventManagerRequestStatus.APPROVED,
+    )
+
+
+def test_validate_event_manager_request_transition_blocks_re_review():
+    with pytest.raises(ValueError, match="이미 검토가 완료"):
+        validate_event_manager_request_transition(
+            EventManagerRequestStatus.APPROVED,
+            EventManagerRequestStatus.REJECTED,
+        )
 
 
 def test_validate_admin_member_deletion_blocks_self_delete():

@@ -1,6 +1,7 @@
 import type { EventProfile } from "../config/eventProfiles";
 import { normalizeEventSlug, resolveEventProfile } from "../config/eventProfiles";
 import { buildBoardKeywordPool } from "../config/bingoConfig";
+import { getApiBaseUrl } from "../lib/apiBase";
 
 type ApiResponseBase = {
   ok: boolean;
@@ -46,6 +47,13 @@ type PublicEventResponse = ApiResponseBase & {
   event?: PublicEventPayload | null;
 };
 
+type PublicConsentTemplateResponse = ApiResponseBase & {
+  template?: {
+    content: string;
+    updated_at: string;
+  } | null;
+};
+
 type PublicEventListPayload = ApiResponseBase & {
   events?: Array<{
     id: number;
@@ -66,7 +74,7 @@ type EventManagerApplicationResponse = ApiResponseBase & {
   } | null;
 };
 
-const API_URL = import.meta.env.VITE_API_URL?.trim().replace(/\/$/, "") ?? "";
+const API_URL = getApiBaseUrl();
 
 const createApiUrl = (path: string) => {
   const baseUrl =
@@ -162,6 +170,22 @@ export const getPublicEventCatalog = async (): Promise<PublicLandingEvent[]> => 
     bingoMissionCount: eventItem.bingo_mission_count,
     status: eventItem.status,
   }));
+};
+
+export const getPublicConsentTemplate = async (): Promise<string> => {
+  const payload = await requestJsonWithInit<PublicConsentTemplateResponse>(
+    "/api/events/consent-template",
+    {
+      method: "GET",
+      cache: "no-store",
+    }
+  );
+
+  if (!payload.template?.content) {
+    throw new Error("동의 템플릿을 받지 못했습니다.");
+  }
+
+  return payload.template.content;
 };
 
 export const submitEventManagerApplication = async (
