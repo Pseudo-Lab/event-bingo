@@ -4,7 +4,7 @@ from typing import Optional
 import enum
 
 from sqlalchemy import String, Integer, ForeignKey, Enum, select, func
-from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 from core.db import AsyncSession
 from models.base import Base
 
@@ -17,11 +17,11 @@ class TeamColor(enum.Enum):
 class Team(Base):
     __tablename__ = "teams"
 
-    id: int = mapped_column(Integer, primary_key=True, nullable=False)
-    name: str = mapped_column(String(50), nullable=False)
-    event_id: int = mapped_column(Integer, ForeignKey("events.id"), nullable=False)
-    color: TeamColor = mapped_column(Enum(TeamColor), nullable=False)
-    created_at: datetime = mapped_column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    event_id: Mapped[int] = mapped_column(Integer, ForeignKey("events.id"), nullable=False)
+    color: Mapped[TeamColor] = mapped_column(Enum(TeamColor), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
         nullable=False
     )

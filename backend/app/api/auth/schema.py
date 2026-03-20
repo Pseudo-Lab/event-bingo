@@ -42,3 +42,24 @@ class LoginResponse(BaseSchema):
 
 class LoginUrl(BaseSchema):
     url: Optional[str] = Field(description="로그인을 위한 페이지를 보여주는 URL")
+
+
+# ---------------------
+# New Auth Schemas (Task 2)
+# ---------------------
+from pydantic import BaseModel, EmailStr
+
+class QuickLoginRequest(BaseModel):
+    email: EmailStr
+    user_name: Optional[str] = None
+
+class QuickLoginResponse(BaseSchema):
+    access_token: str
+    token_type: str = "bearer"
+    is_new_user: bool = False
+    
+class BingoUserResponse(BaseSchema):
+    user_id: int
+    user_email: str
+    user_name: Optional[str]
+    auth_provider: str

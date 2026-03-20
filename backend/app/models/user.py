@@ -15,8 +15,10 @@ from models.base import Base
 class BingoUser(Base):
     __tablename__ = "bingo_user"
     user_id = mapped_column(Integer, primary_key=True, nullable=False)
-    user_name = mapped_column(String(100), nullable=False)
-    user_email = mapped_column(String(100), nullable=False)
+    user_name = mapped_column(String(100), nullable=True)
+    user_email = mapped_column(String(100), nullable=False, unique=True)
+    auth_provider = mapped_column(String(50), nullable=False, default="email_only")
+    provider_id = mapped_column(String(255), nullable=True)
     umoh_id = mapped_column(Integer, nullable=True)
     rating = mapped_column(Integer, nullable=True)
     review = mapped_column(String(500), nullable=True)
@@ -28,7 +30,28 @@ class BingoUser(Base):
     agreement_at = mapped_column(DateTime(timezone=True),  nullable=True)
     
     @classmethod
-    async def create(cls, session: AsyncSession, email: str, user_name: str):
+    async def create_or_get_by_email(cls, session: AsyncSession, email: str, user_name: Optional[str] = None):
+        user = await cls.get_user_by_email(session, email)
+        if user:
+            return user
+            
+        if user_name is None:
+            user_name = email.split("@")[0]
+            
+        new_user = BingoUser(
+            user_name=user_name, 
+            user_email=email, 
+            auth_provider="email_only",
+            privacy_agreed=True,
+            agreement_at=datetime.now(ZoneInfo("Asia/Seoul"))
+        )
+        session.add(new_user)
+        await session.commit()
+        await session.refresh(new_user)
+        return new_user
+
+    @classmethod
+    async def create(cls, session: AsyncSession, email: str, user_name: str, auth_provider: str = 'email_only', provider_id: Optional[str] = None):
         is_user = await session.execute(select(cls).where(cls.user_email == email))
         is_user = is_user.one_or_none()
         if is_user:
@@ -36,6 +59,8 @@ class BingoUser(Base):
         new_user = BingoUser(
             user_name=user_name, 
             user_email=email, 
+            auth_provider=auth_provider,
+            provider_id=provider_id,
             privacy_agreed=True,
             agreement_at=datetime.now(ZoneInfo("Asia/Seoul"))
         )

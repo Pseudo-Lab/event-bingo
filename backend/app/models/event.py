@@ -4,7 +4,7 @@ from typing import Optional
 import enum
 
 from sqlalchemy import String, Integer, DateTime, Enum, JSON, ForeignKey, select, func
-from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 from core.db import AsyncSession
 from models.base import Base
 
@@ -18,21 +18,21 @@ class EventStatus(enum.Enum):
 class Event(Base):
     __tablename__ = "events"
 
-    id: int = mapped_column(Integer, primary_key=True, nullable=False)
-    name: str = mapped_column(String(100), nullable=False)
-    start_time: datetime = mapped_column(DateTime(timezone=True), nullable=False)
-    end_time: datetime = mapped_column(DateTime(timezone=True), nullable=False)
-    admin_id: int = mapped_column(Integer, ForeignKey("admins.id"), nullable=False)
-    admin_email: str = mapped_column(String(100), nullable=False)  # 중복 저장 (조회 편의성)
-    bingo_size: int = mapped_column(Integer, nullable=False, default=5)
-    success_condition: int = mapped_column(Integer, nullable=False, default=5)
-    keywords: list = mapped_column(JSON, nullable=True, default=list)
-    created_at: datetime = mapped_column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    admin_id: Mapped[int] = mapped_column(Integer, ForeignKey("admins.id"), nullable=False)
+    admin_email: Mapped[str] = mapped_column(String(100), nullable=False)  # 중복 저장 (조회 편의성)
+    bingo_size: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    success_condition: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    keywords: Mapped[Optional[list]] = mapped_column(JSON, nullable=True, default=list)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
         nullable=False
     )
-    updated_at: datetime = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
         onupdate=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
@@ -42,10 +42,13 @@ class Event(Base):
     @property
     def status(self) -> EventStatus:
         """현재 시간 기준으로 이벤트 상태 계산"""
-        now = datetime.now(ZoneInfo("Asia/Seoul"))
-        if now < self.start_time.replace(tzinfo=ZoneInfo("Asia/Seoul")) if self.start_time.tzinfo is None else self.start_time:
+        kst = ZoneInfo("Asia/Seoul")
+        now = datetime.now(kst)
+        start = self.start_time if self.start_time.tzinfo else self.start_time.replace(tzinfo=kst)
+        end = self.end_time if self.end_time.tzinfo else self.end_time.replace(tzinfo=kst)
+        if now < start:
             return EventStatus.SCHEDULED
-        elif self.start_time <= now <= self.end_time:
+        elif start <= now <= end:
             return EventStatus.IN_PROGRESS
         else:
             return EventStatus.FINISHED

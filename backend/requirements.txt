@@ -49,11 +49,11 @@ poetry-core==2.1.2
 pycparser==2.21
 pydantic==2.6.0
 pydantic_core==2.16.1
-PyJWT==2.8.0
 PyMySQL==1.1.0
 pyproject_hooks==1.2.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
+python-jose[cryptography]==3.3.0
 pytz==2025.2
 RapidFuzz==3.13.0
 requests==2.32.3
@@ -74,4 +74,3 @@ virtualenv==20.30.0
 xattr==1.1.4
 zipp==3.21.0
 zstandard==0.23.0
-pandaspython-jose[cryptography]

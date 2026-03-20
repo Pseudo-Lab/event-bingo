@@ -1,5 +1,5 @@
 """
-Admin 인증 관련 Pydantic 스키마
+Admin 관련 Pydantic 스키마
 """
 from pydantic import BaseModel, EmailStr
 from models.admin import AdminRole
