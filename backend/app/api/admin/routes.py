@@ -1,12 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from core.db import AsyncSessionDepends
 from core.dependencies import authenticate_user, get_current_admin, require_super_admin_role
-from core.security import create_access_token, verify_password
 from models.admin import Admin, AdminRole
 from .schema import (
-    AdminLoginRequest,
     AdminRegisterRequest,
-    AdminLoginResponse,
     AdminInfoResponse
 )
 from .services import set_test_bingo_board, get_all_users, get_all_bingo_boards
@@ -17,65 +14,28 @@ from starlette.responses import StreamingResponse
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
-# --- Admin Authentication ---
-
-@admin_router.post(
-    "/auth/login",
-    # response_model=AdminLoginResponse, # schema location fix needed if importing differently
-    summary="admin_login",
-    description="이메일과 비밀번호로 로그인하여 JWT 토큰을 발급받습니다."
-)
-async def login(
-    request: AdminLoginRequest,
-    session: AsyncSessionDepends
-):
-    """Admin 로그인"""
-    admin = await Admin.get_by_email(session, request.email)
-    if not admin:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="이메일 또는 비밀번호가 올바르지 않습니다"
-        )
-    
-    if not verify_password(request.password, admin.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="이메일 또는 비밀번호가 올바르지 않습니다"
-        )
-    
-    access_token = create_access_token(
-        data={"sub": admin.id, "admin_role": admin.role.value}
-    )
-    
-    return AdminLoginResponse(
-        access_token=access_token,
-        admin_id=admin.id,
-        admin_name=admin.name,
-        admin_role=admin.role.value
-    )
-
+# --- Admin 인증: 로그인은 Supabase Auth에서 처리, 백엔드는 역할 매핑만 ---
 
 @admin_router.post(
     "/auth/register",
     response_model=AdminInfoResponse,
     summary="admin_register",
-    description="새로운 Admin을 등록합니다. ADMIN 권한이 필요합니다.",
+    description="Supabase 계정의 이메일을 Admin으로 등록합니다. ADMIN 권한이 필요합니다.",
     dependencies=[Depends(require_super_admin_role)]
 )
 async def register(
     request: AdminRegisterRequest,
     session: AsyncSessionDepends
 ):
-    """Admin 회원가입 (ADMIN 권한 필요)"""
+    """Admin 역할 등록 (ADMIN 권한 필요). Supabase 가입은 별도."""
     try:
         admin = await Admin.create(
             session=session,
             email=request.email,
-            password=request.password,
             name=request.name,
             role=request.role
         )
-        
+
         return AdminInfoResponse(
             id=admin.id,
             email=admin.email,

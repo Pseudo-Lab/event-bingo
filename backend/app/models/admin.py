@@ -7,7 +7,6 @@ from sqlalchemy import String, Enum, select
 from sqlalchemy.orm import Mapped, mapped_column
 from core.db import AsyncSession
 from models.base import Base
-import bcrypt
 
 
 class AdminRole(enum.Enum):
@@ -20,7 +19,7 @@ class Admin(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, nullable=False)
     email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    password: Mapped[str] = mapped_column(String(255), nullable=False)  # bcrypt hash는 60자이지만 여유있게
+    password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Supabase 전환으로 미사용 (하위호환)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[AdminRole] = mapped_column(Enum(AdminRole), nullable=False, default=AdminRole.EVENT_MANAGER)
     created_at: Mapped[datetime] = mapped_column(
@@ -34,25 +33,19 @@ class Admin(Base):
 
     @classmethod
     async def create(
-        cls, 
-        session: AsyncSession, 
-        email: str, 
-        password: str, 
-        name: str, 
+        cls,
+        session: AsyncSession,
+        email: str,
+        name: str,
         role: AdminRole = AdminRole.EVENT_MANAGER
     ):
-        """새 Admin 생성 (비밀번호 자동 해싱)"""
-        # 이메일 중복 체크
+        """새 Admin 역할 등록 (인증은 Supabase에서 처리)"""
         existing = await cls.get_by_email(session, email)
         if existing:
             raise ValueError(f"{email}은 이미 존재하는 관리자입니다.")
-        
-        # 비밀번호 해싱
-        password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        
+
         new_admin = Admin(
             email=email,
-            password=password_hash,
             name=name,
             role=role
         )
@@ -83,23 +76,20 @@ class Admin(Base):
 
     @classmethod
     async def update(
-        cls, 
-        session: AsyncSession, 
-        admin_id: int, 
+        cls,
+        session: AsyncSession,
+        admin_id: int,
         name: Optional[str] = None,
         role: Optional[AdminRole] = None,
-        password: Optional[str] = None
     ):
         """Admin 정보 수정"""
         admin = await cls.get_by_id(session, admin_id)
-        
+
         if name is not None:
             admin.name = name
         if role is not None:
             admin.role = role
-        if password is not None:
-            admin.password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        
+
         await session.commit()
         await session.refresh(admin)
         return admin
@@ -111,8 +101,3 @@ class Admin(Base):
         await session.delete(admin)
         await session.commit()
         return True
-
-    def verify_password(self, password: str) -> bool:
-        """비밀번호 검증"""
-        return bcrypt.checkpw(password.encode('utf-8'), self.password.encode('utf-8'))
-

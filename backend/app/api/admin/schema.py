@@ -5,27 +5,11 @@ from pydantic import BaseModel, EmailStr
 from models.admin import AdminRole
 
 
-class AdminLoginRequest(BaseModel):
-    """로그인 요청"""
-    email: EmailStr
-    password: str
-
-
 class AdminRegisterRequest(BaseModel):
-    """회원가입 요청"""
+    """Admin 역할 등록 요청 (Supabase 계정 이메일 기반)"""
     email: EmailStr
-    password: str
     name: str
     role: AdminRole = AdminRole.EVENT_MANAGER
-
-
-class AdminLoginResponse(BaseModel):
-    """로그인 응답"""
-    access_token: str
-    token_type: str = "bearer"
-    admin_id: int
-    admin_name: str
-    admin_role: str
 
 
 class AdminInfoResponse(BaseModel):
@@ -34,6 +18,6 @@ class AdminInfoResponse(BaseModel):
     email: str
     name: str
     role: str
-    
+
     class Config:
         from_attributes = True
