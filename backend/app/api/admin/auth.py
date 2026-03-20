@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import logging
 import os
 
 import jwt
@@ -6,8 +7,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from core.db import AsyncSessionDepends
+from core.security import decode_supabase_token
 from models.admin import Admin
 
+logger = logging.getLogger(__name__)
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("ADMIN_JWT_EXPIRE_HOURS", "12"))
@@ -38,6 +41,20 @@ def decode_admin_access_token(token: str) -> dict:
         ) from error
 
 
+async def _try_supabase_admin_auth(db, token: str):
+    """Supabase JWT로 Admin 인증 시도. 실패하면 None 반환."""
+    payload = decode_supabase_token(token)
+    if payload is None:
+        return None
+
+    email = payload.get("email")
+    if not email:
+        return None
+
+    admin = await Admin.get_by_email(db, email)
+    return admin
+
+
 async def authenticate_admin_session(
     db: AsyncSessionDepends,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
@@ -48,22 +65,28 @@ async def authenticate_admin_session(
             detail="관리자 인증이 필요합니다.",
         )
 
-    payload = decode_admin_access_token(credentials.credentials)
-    subject = payload.get("sub")
-    if subject is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="관리자 인증 정보가 올바르지 않습니다.",
-        )
+    token = credentials.credentials
 
-    admin = await Admin.get_by_id(db, int(subject))
-    if not admin:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="관리자 계정을 찾을 수 없습니다.",
-        )
+    # 1. 기존 로컬 JWT 시도
+    try:
+        payload = jwt.decode(token, ADMIN_JWT_SECRET, algorithms=[ALGORITHM])
+        subject = payload.get("sub")
+        if subject is not None:
+            admin = await Admin.get_by_id(db, int(subject))
+            if admin:
+                return admin
+    except jwt.PyJWTError:
+        pass
 
-    return admin
+    # 2. Supabase JWT 시도 (email → Admin 테이블 매핑)
+    admin = await _try_supabase_admin_auth(db, token)
+    if admin:
+        return admin
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="관리자 인증이 만료되었거나 유효하지 않습니다.",
+    )
 
 
 def require_admin_role(admin: Admin) -> Admin:
