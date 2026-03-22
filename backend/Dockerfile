@@ -1,9 +1,12 @@
 FROM python:3.11-slim
 
 WORKDIR /app
+
 COPY requirements.txt ./
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["bash"]
+EXPOSE 8000
+
+CMD ["/bin/sh", "-c", "alembic upgrade head && python app/start.py"]
