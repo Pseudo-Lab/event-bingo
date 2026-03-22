@@ -10,13 +10,18 @@ on:
       - "frontend/**"
   workflow_dispatch:
 
+concurrency:
+  group: ghcr-images-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   OPS_REPOSITORY: Pseudo-Lab/DevFactory-Ops
   OPS_TARGET_DIR: services/event-bingo/overlays/prod
 
 jobs:
-  build-and-push:
+  build-amd64:
+    name: Build amd64 (${{ matrix.component }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,13 +37,9 @@ jobs:
             context: ./frontend
             dockerfile: ./frontend/Dockerfile
             image_suffix: frontend
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -50,31 +51,123 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.image_suffix }}
-          tags: |
-            type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build and push image
+      - name: Build amd64 image
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.component }}
-          cache-to: type=gha,scope=${{ matrix.component }},mode=max
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.image_suffix }}:sha-${{ github.sha }}-amd64
+          cache-from: type=gha,scope=${{ matrix.component }}-amd64
+          cache-to: type=gha,scope=${{ matrix.component }}-amd64,mode=max
+
+  build-arm64:
+    name: Build arm64 (${{ matrix.component }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - component: backend
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+            image_suffix: backend
+          - component: frontend
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile
+            image_suffix: frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build arm64 image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/arm64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.image_suffix }}:sha-${{ github.sha }}-arm64
+          cache-from: type=gha,scope=${{ matrix.component }}-arm64
+          cache-to: type=gha,scope=${{ matrix.component }}-arm64,mode=max
+
+  merge-manifest:
+    name: Merge Multi-Arch Manifest (${{ matrix.component }})
+    needs:
+      - build-amd64
+      - build-arm64
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - component: backend
+            image_suffix: backend
+          - component: frontend
+            image_suffix: frontend
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create multi-arch tag (sha)
+        run: |
+          set -euo pipefail
+          IMAGE="${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.image_suffix }}"
+          SHORT_SHA="${GITHUB_SHA::7}"
+
+          docker buildx imagetools create \
+            -t "${IMAGE}:sha-${SHORT_SHA}" \
+            "${IMAGE}:sha-${GITHUB_SHA}-amd64" \
+            "${IMAGE}:sha-${GITHUB_SHA}-arm64"
+
+      - name: Create multi-arch tag (latest)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          IMAGE="${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.image_suffix }}"
+
+          docker buildx imagetools create \
+            -t "${IMAGE}:latest" \
+            "${IMAGE}:sha-${GITHUB_SHA}-amd64" \
+            "${IMAGE}:sha-${GITHUB_SHA}-arm64"
 
   deploy-handoff:
     name: Update Ops Manifest
     if: github.ref == 'refs/heads/main'
-    needs: build-and-push
+    needs: merge-manifest
     runs-on: ubuntu-latest
     steps:
       - name: Ensure Ops token is configured
