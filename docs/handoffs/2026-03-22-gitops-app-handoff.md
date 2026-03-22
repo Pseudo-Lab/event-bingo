@@ -95,3 +95,16 @@
   - Ops agent / Infra(lead)
 - Expected next action:
   - Onboard `event-bingo` into `DevFactory-Ops` using the runtime contract above and wire ArgoCD to the new GHCR images
+
+## Deployment Status Update
+- Date:
+  - 2026-03-22
+- Status:
+  - `event-bingo` GitOps deployment is connected and externally reachable
+- Verified outcome:
+  - `https://bingo.pseudolab-devfactory.com` access is working
+- Current operating policy:
+  - Keep compose MySQL (`event-bingo-db`) running until Supabase migration is completed
+  - Decommission compose app containers (`event-bingo-frontend`, `event-bingo-backend`) to avoid dual-serving
+- Remaining follow-up:
+  - Plan and execute DB migration from compose MySQL to Supabase
