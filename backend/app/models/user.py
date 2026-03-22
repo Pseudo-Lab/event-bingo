@@ -19,10 +19,12 @@ LOGIN_ID_LENGTH = 6
 class BingoUser(Base):
     __tablename__ = "bingo_user"
     user_id = mapped_column(Integer, primary_key=True, nullable=False)
-    user_name = mapped_column(String(100), nullable=False)
+    user_name = mapped_column(String(100), nullable=True)
     user_email = mapped_column(String(100), nullable=False)
-    login_id = mapped_column(String(32), nullable=False, unique=True)
-    password_hash = mapped_column(String(255), nullable=False)
+    login_id = mapped_column(String(32), nullable=True, unique=True)
+    password_hash = mapped_column(String(255), nullable=True)
+    auth_provider = mapped_column(String(50), nullable=False, default="legacy")
+    provider_id = mapped_column(String(255), nullable=True)
     umoh_id = mapped_column(Integer, nullable=True)
     rating = mapped_column(Integer, nullable=True)
     review = mapped_column(String(500), nullable=True)
