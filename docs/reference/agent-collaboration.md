@@ -1,5 +1,8 @@
 ﻿# Agent Collaboration Protocol (English Source)
 
+Status: active
+Last-Validated: 2026-03-22
+
 ## Goal
 Enable consistent delivery when different contributors use Codex, Claude, or Gemini.
 
@@ -43,6 +46,12 @@ Enable consistent delivery when different contributors use Codex, Claude, or Gem
 Handoff notes are required for impact-trigger tasks and strongly recommended for medium-or-larger scoped tasks.
 Handoff notes may be skipped for low-risk, minor, single-domain changes when context is clear in commit or PR text.
 
+## Light-Weight Completion Note
+When a handoff note is skipped, leave a short completion note in commit or PR text.
+- what changed
+- how it was verified
+- next impact or follow-up if any
+
 ## Work Contract For Required Handoffs
 Required handoff notes must include these fields.
 - Task ID
@@ -77,7 +86,6 @@ Use template: `docs/templates/agent-handoff.md`
 - Korean mirrors must be updated in the same change set.
 - Sync pair for this document:
 - `docs/reference/agent-collaboration.md` <-> `docs/reference/agent-collaboration.ko.md`
-
 
 
 

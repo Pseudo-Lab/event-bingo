@@ -1,5 +1,8 @@
 ﻿# Docs Overview
 
+Status: active
+Last-Validated: 2026-03-22
+
 ## Purpose
 - Make it easy to open only the docs needed for the current task.
 - Keep source-of-truth docs and output docs clearly separated.
@@ -25,6 +28,12 @@ docs/
 - `templates/`: reusable document templates.
 - `reports/`: time-bound outputs such as QA reports, release readiness notes, and investigation summaries.
 - `reports/handoffs/`: accepted handoff notes and delivery handoff outputs.
+
+## Document Lifecycle
+- `active`: current source-of-truth or currently used operational doc.
+- `superseded`: replaced by a newer doc and kept for traceability.
+- `archive`: historical record kept for reference only.
+- If a doc is replaced, prefer marking or moving it clearly instead of deleting it silently.
 
 ## Minimal Read Paths By Role
 - `backend-api`
@@ -67,6 +76,7 @@ docs/
 - Put handoff output files under `docs/reports/handoffs/` when handoff is required.
 - Use date-first names when possible, for example `2026-03-17-release-readiness.md`.
 - Keep reports immutable after sign-off; create a new report for follow-up updates.
+- Do not create a report for low-risk single-domain work when commit or PR context is already sufficient.
 
 ## Context Efficiency Rules
 - Search first with `rg` before opening full files.
