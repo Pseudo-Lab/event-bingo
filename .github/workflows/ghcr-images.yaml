@@ -51,6 +51,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prepare image name
+        id: prep
+        run: |
+          echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.image_suffix }}" >> "$GITHUB_OUTPUT"
+
       - name: Build amd64 image
         uses: docker/build-push-action@v6
         with:
@@ -61,7 +66,7 @@ jobs:
           provenance: false
           sbom: false
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.image_suffix }}:sha-${{ github.sha }}-amd64
+            ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-amd64
           cache-from: type=gha,scope=${{ matrix.component }}-amd64
           cache-to: type=gha,scope=${{ matrix.component }}-amd64,mode=max
 
@@ -101,6 +106,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prepare image name
+        id: prep
+        run: |
+          echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.image_suffix }}" >> "$GITHUB_OUTPUT"
+
       - name: Build arm64 image
         uses: docker/build-push-action@v6
         with:
@@ -111,7 +121,7 @@ jobs:
           provenance: false
           sbom: false
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.image_suffix }}:sha-${{ github.sha }}-arm64
+            ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-arm64
           cache-from: type=gha,scope=${{ matrix.component }}-arm64
           cache-to: type=gha,scope=${{ matrix.component }}-arm64,mode=max
 
@@ -142,10 +152,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prepare image name
+        id: prep
+        run: |
+          echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.image_suffix }}" >> "$GITHUB_OUTPUT"
+
       - name: Create multi-arch tag (sha)
         run: |
           set -euo pipefail
-          IMAGE="${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.image_suffix }}"
+          IMAGE="${{ steps.prep.outputs.image }}"
           SHORT_SHA="${GITHUB_SHA::7}"
 
           docker buildx imagetools create \
@@ -157,7 +172,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
-          IMAGE="${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.image_suffix }}"
+          IMAGE="${{ steps.prep.outputs.image }}"
 
           docker buildx imagetools create \
             -t "${IMAGE}:latest" \
