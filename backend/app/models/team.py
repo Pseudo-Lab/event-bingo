@@ -20,6 +20,7 @@ class Team(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     event_id: Mapped[int] = mapped_column(Integer, ForeignKey("events.id"), nullable=False)
+    room_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("rooms.id"), nullable=True)
     color: Mapped[TeamColor] = mapped_column(Enum(TeamColor), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
@@ -32,16 +33,18 @@ class Team(Base):
         session: AsyncSession,
         name: str,
         event_id: int,
-        color: TeamColor
+        color: TeamColor,
+        room_id: Optional[int] = None,
     ):
         """팀 생성"""
         # Event 존재 확인
         from models.event import Event
         await Event.get_by_id(session, event_id)
-        
+
         new_team = Team(
             name=name,
             event_id=event_id,
+            room_id=room_id,
             color=color
         )
         session.add(new_team)

@@ -15,6 +15,7 @@ class EventAttendee(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False)
     event_id: Mapped[int] = mapped_column(Integer, ForeignKey("events.id"), nullable=False)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("bingo_user.user_id"), nullable=False)
+    room_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("rooms.id"), nullable=True)
     team_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("teams.id"), nullable=True)
     selected_keywords: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
     rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -31,6 +32,7 @@ class EventAttendee(Base):
         session: AsyncSession,
         event_id: int,
         user_id: int,
+        room_id: Optional[int] = None,
         team_id: Optional[int] = None,
         selected_keywords: Optional[List[str]] = None
     ):
@@ -38,11 +40,11 @@ class EventAttendee(Base):
         # Event 존재 확인
         from models.event import Event
         await Event.get_by_id(session, event_id)
-        
+
         # User 존재 확인
         from models.user import BingoUser
         await BingoUser.get_user_by_id(session, user_id)
-        
+
         # 중복 등록 체크
         existing = await session.execute(
             select(cls).where(
@@ -52,13 +54,14 @@ class EventAttendee(Base):
         )
         if existing.scalar_one_or_none():
             raise ValueError(f"User {user_id}는 이미 Event {event_id}에 등록되어 있습니다.")
-        
+
         if selected_keywords is None:
             selected_keywords = []
-        
+
         new_attendee = EventAttendee(
             event_id=event_id,
             user_id=user_id,
+            room_id=room_id,
             team_id=team_id,
             selected_keywords=selected_keywords
         )
