@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 # Supabase JWT 설정
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")  # anon key (JWKS 요청에 필요)
 SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")  # HS256 fallback 용
 
 # JWKS 캐시
@@ -27,8 +28,11 @@ def _fetch_jwks() -> Optional[dict]:
         return None
     try:
         import httpx
-        jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/jwks"
-        resp = httpx.get(jwks_url, timeout=5)
+        jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
+        headers = {}
+        if SUPABASE_KEY:
+            headers["apikey"] = SUPABASE_KEY
+        resp = httpx.get(jwks_url, headers=headers, timeout=5)
         resp.raise_for_status()
         _jwks_cache = resp.json()
         return _jwks_cache
