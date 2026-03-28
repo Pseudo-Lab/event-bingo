@@ -12,7 +12,7 @@ from models.bingo.bingo_boards import BingoBoards
 from models.team import Team, TeamColor
 from models.room import Room
 
-from .schema import JoinEventResponse
+from .schema import JoinEventResponse, RoomStatusResponse, TeamStatusItem, MyEventsResponse, MyEventItem
 
 play_router = APIRouter(prefix="/play", tags=["play"])
 
@@ -152,3 +152,101 @@ async def join_event(
     )
 
 
+@play_router.get(
+    "/rooms/{room_id}",
+    response_model=RoomStatusResponse,
+    summary="방 상태 조회 (팀전)",
+)
+async def get_room_status(
+    room_id: int,
+    current_user: CurrentUser,
+    db: AsyncSessionDepends,
+):
+    from sqlalchemy import select as sa_select, func
+
+    room = await Room.get_by_id(db, room_id)
+    event = await Event.get_by_id(db, room.event_id)
+
+    if event.game_mode != GameMode.TEAM:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="팀전 이벤트가 아닙니다.")
+
+    participant_count = await Room.get_participant_count(db, room_id)
+
+    teams = await Team.get_by_room(db, room_id)
+    team_items = []
+    for team in teams:
+        count_result = await db.execute(
+            sa_select(func.count(EventAttendee.id)).where(
+                EventAttendee.room_id == room_id,
+                EventAttendee.team_id == team.id,
+            )
+        )
+        team_items.append(TeamStatusItem(
+            team_id=team.id,
+            color=team.color.value,
+            name=team.name,
+            member_count=count_result.scalar() or 0,
+        ))
+
+    return RoomStatusResponse(
+        ok=True,
+        message="방 상태를 조회했습니다.",
+        room_id=room.id,
+        room_number=room.room_number,
+        event_id=room.event_id,
+        is_open=room.is_open,
+        participant_count=participant_count,
+        max_capacity=event.team_size * 2,
+        teams=team_items,
+    )
+
+
+@play_router.get(
+    "/me",
+    response_model=MyEventsResponse,
+    summary="내가 참여 중인 이벤트 목록",
+)
+async def get_my_events(
+    current_user: CurrentUser,
+    db: AsyncSessionDepends,
+):
+    from sqlalchemy import select as sa_select
+
+    attendees = await EventAttendee.get_by_user(db, current_user.user_id)
+
+    items = []
+    for att in attendees:
+        event = await Event.get_by_id(db, att.event_id)
+
+        # 빙고 카운트 조회
+        board_result = await db.execute(
+            sa_select(BingoBoards).where(
+                BingoBoards.user_id == current_user.user_id,
+                BingoBoards.event_id == att.event_id,
+            )
+        )
+        board = board_result.scalar_one_or_none()
+
+        # 팀 색상 조회
+        team_color = None
+        if att.team_id:
+            team = await Team.get_by_id(db, att.team_id)
+            team_color = team.color.value
+
+        items.append(MyEventItem(
+            event_id=event.id,
+            event_slug=event.slug,
+            event_name=event.name,
+            game_mode=event.game_mode.value,
+            room_id=att.room_id,
+            team_id=att.team_id,
+            team_color=team_color,
+            bingo_count=board.bingo_count if board else 0,
+            joined_at=att.created_at,
+        ))
+
+    return MyEventsResponse(
+        ok=True,
+        message="참여 중인 이벤트 목록을 조회했습니다.",
+        events=items,
+    )
