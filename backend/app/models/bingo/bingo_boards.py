@@ -20,7 +20,7 @@ class BingoBoards(Base):
     )
 
     user_id = mapped_column(Integer, nullable=False)
-    event_id = mapped_column(Integer, ForeignKey("events.id"), nullable=True)
+    event_id = mapped_column(Integer, ForeignKey("events.id"), nullable=False)
     board_data = mapped_column(MutableDict.as_mutable(JSON), nullable=False)
 
     bingo_count = mapped_column(Integer, default=0, nullable=False)

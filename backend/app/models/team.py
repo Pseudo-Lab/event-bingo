@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 from typing import Optional
 import enum
 
-from sqlalchemy import String, Integer, ForeignKey, Enum, select, func
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Enum, select, func
 from sqlalchemy.orm import Mapped, mapped_column
 from core.db import AsyncSession
 from models.base import Base
@@ -23,6 +23,7 @@ class Team(Base):
     room_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("rooms.id"), nullable=True)
     color: Mapped[TeamColor] = mapped_column(Enum(TeamColor), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         default=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
         nullable=False
     )
@@ -65,6 +66,14 @@ class Team(Base):
         """이벤트별 팀 조회"""
         result = await session.execute(
             select(cls).where(cls.event_id == event_id)
+        )
+        return result.scalars().all()
+
+    @classmethod
+    async def get_by_room(cls, session: AsyncSession, room_id: int):
+        """방별 팀 조회"""
+        result = await session.execute(
+            select(cls).where(cls.room_id == room_id)
         )
         return result.scalars().all()
 

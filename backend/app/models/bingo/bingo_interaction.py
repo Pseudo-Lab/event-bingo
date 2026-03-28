@@ -16,7 +16,7 @@ class BingoInteraction(Base):
     word_id_list = mapped_column(String(200), nullable=False)
     send_user_id = mapped_column(Integer, nullable=False)
     receive_user_id = mapped_column(Integer, nullable=False)
-    event_id = mapped_column(Integer, ForeignKey("events.id"), nullable=True)
+    event_id = mapped_column(Integer, ForeignKey("events.id"), nullable=False)
     created_at = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )

@@ -53,8 +53,8 @@ async def _assign_room_and_team(session, event: Event) -> tuple[int, int]:
     )
     attendees_in_room = blue_result.scalars().all()
 
-    # 팀 오브젝트 가져오기 (없으면 생성)
-    teams = await Team.get_by_event(session, event.id)
+    # 이 방의 팀 가져오기 (없으면 생성)
+    teams = await Team.get_by_room(session, room.id)
     team_dict = {t.color: t for t in teams}
 
     if TeamColor.BLUE not in team_dict:
@@ -193,8 +193,8 @@ async def leave_event(
     if board:
         await db.delete(board)
 
-    # 퇴장 후 방 자리 생기면 다시 열기
-    if room_id:
+    # 팀전: 퇴장 후 방 자리 생기면 다시 열기
+    if event.game_mode == GameMode.TEAM and room_id:
         remaining = await Room.get_participant_count(db, room_id)
         if remaining < event.team_size * 2:
             await Room.reopen(db, room_id)

@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 from typing import Optional, List
 import random
 
-from sqlalchemy import Integer, String, ForeignKey, JSON, DateTime, select
+from sqlalchemy import Integer, String, ForeignKey, JSON, DateTime, UniqueConstraint, select
 from sqlalchemy.orm import Mapped, mapped_column
 from core.db import AsyncSession
 from models.base import Base
@@ -11,6 +11,9 @@ from models.base import Base
 
 class EventAttendee(Base):
     __tablename__ = "event_attendees"
+    __table_args__ = (
+        UniqueConstraint("event_id", "user_id", name="uq_attendees_event_user"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False)
     event_id: Mapped[int] = mapped_column(Integer, ForeignKey("events.id"), nullable=False)
