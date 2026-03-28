@@ -80,3 +80,8 @@ class Room(Base):
     async def mark_full(cls, session: AsyncSession, room_id: int):
         room = await cls.get_by_id(session, room_id)
         room.is_open = False
+
+    @classmethod
+    async def reopen(cls, session: AsyncSession, room_id: int):
+        room = await cls.get_by_id(session, room_id)
+        room.is_open = True
