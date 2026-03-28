@@ -108,14 +108,10 @@ class TestPlayRouterPaths:
         paths = self._get_paths()
         assert "/play/events/{event_slug}/join" in paths
 
-    def test_leave_endpoint_exists(self):
-        """DELETE /play/events/{event_slug}/leave 경로 존재
-
-        play_router에 prefix="/play"가 설정되어 있으므로
-        router.routes에는 전체 경로 '/play/events/{event_slug}/leave'으로 저장된다.
-        """
+    def test_leave_endpoint_not_exists(self):
+        """퇴장 엔드포인트는 존재하지 않음"""
         paths = self._get_paths()
-        assert "/play/events/{event_slug}/leave" in paths
+        assert "/play/events/{event_slug}/leave" not in paths
 
     def test_join_method_is_post(self):
         """join 엔드포인트 HTTP 메서드가 POST"""
@@ -125,15 +121,6 @@ class TestPlayRouterPaths:
                 break
         else:
             pytest.fail("join 라우트를 찾을 수 없습니다.")
-
-    def test_leave_method_is_delete(self):
-        """leave 엔드포인트 HTTP 메서드가 DELETE"""
-        for route in play_router.routes:
-            if route.path == "/play/events/{event_slug}/leave":
-                assert "DELETE" in route.methods
-                break
-        else:
-            pytest.fail("leave 라우트를 찾을 수 없습니다.")
 
 
 # ---------------------------------------------------------------------------

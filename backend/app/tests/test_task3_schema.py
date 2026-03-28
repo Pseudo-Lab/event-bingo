@@ -60,10 +60,9 @@ def test_room_has_mark_full_classmethod():
     assert inspect.ismethod(Room.mark_full) or callable(getattr(Room, "mark_full", None))
 
 
-def test_room_has_reopen_classmethod():
-    """Room에 reopen 클래스메서드가 정의되어 있음을 확인."""
-    assert hasattr(Room, "reopen")
-    assert inspect.ismethod(Room.reopen) or callable(getattr(Room, "reopen", None))
+def test_room_no_reopen_method():
+    """Room에 reopen 메서드가 없음을 확인 (퇴장 기능 없음)."""
+    assert not hasattr(Room, "reopen")
 
 
 def test_room_instance_fields():
