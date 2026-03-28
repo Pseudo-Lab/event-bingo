@@ -411,8 +411,8 @@ const mapAdminEvent = (payload: AdminEventPayload): AdminEvent => {
 
 export const validateAdminSlugInput = (value: string) => {
   const normalizedValue = value.trim().toLowerCase();
-  if (!/^[a-z0-9-]+$/.test(normalizedValue)) {
-    return "slug는 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.";
+  if (!/^[a-z0-9가-힣-]+$/.test(normalizedValue)) {
+    return "slug는 한글, 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.";
   }
   if (normalizedValue.length < 3 || normalizedValue.length > 50) {
     return "slug는 3자 이상 50자 이하로 입력해 주세요.";

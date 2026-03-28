@@ -124,6 +124,29 @@ def validate_event_schedule(start_at: datetime, end_at: datetime) -> None:
         raise ValueError("행사 종료 시각은 시작 시각보다 늦어야 합니다.")
 
 
+def normalize_event_keywords(keywords: list[str] | None, board_size: int) -> list[str]:
+    required_count = max(1, board_size * board_size)
+    normalized_keywords: list[str] = []
+    seen_keywords: set[str] = set()
+
+    for keyword in keywords or []:
+        normalized_keyword = keyword.strip()
+        if not normalized_keyword or normalized_keyword in seen_keywords:
+            continue
+
+        normalized_keywords.append(normalized_keyword)
+        seen_keywords.add(normalized_keyword)
+
+        if len(normalized_keywords) >= required_count:
+            return normalized_keywords
+
+    generated_keywords = [
+        f"키워드 {len(normalized_keywords) + index + 1}"
+        for index in range(required_count - len(normalized_keywords))
+    ]
+    return [*normalized_keywords, *generated_keywords]
+
+
 def validate_event_manager_request_transition(
     current_status: EventManagerRequestStatus,
     next_status: EventManagerRequestStatus,
@@ -268,7 +291,7 @@ def validate_event_slug(slug: str) -> str:
     normalized_slug = slug.strip().lower()
 
     if not SLUG_PATTERN.fullmatch(normalized_slug):
-        raise ValueError("slug는 영문 소문자, 숫자, 하이픈(-)만 사용해 3자 이상 50자 이하로 입력해 주세요.")
+        raise ValueError("slug는 한글, 영문 소문자, 숫자, 하이픈(-)만 사용해 3자 이상 50자 이하로 입력해 주세요.")
 
     if normalized_slug in RESERVED_EVENT_SLUGS:
         raise ValueError("예약된 slug는 사용할 수 없습니다.")
@@ -318,7 +341,7 @@ def resolve_operating_minutes(event: Event) -> int:
 
 def resolve_selected_keywords(attendee: EventAttendee, board: BingoBoards | None) -> list[str]:
     if attendee.selected_keywords:
-        return [str(keyword) for keyword in attendee.selected_keywords][:2]
+        return [str(keyword) for keyword in attendee.selected_keywords]
 
     if board is None:
         return []
@@ -328,7 +351,7 @@ def resolve_selected_keywords(attendee: EventAttendee, board: BingoBoards | None
         if cell.get("selected") in (1, True) and isinstance(cell.get("value"), str):
             selected_keywords.append(cell["value"])
 
-    return selected_keywords[:2]
+    return selected_keywords
 
 
 async def build_event_summary(

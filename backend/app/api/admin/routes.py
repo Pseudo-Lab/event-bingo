@@ -26,6 +26,7 @@ from .console_services import (
     ensure_admin_console_seed_data,
     ensure_unique_event_slug,
     get_invited_admin_by_token,
+    normalize_event_keywords,
     reset_event_runtime_data,
     serialize_event_manager_request,
     resolve_first_published_at,
@@ -455,7 +456,7 @@ async def create_admin_event(
             admin_email=payload.admin_email.strip().lower(),
             bingo_size=payload.board_size,
             success_condition=payload.bingo_mission_count,
-            keywords=[keyword.strip() for keyword in payload.keywords if keyword.strip()],
+            keywords=normalize_event_keywords(payload.keywords, payload.board_size),
             publish_state=publish_state,
             first_published_at=resolve_first_published_at(None, publish_state, None),
         )
@@ -507,7 +508,7 @@ async def update_admin_event(
             admin_email=payload.admin_email.strip().lower(),
             bingo_size=payload.board_size,
             success_condition=payload.bingo_mission_count,
-            keywords=[keyword.strip() for keyword in payload.keywords if keyword.strip()],
+            keywords=normalize_event_keywords(payload.keywords, payload.board_size),
             publish_state=publish_state,
             first_published_at=resolve_first_published_at(
                 event.publish_state,

@@ -64,6 +64,17 @@ import type {
   AdminSession,
 } from "./adminTypes";
 import { getEventDateParts } from "./adminEventDate";
+import {
+  buildAutoFilledKeywordList,
+  clampKeywordList,
+  describeKeywordAutofill,
+  getKeywordGoalCount,
+} from "./adminKeywordUtils";
+import {
+  normalizeSlugDraftInput,
+  normalizeSlugForSave,
+  recommendEnglishSlugFromName,
+} from "./adminSlugUtils";
 
 type AdminSection = "dashboard" | "members" | "applications" | "event-settings" | "policies";
 type EventDetailTab = "overview" | "dashboard" | "participants";
@@ -330,23 +341,6 @@ const createEventFormState = (adminEmail: string, eventItem?: AdminEvent): Event
     progressTotal: "0",
     canEdit: true,
   };
-};
-
-const getKeywordGoalCount = (boardSize: "3" | "5") => {
-  return Number(boardSize) * Number(boardSize);
-};
-
-const clampKeywordList = (keywords: string[], boardSize: "3" | "5") => {
-  return keywords.slice(0, getKeywordGoalCount(boardSize));
-};
-
-const normalizeSlugInput = (value: string) => {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
 };
 
 const combineDateAndTimeToIso = (date: string, time: string) => {
@@ -773,6 +767,8 @@ const AdminConsolePage = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [addFormError, setAddFormError] = useState("");
   const [eventFormError, setEventFormError] = useState("");
+  const [slugAssistMessage, setSlugAssistMessage] = useState("");
+  const [slugAssistTone, setSlugAssistTone] = useState<"info" | "error">("info");
   const [pageError, setPageError] = useState("");
   const [pageNotice, setPageNotice] = useState("");
   const [inviteReviewResult, setInviteReviewResult] =
@@ -1093,16 +1089,20 @@ const AdminConsolePage = ({
 
   const openEventModal = (eventItem?: AdminEvent) => {
     setEventFormError("");
+    setSlugAssistMessage("");
+    setSlugAssistTone("info");
     setEventForm(createEventFormState(session?.email ?? "", eventItem));
     setShowEventModal(true);
   };
 
   const handleEventNameChange = (value: string) => {
+    setSlugAssistMessage("");
+    setSlugAssistTone("info");
     setEventForm((previousValue) => {
       const nextSlug =
         previousValue.isPublished || previousValue.slugEdited
           ? previousValue.slug
-          : normalizeSlugInput(value) || previousValue.slug;
+          : recommendEnglishSlugFromName(value) || previousValue.slug;
 
       return {
         ...previousValue,
@@ -1113,11 +1113,32 @@ const AdminConsolePage = ({
   };
 
   const handleEventSlugChange = (value: string) => {
+    setSlugAssistMessage("");
+    setSlugAssistTone("info");
     setEventForm((previousValue) => ({
       ...previousValue,
-      slug: normalizeSlugInput(value),
+      slug: normalizeSlugDraftInput(value),
       slugEdited: true,
     }));
+  };
+
+  const handleRegenerateEventSlug = () => {
+    const recommendedSlug = recommendEnglishSlugFromName(eventForm.name);
+    if (!recommendedSlug) {
+      setSlugAssistTone("error");
+      setSlugAssistMessage(
+        "행사명에서 영문 slug 추천을 만들지 못했습니다. slug를 직접 입력해 주세요."
+      );
+      return;
+    }
+
+    setEventForm((previousValue) => ({
+      ...previousValue,
+      slug: recommendedSlug,
+      slugEdited: false,
+    }));
+    setSlugAssistTone("info");
+    setSlugAssistMessage(`행사명 기준 영문 slug 추천을 적용했습니다: /${recommendedSlug}`);
   };
 
   const addKeyword = (keyword: string) => {
@@ -1404,12 +1425,14 @@ const AdminConsolePage = ({
       return;
     }
 
-    if (!eventForm.slug.trim()) {
+    const normalizedSlug = normalizeSlugForSave(eventForm.slug);
+
+    if (!normalizedSlug) {
       setEventFormError("URL에 사용할 slug를 입력해 주세요.");
       return;
     }
 
-    const slugError = validateAdminSlugInput(eventForm.slug);
+    const slugError = validateAdminSlugInput(normalizedSlug);
     if (slugError) {
       setEventFormError(slugError);
       return;
@@ -1438,15 +1461,35 @@ const AdminConsolePage = ({
       return;
     }
 
-    if (eventForm.keywords.length === 0) {
+    if (keywordAutofillSummary.currentCount === 0) {
       setEventFormError("키워드를 한 개 이상 추가해 주세요.");
       return;
+    }
+
+    const keywordsForSave = buildAutoFilledKeywordList(
+      eventForm.keywords,
+      eventForm.boardSize
+    );
+
+    if (keywordAutofillSummary.missingCount > 0) {
+      const firstGeneratedKeyword = keywordAutofillSummary.generatedKeywords[0] ?? "키워드";
+      const confirmed = window.confirm(
+        [
+          `현재 입력한 키워드는 ${keywordAutofillSummary.currentCount}개입니다.`,
+          `${Number(eventForm.boardSize)}x${Number(eventForm.boardSize)} 행사에는 ${keywordAutofillSummary.goalCount}개가 필요합니다.`,
+          `부족한 ${keywordAutofillSummary.missingCount}개는 "${firstGeneratedKeyword}"부터 자동으로 채워 저장할까요?`,
+        ].join("\n")
+      );
+
+      if (!confirmed) {
+        return;
+      }
     }
 
     try {
       const savedEvent = eventForm.id
         ? await updateAdminEvent(session.accessToken, eventForm.id, {
-            slug: eventForm.slug,
+            slug: normalizedSlug,
             name: eventForm.name,
             location: eventForm.location,
             eventTeam: eventForm.eventTeam,
@@ -1455,11 +1498,11 @@ const AdminConsolePage = ({
             adminEmail: eventForm.adminEmail,
             boardSize: Number(eventForm.boardSize) === 3 ? 3 : 5,
             bingoMissionCount: Number(eventForm.bingoMissionCount),
-            keywords: clampKeywordList(eventForm.keywords, eventForm.boardSize),
+            keywords: keywordsForSave,
             publishState: eventForm.isPublished ? "published" : "draft",
           })
         : await createAdminEvent(session.accessToken, {
-            slug: eventForm.slug,
+            slug: normalizedSlug,
             name: eventForm.name,
             location: eventForm.location,
             eventTeam: eventForm.eventTeam,
@@ -1468,7 +1511,7 @@ const AdminConsolePage = ({
             adminEmail: eventForm.adminEmail,
             boardSize: Number(eventForm.boardSize) === 3 ? 3 : 5,
             bingoMissionCount: Number(eventForm.bingoMissionCount),
-            keywords: clampKeywordList(eventForm.keywords, eventForm.boardSize),
+            keywords: keywordsForSave,
             publishState: eventForm.isPublished ? "published" : "draft",
           });
 
@@ -1494,6 +1537,11 @@ const AdminConsolePage = ({
   const selectedEventTimeRange = selectedEvent
     ? getTimeRangeLabel(selectedEvent.startAt, selectedEvent.endAt)
     : "";
+  const slugPreview = normalizeSlugForSave(eventForm.slug) || normalizeSlugDraftInput(eventForm.slug);
+  const keywordAutofillSummary = describeKeywordAutofill(
+    eventForm.keywords,
+    eventForm.boardSize
+  );
   const canEditPolicyTemplate = session?.role === "admin";
   const hasPolicyChanges = policyTemplate !== null && policyDraft.trim() !== policyTemplate.content.trim();
   const policyPreviewContent = useMemo(() => {
@@ -2882,6 +2930,8 @@ const AdminConsolePage = ({
                 onClick={() => {
                   setShowEventModal(false);
                   setEventFormError("");
+                  setSlugAssistMessage("");
+                  setSlugAssistTone("info");
                 }}
               >
                 <CloseIcon />
@@ -2945,13 +2995,7 @@ const AdminConsolePage = ({
                       <button
                         type="button"
                         className="text-xs font-semibold text-brand-700"
-                        onClick={() =>
-                          setEventForm((previousValue) => ({
-                            ...previousValue,
-                            slug: normalizeSlugInput(previousValue.name),
-                            slugEdited: false,
-                          }))
-                        }
+                        onClick={handleRegenerateEventSlug}
                       >
                         행사명 기준으로 다시 생성
                       </button>
@@ -2967,13 +3011,27 @@ const AdminConsolePage = ({
                   />
                   <div className="space-y-1 text-xs">
                     <p className="text-slate-400">
-                      영문 소문자, 숫자, 하이픈(-)만 사용합니다.
+                      한글, 영문 소문자, 숫자, 하이픈(-)만 사용합니다.
                     </p>
+                    <p className="text-slate-400">
+                      입력 중 하이픈은 유지되고, 저장 시 앞뒤 하이픈은 자동으로 정리됩니다.
+                    </p>
+                    {slugAssistMessage ? (
+                      <p
+                        className={cn(
+                          "font-semibold",
+                          slugAssistTone === "error" ? "text-rose-500" : "text-brand-700"
+                        )}
+                      >
+                        {slugAssistMessage}
+                      </p>
+                    ) : (
+                      <p className="text-slate-400">
+                        행사명 기준 자동 생성은 가능하면 영문 slug를 추천합니다.
+                      </p>
+                    )}
                     <p className="font-semibold text-brand-700">
-                      공개 URL: {eventForm.slug ? getEventHomePath(eventForm.slug) : "/{slug}"}
-                    </p>
-                    <p className="font-semibold text-rose-500">
-                      Published로 저장하는 순간 slug가 고정되며, 이후에는 변경할 수 없습니다.
+                      공개 URL: {slugPreview ? getEventHomePath(slugPreview) : "/{slug}"}
                     </p>
                   </div>
                 </div>
@@ -3005,11 +3063,16 @@ const AdminConsolePage = ({
                       </Button>
                     ))}
                   </div>
-                  <p className="text-xs font-semibold text-rose-500">
-                    {eventForm.wasPublished
-                      ? "한 번 공개된 이벤트는 다시 Draft로 내릴 수 없고 slug도 변경할 수 없습니다."
-                      : "Published로 저장하면 slug가 즉시 고정되고, 이후에는 Draft로 되돌릴 수 없습니다."}
-                  </p>
+                  <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                    <span className="mt-0.5 shrink-0">
+                      <InfoIcon />
+                    </span>
+                    <p className="font-semibold leading-5">
+                      {eventForm.wasPublished
+                        ? "한 번 Published로 저장된 이벤트는 Draft로 되돌릴 수 없고 slug도 변경할 수 없습니다."
+                        : "Published로 저장하면 slug가 즉시 고정되며, 이후에는 Draft로 되돌리거나 slug를 변경할 수 없습니다."}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-[1.1fr_0.9fr_0.9fr]">
@@ -3131,8 +3194,18 @@ const AdminConsolePage = ({
                     <div>
                       <Label>키워드 관리</Label>
                       <p className="mt-1 text-xs text-brand-700">
-                        현재 키워드: {eventForm.keywords.length}개, 필요 키워드 {getKeywordGoalCount(eventForm.boardSize)}개
+                        현재 키워드: {keywordAutofillSummary.currentCount}개, 필요 키워드 {keywordAutofillSummary.goalCount}개
                       </p>
+                      {keywordAutofillSummary.missingCount > 0 ? (
+                        <p className="mt-1 text-xs text-amber-700">
+                          저장 시 부족한 {keywordAutofillSummary.missingCount}개는 &quot;
+                          {keywordAutofillSummary.generatedKeywords[0]}&quot;부터 자동으로 채워집니다.
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-emerald-700">
+                          저장 시 현재 키워드 목록이 그대로 사용됩니다.
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex gap-2">
@@ -3189,6 +3262,7 @@ const AdminConsolePage = ({
                       ))}
 
                       <input
+                        aria-label="행사 키워드 입력"
                         value={eventForm.keywordDraft}
                         onChange={(event) =>
                           setEventForm((previousValue) => ({
@@ -3203,6 +3277,27 @@ const AdminConsolePage = ({
                       />
                     </div>
                   </div>
+
+                  {keywordAutofillSummary.missingCount > 0 ? (
+                    <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/70 px-3 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                        Auto-Filled Preview
+                      </p>
+                      <p className="mt-1 text-xs text-amber-800">
+                        확인을 누르면 아래 placeholder 키워드가 함께 저장됩니다.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {keywordAutofillSummary.generatedKeywords.map((keyword) => (
+                          <span
+                            key={keyword}
+                            className="rounded-md border border-amber-200 bg-white px-3 py-1 text-xs font-semibold text-amber-800"
+                          >
+                            {keyword}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="space-y-2">

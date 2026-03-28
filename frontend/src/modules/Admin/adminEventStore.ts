@@ -171,8 +171,8 @@ export const canEditAdminEvent = (session: AdminSession, eventItem: AdminEvent) 
 
 export const validateAdminSlug = (value: string, existingEventId?: number) => {
   const trimmedValue = value.trim().toLowerCase();
-  if (!/^[a-z0-9-]+$/.test(trimmedValue)) {
-    return "slug는 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.";
+  if (!/^[a-z0-9가-힣-]+$/.test(trimmedValue)) {
+    return "slug는 한글, 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.";
   }
 
   const normalizedSlug = normalizeEventSlug(trimmedValue);
