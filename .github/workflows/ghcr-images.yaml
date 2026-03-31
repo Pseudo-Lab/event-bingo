@@ -1,0 +1,238 @@
+name: Build and Push GHCR Images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/ghcr-images.yaml"
+      - "backend/**"
+      - "frontend/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ghcr-images-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  OPS_REPOSITORY: Pseudo-Lab/DevFactory-Ops
+  OPS_TARGET_DIR: services/event-bingo/overlays/prod
+
+jobs:
+  build-amd64:
+    name: Build amd64 (${{ matrix.component }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - component: backend
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+            image_suffix: backend
+          - component: frontend
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile
+            image_suffix: frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare image name
+        id: prep
+        run: |
+          echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.image_suffix }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build amd64 image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-amd64
+          cache-from: type=gha,scope=${{ matrix.component }}-amd64
+          cache-to: type=gha,scope=${{ matrix.component }}-amd64,mode=max
+
+  build-arm64:
+    name: Build arm64 (${{ matrix.component }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - component: backend
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+            image_suffix: backend
+          - component: frontend
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile
+            image_suffix: frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare image name
+        id: prep
+        run: |
+          echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.image_suffix }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build arm64 image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/arm64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-arm64
+          cache-from: type=gha,scope=${{ matrix.component }}-arm64
+          cache-to: type=gha,scope=${{ matrix.component }}-arm64,mode=max
+
+  merge-manifest:
+    name: Merge Multi-Arch Manifest (${{ matrix.component }})
+    needs:
+      - build-amd64
+      - build-arm64
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - component: backend
+            image_suffix: backend
+          - component: frontend
+            image_suffix: frontend
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare image name
+        id: prep
+        run: |
+          echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.image_suffix }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create multi-arch tag (sha)
+        run: |
+          set -euo pipefail
+          IMAGE="${{ steps.prep.outputs.image }}"
+          SHORT_SHA="${GITHUB_SHA::7}"
+
+          docker buildx imagetools create \
+            -t "${IMAGE}:sha-${SHORT_SHA}" \
+            "${IMAGE}:sha-${GITHUB_SHA}-amd64" \
+            "${IMAGE}:sha-${GITHUB_SHA}-arm64"
+
+      - name: Create multi-arch tag (latest)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          IMAGE="${{ steps.prep.outputs.image }}"
+
+          docker buildx imagetools create \
+            -t "${IMAGE}:latest" \
+            "${IMAGE}:sha-${GITHUB_SHA}-amd64" \
+            "${IMAGE}:sha-${GITHUB_SHA}-arm64"
+
+  deploy-handoff:
+    name: Update Ops Manifest
+    if: github.ref == 'refs/heads/main'
+    needs: merge-manifest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure Ops token is configured
+        run: |
+          if [ -z "${{ secrets.OPS_REPO_TOKEN }}" ]; then
+            echo "OPS_REPO_TOKEN secret is required."
+            exit 1
+          fi
+
+      - name: Checkout Ops repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.OPS_REPOSITORY }}
+          token: ${{ secrets.OPS_REPO_TOKEN }}
+          path: ops-repo
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: 5.4.2
+
+      - name: Update image tags
+        env:
+          SHORT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${SHORT_SHA::7}"
+          TARGET_DIR="ops-repo/${{ env.OPS_TARGET_DIR }}"
+
+          if [ ! -d "$TARGET_DIR" ]; then
+            echo "Target directory not found: $TARGET_DIR"
+            exit 1
+          fi
+
+          cd "$TARGET_DIR"
+          kustomize edit set image ghcr.io/pseudo-lab/event-bingo-frontend=ghcr.io/pseudo-lab/event-bingo-frontend:sha-${SHORT_SHA}
+          kustomize edit set image ghcr.io/pseudo-lab/event-bingo-backend=ghcr.io/pseudo-lab/event-bingo-backend:sha-${SHORT_SHA}
+
+      - name: Commit and push Ops manifest
+        run: |
+          set -euo pipefail
+          cd ops-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No manifest changes to commit."
+            exit 0
+          fi
+
+          git add "${{ env.OPS_TARGET_DIR }}/kustomization.yaml"
+          git commit -m "chore(event-bingo): update images to sha-${GITHUB_SHA::7}"
+          git push origin main

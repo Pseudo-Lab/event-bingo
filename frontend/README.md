@@ -6,9 +6,6 @@
 
 ```text
 frontend
-├─ public
-│  └─ templates
-│     └─ consent.md
 └─ src
    └─ config
       ├─ eventConfig.ts
@@ -44,10 +41,11 @@ frontend
 
 ### 개인정보 동의 문구 수정
 
-파일: `public/templates/consent.md`
+수정 위치: 어드민 페이지 `이용약관 및 개인정보` 탭
 
-- `{host}`는 `eventConfig.ts`의 `host` 값으로 치환됩니다.
-- 마크다운 형식으로 작성하면 됩니다.
+- 저장된 문안은 백엔드 DB를 단일 소스로 사용합니다.
+- `{host}`와 `{eventTeam}`는 실제 행사 팀명으로 치환됩니다.
+- Event Manager는 읽기 전용이고, Admin만 수정할 수 있습니다.
 
 ## 개발 명령어
 

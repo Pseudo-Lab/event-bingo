@@ -73,6 +73,28 @@ export type AdminEventManagerRequest = {
   createdAt: string;
 };
 
+export type AdminInvitationPreview = {
+  email: string;
+  name: string;
+  expiresAt: string;
+};
+
+export type AdminPolicyTemplate = {
+  key: string;
+  content: string;
+  updatedAt: string;
+  updatedByName?: string;
+};
+
+export type AdminEventManagerRequestReviewResult = {
+  request: AdminEventManagerRequest;
+  invitedAdmin?: AdminMember;
+  inviteLink?: string;
+  inviteEmailSent: boolean;
+  inviteExpiresAt?: string;
+  message: string;
+};
+
 export type AdminEvent = {
   id: number;
   slug: string;

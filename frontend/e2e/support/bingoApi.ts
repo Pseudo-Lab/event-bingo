@@ -27,11 +27,42 @@ const fulfillJson = async (route: Route, body: JsonBody, status = 200) => {
 };
 
 export const mockConsentTemplate = async (page: Page) => {
-  await page.route("**/templates/consent.md", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "text/markdown",
-      body: "# [필수] 개인정보 수집 및 이용 동의서\n\n**{host}** 동의서입니다.",
+  await page.route("**/api/events/consent-template", async (route) => {
+    await fulfillJson(route, {
+      ok: true,
+      message: "공개 동의 템플릿을 불러왔습니다.",
+      template: {
+        content: "# [필수] 개인정보 수집 및 이용 동의서\n\n**{host}** 동의서입니다.",
+        updated_at: "2026-03-21T00:00:00+09:00",
+      },
+    });
+  });
+};
+
+export const mockPublicEventProfile = async (
+  page: Page,
+  eventSlug = "bingo-networking"
+) => {
+  const startAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const endAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+  await page.route(`**/api/events/${eventSlug}`, async (route) => {
+    await fulfillJson(route, {
+      ok: true,
+      message: "공개 이벤트 설정을 불러왔습니다.",
+      event: {
+        id: 101,
+        slug: eventSlug,
+        name: "Bingo Networking Event",
+        location: "서울 컨벤션 센터",
+        event_team: "PseudoLab",
+        start_at: startAt,
+        end_at: endAt,
+        board_size: 5,
+        bingo_mission_count: 3,
+        keywords: Array.from({ length: 25 }, (_, index) => `키워드 ${index + 1}`),
+        publish_state: "published",
+      },
     });
   });
 };

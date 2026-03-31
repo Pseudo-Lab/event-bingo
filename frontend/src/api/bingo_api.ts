@@ -12,6 +12,7 @@ import {
   mockResetState,
 } from "./mockBingoApi";
 import type { MockTesterUser } from "./mockBingoApi";
+import { getApiBaseUrl } from "../lib/apiBase";
 
 type ApiResponseBase = {
   ok: boolean;
@@ -75,7 +76,7 @@ type BingoExchangeFailure = {
   message: string;
 };
 
-const API_URL = import.meta.env.VITE_API_URL?.trim().replace(/\/$/, "") ?? "";
+const API_URL = getApiBaseUrl();
 const hasApiUrl = API_URL.length > 0;
 const shouldUseMockApi = () => !hasApiUrl || mockIsModeEnabled();
 

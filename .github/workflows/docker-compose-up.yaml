@@ -1,10 +1,7 @@
 name: Deploy Docker Compose to Oracle Server
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:  # 수동 실행도 가능
+  workflow_dispatch:
 
 jobs:
   docker-compose-up:

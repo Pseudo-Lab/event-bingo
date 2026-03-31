@@ -17,6 +17,7 @@ import {
   AdminPoliciesPage,
   AdminRoutesLoginPage,
 } from "./modules/Admin/AdminPortal";
+import AdminInviteSetupPage from "./modules/Admin/AdminInviteSetupPage";
 import { getAdminPath } from "./config/eventProfiles";
 
 const defaultTheme = createTheme({
@@ -41,6 +42,7 @@ function AppRoutes() {
           <Route path="/experience" element={<DemoExperiencePage />} />
           <Route path="/bingo" element={<DemoExperiencePage />} />
           <Route path="/admin" element={<AdminRoutesLoginPage />} />
+          <Route path="/admin/invite" element={<AdminInviteSetupPage />} />
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="/admin/members" element={<AdminMembersPage />} />
           <Route path="/admin/applications" element={<AdminApplicationsPage />} />

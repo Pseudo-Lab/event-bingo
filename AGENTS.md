@@ -1,5 +1,8 @@
 ﻿# Event Bingo Project Agents
 
+Status: active
+Last-Validated: 2026-03-22
+
 ## Product Goals
 - Help organizers create events quickly.
 - Support configurable bingo settings for each event.
@@ -24,6 +27,7 @@
 - Load only role-minimal reference docs first; open additional docs when blocked or impact requires them.
 - Follow search-first flow: `rg` locate -> entry file read -> target file deep read.
 - Keep edits in small batches and verify after each batch to reduce context drift and merge risk.
+- Do not create a new doc by default for minor single-domain work; prefer code, commit, or PR context unless handoff or impact requires a durable record.
 
 ## Multi-Agent Compatibility Policy
 - Codex, Claude, and Gemini contributors follow the same source-priority and handoff format.
@@ -31,6 +35,12 @@
 - Handoff may be skipped for minor single-domain changes when risk is low and context is clear in commit or PR text.
 - Impact PRs must follow `.github/PULL_REQUEST_TEMPLATE.md`.
 - If agent outputs conflict, resolve by source-priority docs, then PO intent, then relevant domain-owner technical decision.
+
+## Light-Weight Completion Rule
+- When a separate handoff doc is not required, leave a short completion note in commit or PR text with:
+- what changed
+- how it was verified
+- next impact or follow-up if any
 
 ## Domain Ownership And Merge Policy
 - BE domain: `backend/**`
@@ -91,7 +101,6 @@
 - Product Owner defines scope, acceptance criteria, sequencing, and major risk mitigations.
 - Backend and Frontend implement in parallel when possible.
 - QA validates service-page scenarios first, then admin scenarios.
-
 
 
 

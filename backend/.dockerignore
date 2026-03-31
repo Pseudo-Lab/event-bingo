@@ -1,0 +1,15 @@
+.venv
+venv
+__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+dist
+build
+*.pyc
+*.pyo
+*.pyd
+.env
+app/config/.env
