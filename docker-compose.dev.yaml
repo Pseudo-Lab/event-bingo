@@ -22,13 +22,12 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    depends_on:
-      db:
-        condition: service_healthy
     environment:
-      DB_URL: mysql+aiomysql://${DB_ROOT:?set in .env}:${DB_ROOT_PASSWORD:?set in .env}@db:3306/${DB_DATABASE:-bingo_db}
+      DB_URL: ${DB_URL:?set in .env}
       SWAGGER_USERNAME: ${SWAGGER_USERNAME:?set in .env}
       SWAGGER_PASSWORD: ${SWAGGER_PASSWORD:?set in .env}
+      SUPABASE_URL: ${SUPABASE_URL:?set in .env}
+      SUPABASE_KEY: ${SUPABASE_KEY:?set in .env}
     command: >
       /bin/sh -c "
         alembic upgrade head &&
@@ -39,23 +38,3 @@ services:
     volumes:
       - ./backend/app:/app/app
       - ./backend/migrations:/app/migrations
-
-  db:
-    image: mysql:latest
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?set in .env}
-      MYSQL_USER: ${DB_USER:-bingo_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:?set in .env}
-      MYSQL_DATABASE: ${DB_DATABASE:-bingo_db}
-    ports:
-      - "${DB_PORT:-3306}:3306"
-    volumes:
-      - mysql-data-dev:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mysql -u ${DB_USER:-bingo_user} -p${DB_PASSWORD:?set in .env} -e 'SHOW DATABASES LIKE \"${DB_DATABASE:-bingo_db}\";'"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  mysql-data-dev:

@@ -7,6 +7,7 @@ from api.bingo.bingo_interaction.routes import bingo_interaction_router
 from api.integrations.routes import router as integrations_router
 from api.review.routes import review_router
 from api.admin.routes import admin_router
+from api.play.routes import play_router
 
 api_router = APIRouter(prefix="/api")
 
@@ -18,6 +19,7 @@ routers = [
     integrations_router,
     review_router,
     admin_router,
+    play_router,
 ]
 
 for router in routers:

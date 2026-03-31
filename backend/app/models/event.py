@@ -21,6 +21,11 @@ class EventPublishState(enum.Enum):
     ARCHIVED = "archived"
 
 
+class GameMode(enum.Enum):
+    INDIVIDUAL = "individual"
+    TEAM = "team"
+
+
 class Event(Base):
     __tablename__ = "events"
 
@@ -36,6 +41,10 @@ class Event(Base):
     bingo_size: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     success_condition: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     keywords: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
+    game_mode: Mapped[GameMode] = mapped_column(
+        Enum(GameMode), nullable=False, default=GameMode.INDIVIDUAL
+    )
+    team_size: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     publish_state: Mapped[EventPublishState] = mapped_column(
         Enum(EventPublishState),
         nullable=False,
@@ -92,17 +101,21 @@ class Event(Base):
         bingo_size: int = 5,
         success_condition: int = 5,
         keywords: list = None,
+        game_mode: "GameMode" = None,
+        team_size: int = 1,
         publish_state: EventPublishState = EventPublishState.DRAFT,
         first_published_at: Optional[datetime] = None,
     ):
         """새 이벤트 생성"""
         if keywords is None:
             keywords = []
-        
+        if game_mode is None:
+            game_mode = GameMode.INDIVIDUAL
+
         # Admin 존재 확인
         from models.admin import Admin
         await Admin.get_by_id(session, admin_id)
-        
+
         new_event = Event(
             name=name,
             slug=slug,
@@ -115,6 +128,8 @@ class Event(Base):
             bingo_size=bingo_size,
             success_condition=success_condition,
             keywords=keywords,
+            game_mode=game_mode,
+            team_size=team_size,
             publish_state=publish_state,
             first_published_at=first_published_at,
         )
@@ -157,6 +172,8 @@ class Event(Base):
         success_condition: Optional[int] = None,
         keywords: Optional[list] = None,
         admin_email: Optional[str] = None,
+        game_mode: Optional["GameMode"] = None,
+        team_size: Optional[int] = None,
         publish_state: Optional[EventPublishState] = None,
         first_published_at: Optional[datetime] = None,
     ):
@@ -183,6 +200,10 @@ class Event(Base):
             event.success_condition = success_condition
         if keywords is not None:
             event.keywords = keywords
+        if game_mode is not None:
+            event.game_mode = game_mode
+        if team_size is not None:
+            event.team_size = team_size
         if publish_state is not None:
             event.publish_state = publish_state
         if first_published_at is not None:

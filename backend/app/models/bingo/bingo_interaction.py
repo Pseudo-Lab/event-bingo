@@ -1,8 +1,9 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from typing import Optional
 
 from models.base import Base
-from sqlalchemy import Integer, DateTime, String, select
+from sqlalchemy import Integer, DateTime, String, ForeignKey, select
 from sqlalchemy.orm import mapped_column
 
 from core.db import AsyncSession
@@ -15,14 +16,16 @@ class BingoInteraction(Base):
     word_id_list = mapped_column(String(200), nullable=False)
     send_user_id = mapped_column(Integer, nullable=False)
     receive_user_id = mapped_column(Integer, nullable=False)
+    event_id = mapped_column(Integer, ForeignKey("events.id"), nullable=False)
     created_at = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
     )
 
     @classmethod
-    async def create(cls, session: AsyncSession, word_id_list, send_user_id, receive_user_id):
+    async def create(cls, session: AsyncSession, word_id_list, send_user_id, receive_user_id, event_id: Optional[int] = None):
         new_interaction = BingoInteraction(
-            word_id_list=word_id_list, send_user_id=send_user_id, receive_user_id=receive_user_id
+            word_id_list=word_id_list, send_user_id=send_user_id, receive_user_id=receive_user_id,
+            event_id=event_id,
         )
         session.add(new_interaction)
         await session.flush()
