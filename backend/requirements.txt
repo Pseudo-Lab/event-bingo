@@ -76,3 +76,4 @@ xattr==1.1.4
 zipp==3.21.0
 zstandard==0.23.0
 pandas
+asyncpg==0.31.0
