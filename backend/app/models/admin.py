@@ -1,5 +1,4 @@
 from datetime import datetime
-from zoneinfo import ZoneInfo
 from typing import Optional
 import enum
 
@@ -28,11 +27,11 @@ class Admin(Base):
     invite_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     invitation_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(ZoneInfo("Asia/Seoul")), nullable=False
+        default=datetime.now, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
-        onupdate=lambda: datetime.now(ZoneInfo("Asia/Seoul")),
+        default=datetime.now,
+        onupdate=datetime.now,
         nullable=False,
     )
 

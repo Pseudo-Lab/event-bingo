@@ -14,6 +14,7 @@ import {
   resetLocalMockTesterData,
 } from "../../api/bingo_api";
 import type { MockTesterUser } from "../../api/bingo_api";
+import GoogleSignInButton from "../Auth/GoogleSignInButton";
 import {
   formatEventDateLabel,
   getEventBingoPath,
@@ -21,11 +22,19 @@ import {
   withSearch,
 } from "../../config/eventProfiles";
 import { useEventProfile } from "../../hooks/useEventProfile";
+import { isGoogleIdentityConfigured } from "../../lib/googleIdentity";
+import {
+  getSupabaseClient,
+  isSupabaseConfigured,
+  maybeGetSupabaseClient,
+} from "../../lib/supabaseClient";
 import {
   clearAuthSession,
   getAuthSession,
   setAuthSession,
 } from "../../utils/authSession";
+import { ensureBingoGoogleBridge } from "../../utils/bingoGoogleBridge";
+import { clearLegacyLocalLoginStorage } from "../../utils/legacyAuthStorage";
 import {
   getRecentBingoAccounts,
   saveRecentBingoAccount,
@@ -86,6 +95,7 @@ const Home = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [agreeOpen, setAgreeOpen] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
+  const [googleAccountEmail, setGoogleAccountEmail] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertSeverity, setAlertSeverity] = useState<"error" | "success">(
@@ -97,6 +107,8 @@ const Home = () => {
   const [mockTesterResetting, setMockTesterResetting] = useState(false);
   const [activeTesterCode, setActiveTesterCode] = useState<string | null>(null);
   const [handledTestCode, setHandledTestCode] = useState<string | null>(null);
+  const shouldUseGoogleAuth =
+    !testModeEnabled && isSupabaseConfigured() && isGoogleIdentityConfigured();
 
   useEffect(() => {
     setTestModeEnabledState(syncTestModeFromUrl(location.search));
@@ -113,6 +125,22 @@ const Home = () => {
 
   useEffect(() => {
     const storedSession = getAuthSession();
+    if (shouldUseGoogleAuth) {
+      clearLegacyLocalLoginStorage();
+      setRecentAccounts([]);
+
+      if (!storedSession) {
+        return;
+      }
+
+      setParticipantName(storedSession.userName);
+      setLoginIdInput(storedSession.loginId);
+      setCurrentLoginId(storedSession.loginId);
+      setIsLoggedIn(true);
+      setIsAgreed(true);
+      return;
+    }
+
     const nextRecentAccounts = getRecentBingoAccounts();
     setRecentAccounts(nextRecentAccounts);
 
@@ -128,7 +156,7 @@ const Home = () => {
     setCurrentLoginId(storedSession.loginId);
     setIsLoggedIn(true);
     setIsAgreed(true);
-  }, []);
+  }, [shouldUseGoogleAuth]);
 
   const displayBrand = useMemo(() => {
     return isPlaceholderValue(eventProfile.eventTeam, ["행사 주최자", "Event Team"])
@@ -216,6 +244,17 @@ const Home = () => {
     setIsAgreed(true);
   }, []);
 
+  const applyGoogleBridgeState = useCallback(
+    ({
+      authSession,
+      googleProfile,
+    }: Awaited<ReturnType<typeof ensureBingoGoogleBridge>>) => {
+      applyLoginSession(authSession);
+      setGoogleAccountEmail(googleProfile.email);
+    },
+    [applyLoginSession]
+  );
+
   const persistRecentAccount = useCallback(({
     userName,
     loginId,
@@ -243,12 +282,63 @@ const Home = () => {
     clearAuthSession();
     clearLocalMockMode();
     setParticipantName("");
+    setLoginIdInput("");
     setPassword("");
     setCurrentLoginId("");
+    setIssuedLoginId("");
     setIsLoggedIn(false);
     setIsAgreed(false);
+    setGoogleAccountEmail("");
     setAuthMode(recentAccounts.length > 0 ? "login" : "register");
   }, [recentAccounts.length]);
+
+  useEffect(() => {
+    if (!shouldUseGoogleAuth || isLoggedIn) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const restoreGoogleSession = async () => {
+      const supabase = maybeGetSupabaseClient();
+      if (!supabase) {
+        return;
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (cancelled || !session?.user) {
+        return;
+      }
+
+      try {
+        clearLegacyLocalLoginStorage();
+        const bridgeResult = await ensureBingoGoogleBridge(session.user, eventProfile.slug);
+        if (cancelled) {
+          return;
+        }
+
+        applyGoogleBridgeState(bridgeResult);
+      } catch (error) {
+        await supabase.auth.signOut();
+        if (!cancelled) {
+          openAlert(
+            error instanceof Error
+              ? error.message
+              : "Google 로그인 정보를 복구하지 못했습니다."
+          );
+        }
+      }
+    };
+
+    void restoreGoogleSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applyGoogleBridgeState, eventProfile.slug, isLoggedIn, openAlert, shouldUseGoogleAuth]);
 
   const handleRegister = async () => {
     const trimmedName = participantName.trim();
@@ -338,6 +428,57 @@ const Home = () => {
     } catch (error) {
       console.error("Failed to login", error);
       openAlert("로그인 요청 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleGoogleBingoLogin = async ({
+    credential,
+    nonce,
+  }: {
+    credential: string;
+    nonce: string;
+  }) => {
+    if (!isAgreed) {
+      openAlert("개인정보 처리 동의가 필요합니다.");
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+
+    try {
+      clearLocalMockMode();
+
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: "google",
+        token: credential,
+        nonce,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      const user = data.user ?? data.session?.user;
+      if (!user) {
+        throw new Error("Google 로그인 세션을 확인하지 못했습니다.");
+      }
+
+      clearLegacyLocalLoginStorage();
+      const bridgeResult = await ensureBingoGoogleBridge(user, eventProfile.slug);
+      applyGoogleBridgeState(bridgeResult);
+      openAlert(
+        bridgeResult.isNewUser
+          ? "Google 계정으로 참가 등록이 완료되었습니다."
+          : "Google 계정으로 로그인되었습니다.",
+        "success"
+      );
+      navigate(eventBingoPath, { replace: true });
+    } catch (error) {
+      await supabase.auth.signOut();
+      clearCurrentSessionState();
+      openAlert(
+        error instanceof Error ? error.message : "Google 로그인 중 오류가 발생했습니다."
+      );
     }
   };
 
@@ -432,6 +573,9 @@ const Home = () => {
 
   const handleLogout = () => {
     clearCurrentSessionState();
+    if (shouldUseGoogleAuth) {
+      void maybeGetSupabaseClient()?.auth.signOut();
+    }
   };
 
   const handleSubmit = async () => {
@@ -551,6 +695,52 @@ const Home = () => {
     );
   };
 
+  const renderGoogleLoginPanel = () => {
+    return (
+      <div className="login-google-panel">
+        <div className="login-google-panel__copy">
+          <p className="login-account-panel__eyebrow">Google Login</p>
+          <h3>처음 참가와 다시 입장을 Google 계정으로 처리합니다</h3>
+          <p className="login-mode-toggle__description">
+            Google 인증이 끝나면 이 이벤트의 빙고 참가 계정이 자동으로 연결됩니다.
+          </p>
+        </div>
+
+        <div className="login-consent">
+          <label className="login-consent__checkbox">
+            <input
+              type="checkbox"
+              checked={isAgreed}
+              onChange={handleConsentToggle}
+            />
+            <span>개인정보 처리 동의(필수)</span>
+          </label>
+          <button
+            type="button"
+            className="login-consent__link"
+            onClick={() => setAgreeOpen(true)}
+          >
+            내용 보기
+          </button>
+        </div>
+
+        <GoogleSignInButton
+          className="login-google-panel__button"
+          context="use"
+          disabled={!isAgreed}
+          onError={(message) => openAlert(message)}
+          onSuccess={handleGoogleBingoLogin}
+          text="continue_with"
+        />
+
+        <p className="login-form__hint">
+          Google 계정의 이름과 이메일로 참가 계정을 연결하며, 기존 브라우저
+          로컬 저장 로그인 정보는 더 이상 사용하지 않습니다.
+        </p>
+      </div>
+    );
+  };
+
   const modeDescription =
     authMode === "register"
       ? "처음 참가라면 이름과 비밀번호로 계정을 만들고 로그인 코드를 발급받으세요."
@@ -605,170 +795,181 @@ const Home = () => {
 
         <section className="login-form-card" aria-label="login form">
           {!isLoggedIn ? (
-            <>
-              <div className="login-mode-toggle" role="tablist" aria-label="auth mode">
-                <button
-                  type="button"
-                  className={`login-mode-toggle__button ${authMode === "register" ? "is-active" : ""}`}
-                  onClick={() => setAuthMode("register")}
-                >
-                  처음 참가예요
-                </button>
-                <button
-                  type="button"
-                  className={`login-mode-toggle__button ${authMode === "login" ? "is-active" : ""}`}
-                  onClick={() => setAuthMode("login")}
-                >
-                  다시 로그인
-                </button>
-              </div>
-
-              <p className="login-mode-toggle__description">{modeDescription}</p>
-
-              <form
-                className="login-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void handleSubmit();
-                }}
-              >
-                {authMode === "register" ? (
-                  <div className="login-form__row">
-                    <label className="login-form__label" htmlFor="participantName">
-                      이름
-                    </label>
-                    <div className="login-form__field">
-                      <input
-                        id="participantName"
-                        className="login-input"
-                        value={participantName}
-                        onChange={(event) => setParticipantName(event.target.value)}
-                        placeholder="이름을 입력해 주세요"
-                        autoComplete="name"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="login-form__row">
-                    <label className="login-form__label" htmlFor="loginId">
-                      로그인 코드
-                    </label>
-                    <div className="login-form__field">
-                      <input
-                        id="loginId"
-                        className="login-input"
-                        value={loginIdInput}
-                        onChange={(event) =>
-                          setLoginIdInput(event.target.value.toUpperCase().replace(/\s/g, ""))
-                        }
-                        placeholder="발급받은 로그인 코드"
-                        autoComplete="username"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="login-form__row">
-                  <label className="login-form__label" htmlFor="password">
-                    비밀번호
-                  </label>
-                  <div className="login-form__field">
-                    <input
-                      id="password"
-                      type="password"
-                      className={`login-input ${!isPasswordValid ? "is-invalid" : ""}`}
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      placeholder={`${PASSWORD_MIN_LENGTH}자 이상 입력해 주세요`}
-                      autoComplete={
-                        authMode === "register" ? "new-password" : "current-password"
-                      }
-                      aria-invalid={!isPasswordValid}
-                    />
-                    <p className="login-form__hint">
-                      비밀번호는 {PASSWORD_MIN_LENGTH}자 이상 입력해 주세요.
-                    </p>
-                  </div>
+            shouldUseGoogleAuth ? (
+              renderGoogleLoginPanel()
+            ) : (
+              <>
+                <div className="login-mode-toggle" role="tablist" aria-label="auth mode">
+                  <button
+                    type="button"
+                    className={`login-mode-toggle__button ${authMode === "register" ? "is-active" : ""}`}
+                    onClick={() => setAuthMode("register")}
+                  >
+                    처음 참가예요
+                  </button>
+                  <button
+                    type="button"
+                    className={`login-mode-toggle__button ${authMode === "login" ? "is-active" : ""}`}
+                    onClick={() => setAuthMode("login")}
+                  >
+                    다시 로그인
+                  </button>
                 </div>
 
-                {requiresConsent ? (
-                  <div className="login-consent">
-                    <label className="login-consent__checkbox">
-                      <input
-                        type="checkbox"
-                        checked={isAgreed}
-                        onChange={handleConsentToggle}
-                      />
-                      <span>개인정보 처리 동의(필수)</span>
-                    </label>
-                    <button
-                      type="button"
-                      className="login-consent__link"
-                      onClick={() => setAgreeOpen(true)}
-                    >
-                      내용 보기
-                    </button>
-                  </div>
-                ) : null}
+                <p className="login-mode-toggle__description">{modeDescription}</p>
 
-                <button
-                  type="submit"
-                  className="login-submit"
-                  disabled={
-                    (authMode === "register"
-                      ? !participantName.trim()
-                      : !loginIdInput.trim()) ||
-                    trimmedPassword.length < PASSWORD_MIN_LENGTH ||
-                    (requiresConsent && !isAgreed)
-                  }
+                <form
+                  className="login-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleSubmit();
+                  }}
                 >
-                  {authMode === "register" ? "계정 만들기" : "로그인"}
-                </button>
-              </form>
+                  {authMode === "register" ? (
+                    <div className="login-form__row">
+                      <label className="login-form__label" htmlFor="participantName">
+                        이름
+                      </label>
+                      <div className="login-form__field">
+                        <input
+                          id="participantName"
+                          className="login-input"
+                          value={participantName}
+                          onChange={(event) => setParticipantName(event.target.value)}
+                          placeholder="이름을 입력해 주세요"
+                          autoComplete="name"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="login-form__row">
+                      <label className="login-form__label" htmlFor="loginId">
+                        로그인 코드
+                      </label>
+                      <div className="login-form__field">
+                        <input
+                          id="loginId"
+                          className="login-input"
+                          value={loginIdInput}
+                          onChange={(event) =>
+                            setLoginIdInput(event.target.value.toUpperCase().replace(/\s/g, ""))
+                          }
+                          placeholder="발급받은 로그인 코드"
+                          autoComplete="username"
+                        />
+                      </div>
+                    </div>
+                  )}
 
-              {recentAccounts.length > 0 ? (
-                <section className="login-account-panel" aria-label="recent accounts">
-                  <div className="login-account-panel__header">
-                    <div>
-                      <p className="login-account-panel__eyebrow">최근 로그인</p>
-                      <h3>같은 기기에서는 더 빠르게 들어갈 수 있어요</h3>
+                  <div className="login-form__row">
+                    <label className="login-form__label" htmlFor="password">
+                      비밀번호
+                    </label>
+                    <div className="login-form__field">
+                      <input
+                        id="password"
+                        type="password"
+                        className={`login-input ${!isPasswordValid ? "is-invalid" : ""}`}
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        placeholder={`${PASSWORD_MIN_LENGTH}자 이상 입력해 주세요`}
+                        autoComplete={
+                          authMode === "register" ? "new-password" : "current-password"
+                        }
+                        aria-invalid={!isPasswordValid}
+                      />
+                      <p className="login-form__hint">
+                        비밀번호는 {PASSWORD_MIN_LENGTH}자 이상 입력해 주세요.
+                      </p>
                     </div>
                   </div>
-                  <p className="login-account-panel__description">
-                    최근에 이 브라우저에서 로그인한 계정입니다. 선택하면 로그인 코드가
-                    자동으로 채워집니다.
-                  </p>
-                  <div className="login-account-panel__list">
-                    {recentAccounts.map((account) => (
-                      <button
-                        key={account.loginId}
-                        type="button"
-                        className={`login-account-card ${
-                          loginIdInput.trim().toUpperCase() === account.loginId ? "is-active" : ""
-                        }`}
-                        onClick={() => handleSelectRecentAccount(account)}
-                      >
-                        <strong>{account.userName}</strong>
-                        <span>코드 {account.loginId}</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
 
-              {renderTesterPanel()}
-            </>
+                  {requiresConsent ? (
+                    <div className="login-consent">
+                      <label className="login-consent__checkbox">
+                        <input
+                          type="checkbox"
+                          checked={isAgreed}
+                          onChange={handleConsentToggle}
+                        />
+                        <span>개인정보 처리 동의(필수)</span>
+                      </label>
+                      <button
+                        type="button"
+                        className="login-consent__link"
+                        onClick={() => setAgreeOpen(true)}
+                      >
+                        내용 보기
+                      </button>
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="submit"
+                    className="login-submit"
+                    disabled={
+                      (authMode === "register"
+                        ? !participantName.trim()
+                        : !loginIdInput.trim()) ||
+                      trimmedPassword.length < PASSWORD_MIN_LENGTH ||
+                      (requiresConsent && !isAgreed)
+                    }
+                  >
+                    {authMode === "register" ? "계정 만들기" : "로그인"}
+                  </button>
+                </form>
+
+                {recentAccounts.length > 0 ? (
+                  <section className="login-account-panel" aria-label="recent accounts">
+                    <div className="login-account-panel__header">
+                      <div>
+                        <p className="login-account-panel__eyebrow">최근 로그인</p>
+                        <h3>같은 기기에서는 더 빠르게 들어갈 수 있어요</h3>
+                      </div>
+                    </div>
+                    <p className="login-account-panel__description">
+                      최근에 이 브라우저에서 로그인한 계정입니다. 선택하면 로그인 코드가
+                      자동으로 채워집니다.
+                    </p>
+                    <div className="login-account-panel__list">
+                      {recentAccounts.map((account) => (
+                        <button
+                          key={account.loginId}
+                          type="button"
+                          className={`login-account-card ${
+                            loginIdInput.trim().toUpperCase() === account.loginId ? "is-active" : ""
+                          }`}
+                          onClick={() => handleSelectRecentAccount(account)}
+                        >
+                          <strong>{account.userName}</strong>
+                          <span>코드 {account.loginId}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
+                {renderTesterPanel()}
+              </>
+            )
           ) : (
             <div className="login-session">
               <p className="login-session__eyebrow">로그인 상태</p>
               <h3>{participantName}</h3>
+              {shouldUseGoogleAuth && googleAccountEmail ? (
+                <div className="login-session__code-block login-session__code-block--email">
+                  <span>Google 계정</span>
+                  <strong>{googleAccountEmail}</strong>
+                </div>
+              ) : null}
               <div className="login-session__code-block">
                 <span>로그인 코드</span>
                 <strong>{currentLoginId}</strong>
               </div>
               <p className="login-session__description">
-                이 탭에는 이미 로그인 정보가 저장되어 있습니다. 바로 빙고 보드로
-                이동하거나 로그아웃 후 최근 계정 목록에서 다시 로그인할 수 있습니다.
+                {shouldUseGoogleAuth
+                  ? "이 탭에는 Google 계정과 연결된 참가 정보가 저장되어 있습니다. 바로 빙고 보드로 이동하거나 로그아웃할 수 있습니다."
+                  : "이 탭에는 이미 로그인 정보가 저장되어 있습니다. 바로 빙고 보드로 이동하거나 로그아웃 후 최근 계정 목록에서 다시 로그인할 수 있습니다."}
               </p>
               <div className="login-session__actions">
                 <button

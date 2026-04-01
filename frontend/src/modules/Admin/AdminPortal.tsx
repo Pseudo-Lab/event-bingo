@@ -38,6 +38,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
+import GoogleSignInButton from "../Auth/GoogleSignInButton";
 import {
   Table,
   TableBody,
@@ -48,11 +49,18 @@ import {
 } from "../../components/ui/table";
 import { cn } from "../../lib/utils";
 import {
+  getSupabaseClient,
+  isSupabaseConfigured,
+  maybeGetSupabaseClient,
+} from "../../lib/supabaseClient";
+import { isGoogleIdentityConfigured } from "../../lib/googleIdentity";
+import {
   clearAdminSession,
   getAdminSession,
   hasAdminSession,
   setAdminSession,
 } from "../../utils/adminSession";
+import { clearLegacyLocalLoginStorage } from "../../utils/legacyAuthStorage";
 import type {
   AdminEventManagerRequest,
   AdminEvent,
@@ -68,7 +76,6 @@ import {
   buildAutoFilledKeywordList,
   clampKeywordList,
   describeKeywordAutofill,
-  getKeywordGoalCount,
 } from "./adminKeywordUtils";
 import {
   normalizeSlugDraftInput,
@@ -112,6 +119,8 @@ const EVENT_DETAIL_TABS: Array<{ key: EventDetailTab; label: string }> = [
   { key: "dashboard", label: "대시보드" },
   { key: "participants", label: "참가자" },
 ];
+const canUseGoogleAdminAuth = () =>
+  isSupabaseConfigured() && isGoogleIdentityConfigured();
 
 const formatAdminDate = (value: string) => {
   try {
@@ -657,14 +666,53 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const shouldUseGoogleAdminAuth = canUseGoogleAdminAuth();
 
   useEffect(() => {
-    if (!hasAdminSession()) {
-      return;
-    }
+    let cancelled = false;
 
-    navigate(getAdminPath("event-settings"), { replace: true });
-  }, [navigate]);
+    const redirectAuthenticatedAdmin = async () => {
+      if (!shouldUseGoogleAdminAuth) {
+        if (hasAdminSession()) {
+          navigate(getAdminPath("event-settings"), { replace: true });
+        }
+        return;
+      }
+
+      const supabase = maybeGetSupabaseClient();
+      if (!supabase) {
+        return;
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (cancelled || !session?.access_token) {
+        return;
+      }
+
+      try {
+        const nextSession = await getAdminMe(session.access_token);
+        if (cancelled) {
+          return;
+        }
+
+        clearLegacyLocalLoginStorage();
+        setAdminSession(nextSession);
+        navigate(getAdminPath("event-settings"), { replace: true });
+      } catch {
+        await supabase.auth.signOut();
+        clearAdminSession();
+      }
+    };
+
+    void redirectAuthenticatedAdmin();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, shouldUseGoogleAdminAuth]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -681,55 +729,121 @@ const LoginPage = () => {
     }
   };
 
+  const handleGoogleLogin = async ({
+    credential,
+    nonce,
+  }: {
+    credential: string;
+    nonce: string;
+  }) => {
+    const supabase = getSupabaseClient();
+
+    try {
+      setIsSubmitting(true);
+      setErrorMessage("");
+
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: "google",
+        token: credential,
+        nonce,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        throw new Error("Supabase 관리자 세션을 확인하지 못했습니다.");
+      }
+
+      const nextSession = await getAdminMe(accessToken);
+      clearLegacyLocalLoginStorage();
+      setAdminSession(nextSession);
+      navigate(getAdminPath("event-settings"), { replace: true });
+    } catch (error) {
+      clearAdminSession();
+      await supabase.auth.signOut();
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Google 관리자 로그인 중 오류가 발생했습니다."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 px-5 py-10">
       <main className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-5xl items-center justify-center">
         <div className="w-full max-w-xl space-y-10">
           <AdminBrand />
 
-          <form className="grid gap-4 md:grid-cols-[minmax(0,1fr)_8rem]" onSubmit={handleSubmit}>
-            <div className="space-y-4">
-              <LoginField
-                id="admin-email"
-                type="email"
-                value={email}
-                placeholder="이메일 주소"
-                onChange={(nextValue) => {
-                  setEmail(nextValue);
-                  setErrorMessage("");
-                }}
-              />
+          {shouldUseGoogleAdminAuth ? (
+            <div className="space-y-5 rounded-[2rem] border border-white/60 bg-white/85 p-7 shadow-soft">
+              <div className="space-y-2 text-center">
+                <h2 className="text-2xl font-black tracking-tight text-slate-900">
+                  Google 계정으로 관리자 로그인
+                </h2>
+                <p className="text-sm leading-6 text-slate-500">
+                  Google 계정 인증 후 관리자 권한이 확인되면 콘솔로 이동합니다.
+                </p>
+              </div>
 
-              <LoginField
-                id="admin-password"
-                type={showPassword ? "text" : "password"}
-                value={password}
-                placeholder="비밀번호"
-                onChange={(nextValue) => {
-                  setPassword(nextValue);
-                  setErrorMessage("");
-                }}
-                trailing={
-                  <button
-                    type="button"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100"
-                    aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
-                    onClick={() => setShowPassword((previousValue) => !previousValue)}
-                  >
-                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                  </button>
-                }
+              <GoogleSignInButton
+                className="mx-auto max-w-[360px]"
+                context="signin"
+                onError={(message) => setErrorMessage(message)}
+                onSuccess={handleGoogleLogin}
+                text="signin_with"
               />
             </div>
+          ) : (
+            <form className="grid gap-4 md:grid-cols-[minmax(0,1fr)_8rem]" onSubmit={handleSubmit}>
+              <div className="space-y-4">
+                <LoginField
+                  id="admin-email"
+                  type="email"
+                  value={email}
+                  placeholder="이메일 주소"
+                  onChange={(nextValue) => {
+                    setEmail(nextValue);
+                    setErrorMessage("");
+                  }}
+                />
 
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="h-full min-h-[122px] rounded-2xl bg-gradient-to-b from-[#5fd0a8] to-[#45bc90] text-2xl font-black tracking-tight text-white hover:from-[#55c79f] hover:to-[#39b081] md:min-w-[8rem]"
-            >
-              {isSubmitting ? "확인 중" : "로그인"}
-            </Button>
-          </form>
+                <LoginField
+                  id="admin-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  placeholder="비밀번호"
+                  onChange={(nextValue) => {
+                    setPassword(nextValue);
+                    setErrorMessage("");
+                  }}
+                  trailing={
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100"
+                      aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
+                      onClick={() => setShowPassword((previousValue) => !previousValue)}
+                    >
+                      {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                  }
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="h-full min-h-[122px] rounded-2xl bg-gradient-to-b from-[#5fd0a8] to-[#45bc90] text-2xl font-black tracking-tight text-white hover:from-[#55c79f] hover:to-[#39b081] md:min-w-[8rem]"
+              >
+                {isSubmitting ? "확인 중" : "로그인"}
+              </Button>
+            </form>
+          )}
 
           {errorMessage ? (
             <p className="text-center text-sm font-semibold text-rose-600">{errorMessage}</p>
@@ -750,6 +864,7 @@ const AdminConsolePage = ({
   const navigate = useNavigate();
   const { adminEventId } = useParams();
   const initialSession = getAdminSession();
+  const shouldUseGoogleAdminAuth = canUseGoogleAdminAuth();
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [session, setSession] = useState<AdminSession | null>(initialSession);
@@ -799,27 +914,38 @@ const AdminConsolePage = ({
     let cancelled = false;
 
     const bootstrapSession = async () => {
-      if (!hasAdminSession()) {
-        navigate(getAdminPath(), { replace: true });
-        return;
-      }
-
       try {
-        const storedSession = getAdminSession();
-        if (!storedSession) {
-          throw new Error("관리자 세션이 없습니다.");
+        let accessToken = "";
+
+        if (shouldUseGoogleAdminAuth) {
+          const supabase = getSupabaseClient();
+          const {
+            data: { session: supabaseSession },
+          } = await supabase.auth.getSession();
+          accessToken = supabaseSession?.access_token ?? "";
+        } else {
+          accessToken = getAdminSession()?.accessToken ?? "";
         }
 
-        const verifiedSession = await getAdminMe(storedSession.accessToken);
+        if (!accessToken) {
+          navigate(getAdminPath(), { replace: true });
+          return;
+        }
+
+        const verifiedSession = await getAdminMe(accessToken);
         if (cancelled) {
           return;
         }
 
+        clearLegacyLocalLoginStorage();
         setAdminSession(verifiedSession);
         setSession(verifiedSession);
         setEventForm(createEventFormState(verifiedSession.email));
       } catch (error) {
         clearAdminSession();
+        if (shouldUseGoogleAdminAuth) {
+          await maybeGetSupabaseClient()?.auth.signOut();
+        }
         if (!cancelled) {
           navigate(getAdminPath(), { replace: true });
         }
@@ -831,7 +957,7 @@ const AdminConsolePage = ({
     return () => {
       cancelled = true;
     };
-  }, [navigate]);
+  }, [navigate, shouldUseGoogleAdminAuth]);
 
   useEffect(() => {
     if (!session) {
@@ -1084,6 +1210,9 @@ const AdminConsolePage = ({
 
   const handleLogout = () => {
     clearAdminSession();
+    if (shouldUseGoogleAdminAuth) {
+      void maybeGetSupabaseClient()?.auth.signOut();
+    }
     navigate(getAdminPath(), { replace: true });
   };
 

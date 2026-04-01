@@ -1,7 +1,7 @@
 """add admin invitation columns
 
 Revision ID: 7c6c8c4fb5aa
-Revises: 28f7d0a6c91b
+Revises: c3167ef6ed69
 Create Date: 2026-03-20 16:45:00.000000+09:00
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = "7c6c8c4fb5aa"
-down_revision: Union[str, None] = "28f7d0a6c91b"
+down_revision: Union[str, None] = "c3167ef6ed69"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

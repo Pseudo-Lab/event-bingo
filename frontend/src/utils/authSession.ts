@@ -71,19 +71,7 @@ export const getAuthSession = (): AuthSession | null => {
     return null;
   }
 
-  const sessionAuth = readAuthSessionFromStorage(window.sessionStorage);
-  if (sessionAuth) {
-    return sessionAuth;
-  }
-
-  const legacyAuth = readAuthSessionFromStorage(window.localStorage);
-  if (!legacyAuth) {
-    return null;
-  }
-
-  setAuthSession(legacyAuth);
-  removeAuthSessionFromStorage(window.localStorage);
-  return legacyAuth;
+  return readAuthSessionFromStorage(window.sessionStorage);
 };
 
 export const clearAuthSession = () => {

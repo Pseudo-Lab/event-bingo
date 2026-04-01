@@ -4,6 +4,7 @@ import {
   buildInteractionCreateResponse,
   buildInteractionRecord,
   mockBoardBootstrap,
+  mockPublicEventProfile,
   seedBingoSession,
 } from "./support/bingoApi";
 
@@ -23,6 +24,7 @@ const openExchangePage = async ({
   interactions?: Record<string, unknown>[];
 }) => {
   await seedBingoSession(page, session);
+  await mockPublicEventProfile(page);
   await mockBoardBootstrap({
     page,
     userId: session.userId,
@@ -30,7 +32,7 @@ const openExchangePage = async ({
     interactions,
   });
 
-  await page.goto("/bingo");
+  await page.goto("/bingo-networking/bingo");
   await expect(page.getByLabel("상대방 ID 입력")).toBeVisible();
 };
 

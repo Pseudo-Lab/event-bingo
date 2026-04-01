@@ -85,7 +85,6 @@ const JONGSEONG_ROMANIZATION = [
 
 const HANGUL_BASE = 0xac00;
 const HANGUL_END = 0xd7a3;
-const CHOSEONG_COUNT = 19;
 const JUNGSEONG_COUNT = 21;
 const JONGSEONG_COUNT = 28;
 
