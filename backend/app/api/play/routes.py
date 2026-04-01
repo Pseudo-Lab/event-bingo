@@ -12,7 +12,7 @@ from models.bingo.bingo_boards import BingoBoards
 from models.team import Team, TeamColor
 from models.room import Room
 
-from .schema import JoinEventResponse, RoomStatusResponse, TeamStatusItem, MyEventsResponse, MyEventItem
+from .schema import JoinEventResponse, RoomStatusResponse, TeamStatusItem, MyEventsResponse, MyEventItem, RoomTeamsResponse, TeamWithMembersItem, TeamMemberItem
 
 play_router = APIRouter(prefix="/play", tags=["play"])
 
@@ -249,4 +249,93 @@ async def get_my_events(
         ok=True,
         message="참여 중인 이벤트 목록을 조회했습니다.",
         events=items,
+    )
+
+
+@play_router.get(
+    "/rooms/{room_id}/teams",
+    response_model=RoomTeamsResponse,
+    summary="방 내 팀 및 팀원 목록 조회",
+)
+async def get_room_teams(
+    room_id: int,
+    current_user: CurrentUser,
+    db: AsyncSessionDepends,
+):
+    from sqlalchemy import select as sa_select
+
+    room = await Room.get_by_id(db, room_id)
+    event = await Event.get_by_id(db, room.event_id)
+
+    if event.game_mode != GameMode.TEAM:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="팀전 이벤트가 아닙니다.")
+
+    # 방 전체 참석자 목록 1방에 조회
+    attendees_result = await db.execute(
+        sa_select(EventAttendee).where(EventAttendee.room_id == room_id)
+    )
+    attendees = attendees_result.scalars().all()
+
+    user_ids = [a.user_id for a in attendees]
+
+    user_map = {}
+    board_map = {}
+
+    if user_ids:
+        # 유저 정보 일괄 조회
+        users_result = await db.execute(
+            sa_select(BingoUser).where(BingoUser.user_id.in_(user_ids))
+        )
+        user_map = {u.user_id: u for u in users_result.scalars().all()}
+
+        # 빙고보드 정보 일괄 조회
+        boards_result = await db.execute(
+            sa_select(BingoBoards).where(
+                BingoBoards.user_id.in_(user_ids),
+                BingoBoards.event_id == room.event_id,
+            )
+        )
+        board_map = {b.user_id: b for b in boards_result.scalars().all()}
+
+    # 참석자 정보를 team_id 기준으로 그루핑
+    team_members_by_team_id = {}
+    for att in attendees:
+        if att.team_id not in team_members_by_team_id:
+            team_members_by_team_id[att.team_id] = []
+        
+        user = user_map.get(att.user_id)
+        board = board_map.get(att.user_id)
+        bingo_count = board.bingo_count if board else 0
+        
+        team_members_by_team_id[att.team_id].append(
+            TeamMemberItem(
+                user_id=att.user_id,
+                user_name=user.user_name if user else None,
+                bingo_count=bingo_count,
+            )
+        )
+
+    # 방의 팀 목록 조회
+    teams = await Team.get_by_room(db, room_id)
+    team_with_members_items = []
+
+    for team in teams:
+        members = team_members_by_team_id.get(team.id, [])
+        total_bingo = sum(m.bingo_count for m in members)
+        
+        team_with_members_items.append(
+            TeamWithMembersItem(
+                team_id=team.id,
+                color=team.color.value,
+                name=team.name,
+                total_bingo_count=total_bingo,
+                members=members,
+            )
+        )
+
+    return RoomTeamsResponse(
+        ok=True,
+        message="방 내 팀 및 팀원 목록을 조회했습니다.",
+        room_id=room_id,
+        teams=team_with_members_items,
     )
