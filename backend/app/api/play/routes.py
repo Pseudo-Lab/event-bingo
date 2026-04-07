@@ -172,21 +172,22 @@ async def get_room_status(
 
     participant_count = await Room.get_participant_count(db, room_id)
 
-    teams = await Team.get_by_room(db, room_id)
-    team_items = []
-    for team in teams:
-        count_result = await db.execute(
-            sa_select(func.count(EventAttendee.id)).where(
-                EventAttendee.room_id == room_id,
-                EventAttendee.team_id == team.id,
-            )
-        )
-        team_items.append(TeamStatusItem(
+    # 팀 목록 + 팀별 인원수를 단일 쿼리로 조회 (N+1 제거)
+    team_count_rows = await db.execute(
+        sa_select(Team, func.count(EventAttendee.id).label("member_count"))
+        .outerjoin(EventAttendee, (EventAttendee.team_id == Team.id) & (EventAttendee.room_id == room_id))
+        .where(Team.room_id == room_id)
+        .group_by(Team.id)
+    )
+    team_items = [
+        TeamStatusItem(
             team_id=team.id,
             color=team.color.value,
             name=team.name,
-            member_count=count_result.scalar() or 0,
-        ))
+            member_count=count,
+        )
+        for team, count in team_count_rows.all()
+    ]
 
     return RoomStatusResponse(
         ok=True,
@@ -212,38 +213,34 @@ async def get_my_events(
 ):
     from sqlalchemy import select as sa_select
 
-    attendees = await EventAttendee.get_by_user(db, current_user.user_id)
-
-    items = []
-    for att in attendees:
-        event = await Event.get_by_id(db, att.event_id)
-
-        # 빙고 카운트 조회
-        board_result = await db.execute(
-            sa_select(BingoBoards).where(
-                BingoBoards.user_id == current_user.user_id,
-                BingoBoards.event_id == att.event_id,
-            )
+    # 단일 JOIN 쿼리로 attendee + event + board + team을 한 번에 조회 (N+1 제거)
+    rows = await db.execute(
+        sa_select(EventAttendee, Event, BingoBoards, Team)
+        .join(Event, Event.id == EventAttendee.event_id)
+        .outerjoin(
+            BingoBoards,
+            (BingoBoards.user_id == EventAttendee.user_id)
+            & (BingoBoards.event_id == EventAttendee.event_id),
         )
-        board = board_result.scalar_one_or_none()
+        .outerjoin(Team, Team.id == EventAttendee.team_id)
+        .where(EventAttendee.user_id == current_user.user_id)
+        .order_by(EventAttendee.created_at.desc())
+    )
 
-        # 팀 색상 조회
-        team_color = None
-        if att.team_id:
-            team = await Team.get_by_id(db, att.team_id)
-            team_color = team.color.value
-
-        items.append(MyEventItem(
+    items = [
+        MyEventItem(
             event_id=event.id,
             event_slug=event.slug,
             event_name=event.name,
             game_mode=event.game_mode.value,
             room_id=att.room_id,
             team_id=att.team_id,
-            team_color=team_color,
+            team_color=team.color.value if team else None,
             bingo_count=board.bingo_count if board else 0,
             joined_at=att.created_at,
-        ))
+        )
+        for att, event, board, team in rows.all()
+    ]
 
     return MyEventsResponse(
         ok=True,

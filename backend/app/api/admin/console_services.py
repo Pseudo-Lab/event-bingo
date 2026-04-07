@@ -709,41 +709,43 @@ async def build_event_rooms(
     session: AsyncSession,
     event: Event,
 ) -> list[AdminRoomItem]:
-    """이벤트의 방 목록을 빌드합니다 (팀전 전용)."""
-    rooms = await Room.get_by_event(session, event.id)
-    room_items: list[AdminRoomItem] = []
+    """이벤트의 방 목록을 빌드합니다 (팀전 전용).
+    단일 JOIN 쿼리로 전체 방 + 참가자를 한 번에 조회합니다.
+    """
+    # 방 + 참가자 + 유저 + 팀을 단일 쿼리로 조회 (N+1 제거)
+    rows = await session.execute(
+        select(Room, EventAttendee, BingoUser, Team)
+        .outerjoin(EventAttendee, EventAttendee.room_id == Room.id)
+        .outerjoin(BingoUser, BingoUser.user_id == EventAttendee.user_id)
+        .outerjoin(Team, Team.id == EventAttendee.team_id)
+        .where(Room.event_id == event.id)
+        .order_by(Room.id.asc(), EventAttendee.id.asc())
+    )
 
-    for room in rooms:
-        # 해당 방의 참가자 목록 조회
-        attendee_rows = await session.execute(
-            select(EventAttendee, BingoUser, Team)
-            .join(BingoUser, BingoUser.user_id == EventAttendee.user_id)
-            .outerjoin(Team, Team.id == EventAttendee.team_id)
-            .where(EventAttendee.room_id == room.id)
-            .order_by(EventAttendee.id.asc())
-        )
-        attendee_tuples = attendee_rows.all()
-
-        members = [
-            AdminRoomMemberItem(
-                user_id=user.user_id,
-                user_name=user.user_name,
-                team_color=team.color.value if team else None,
+    # 방별로 데이터 그루핑 (Python에서 처리)
+    rooms_map: dict[int, tuple[Room, list[AdminRoomMemberItem]]] = {}
+    for room, attendee, user, team in rows.all():
+        if room.id not in rooms_map:
+            rooms_map[room.id] = (room, [])
+        if attendee is not None and user is not None:
+            rooms_map[room.id][1].append(
+                AdminRoomMemberItem(
+                    user_id=user.user_id,
+                    user_name=user.user_name,
+                    team_color=team.color.value if team else None,
+                )
             )
-            for _, user, team in attendee_tuples
-        ]
 
-        room_items.append(
-            AdminRoomItem(
-                room_id=room.id,
-                room_number=room.room_number,
-                is_open=room.is_open,
-                participant_count=len(members),
-                members=members,
-            )
+    return [
+        AdminRoomItem(
+            room_id=room.id,
+            room_number=room.room_number,
+            is_open=room.is_open,
+            participant_count=len(members),
+            members=members,
         )
-
-    return room_items
+        for room, members in rooms_map.values()
+    ]
 
 
 async def kick_event_attendee(

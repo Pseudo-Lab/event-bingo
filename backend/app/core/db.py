@@ -27,6 +27,13 @@ class Database:
         self.async_engine = create_async_engine(
             os.getenv("DB_URL"),
             pool_pre_ping=True,
+            pool_recycle=300,
+            connect_args={
+                # Supabase Pooler(pgbouncer) transaction mode 호환
+                # prepared statement 캐시 비활성화 필수
+                "statement_cache_size": 0,
+                "prepared_statement_cache_size": 0,
+            },
         )
         self.async_session_factory = async_sessionmaker(
             bind=self.async_engine, autoflush=False, future=True, expire_on_commit=False, class_=AsyncSession
