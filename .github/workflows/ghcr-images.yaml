@@ -67,6 +67,7 @@ jobs:
           sbom: false
           tags: |
             ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-amd64
+          build-args: ${{ matrix.component == 'frontend' && format('VITE_API_URL={0}\nVITE_SUPABASE_URL={1}\nVITE_SUPABASE_ANON_KEY={2}\nVITE_GOOGLE_CLIENT_ID={3}', secrets.VITE_API_URL, secrets.VITE_SUPABASE_URL, secrets.VITE_SUPABASE_ANON_KEY, secrets.VITE_GOOGLE_CLIENT_ID) || '' }}
           cache-from: type=gha,scope=${{ matrix.component }}-amd64
           cache-to: type=gha,scope=${{ matrix.component }}-amd64,mode=max
 
@@ -122,6 +123,7 @@ jobs:
           sbom: false
           tags: |
             ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-arm64
+          build-args: ${{ matrix.component == 'frontend' && format('VITE_API_URL={0}\nVITE_SUPABASE_URL={1}\nVITE_SUPABASE_ANON_KEY={2}\nVITE_GOOGLE_CLIENT_ID={3}', secrets.VITE_API_URL, secrets.VITE_SUPABASE_URL, secrets.VITE_SUPABASE_ANON_KEY, secrets.VITE_GOOGLE_CLIENT_ID) || '' }}
           cache-from: type=gha,scope=${{ matrix.component }}-arm64
           cache-to: type=gha,scope=${{ matrix.component }}-arm64,mode=max
 
