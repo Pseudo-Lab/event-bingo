@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # 1단계: 빌드
-FROM node:20-alpine AS build
+FROM node:20-slim AS build
 WORKDIR /app
 
 ARG VITE_API_URL
