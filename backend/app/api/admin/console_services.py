@@ -21,6 +21,7 @@ from models.event import Event, EventPublishState, EventStatus
 from models.event_attendee import EventAttendee
 from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 from models.policy_template import PolicyTemplate
+from models.room import Room
 from models.team import Team
 from models.user import BingoUser
 
@@ -34,6 +35,8 @@ from .schema import (
     AdminEventManagerRequestItem,
     AdminMemberItem,
     AdminPolicyTemplateItem,
+    AdminRoomItem,
+    AdminRoomMemberItem,
     AdminSessionInfo,
 )
 
@@ -41,7 +44,7 @@ from .schema import (
 DEFAULT_ADMIN_PHONE = "010-0000-0000"
 KST = ZoneInfo("Asia/Seoul")
 RESERVED_EVENT_SLUGS = {"admin", "login", "bingo", "api", "assets"}
-SLUG_PATTERN = re.compile(r"^[a-z0-9-]{3,50}$")
+SLUG_PATTERN = re.compile(r"^[a-z0-9\uAC00-\uD7A3-]{3,50}$")
 DEFAULT_ADMIN_PASSWORD = "Admin1234!"
 DEFAULT_BOOTSTRAP_ADMIN_EMAIL = "superadmin@laivdata.com"
 DEFAULT_BOOTSTRAP_ADMIN_NAME = "어드민의 아버지"
@@ -387,6 +390,8 @@ async def build_event_summary(
         board_size=event.bingo_size,
         bingo_mission_count=event.success_condition,
         keywords=[str(keyword) for keyword in (event.keywords or [])],
+        game_mode=event.game_mode.value,
+        team_size=event.team_size,
         participant_count=participant_count,
         progress_current=progress_current,
         progress_total=participant_count,
@@ -698,3 +703,66 @@ async def ensure_admin_console_seed_data(session: AsyncSession) -> None:
             name=DEFAULT_BOOTSTRAP_ADMIN_NAME,
             role=AdminRole.ADMIN,
         )
+
+
+async def build_event_rooms(
+    session: AsyncSession,
+    event: Event,
+) -> list[AdminRoomItem]:
+    """이벤트의 방 목록을 빌드합니다 (팀전 전용)."""
+    rooms = await Room.get_by_event(session, event.id)
+    room_items: list[AdminRoomItem] = []
+
+    for room in rooms:
+        # 해당 방의 참가자 목록 조회
+        attendee_rows = await session.execute(
+            select(EventAttendee, BingoUser, Team)
+            .join(BingoUser, BingoUser.user_id == EventAttendee.user_id)
+            .outerjoin(Team, Team.id == EventAttendee.team_id)
+            .where(EventAttendee.room_id == room.id)
+            .order_by(EventAttendee.id.asc())
+        )
+        attendee_tuples = attendee_rows.all()
+
+        members = [
+            AdminRoomMemberItem(
+                user_id=user.user_id,
+                user_name=user.user_name,
+                team_color=team.color.value if team else None,
+            )
+            for _, user, team in attendee_tuples
+        ]
+
+        room_items.append(
+            AdminRoomItem(
+                room_id=room.id,
+                room_number=room.room_number,
+                is_open=room.is_open,
+                participant_count=len(members),
+                members=members,
+            )
+        )
+
+    return room_items
+
+
+async def kick_event_attendee(
+    session: AsyncSession,
+    event: Event,
+    user_id: int,
+) -> int:
+    """이벤트에서 특정 유저를 강제 퇴장시킵니다."""
+    # 참가자 조회
+    result = await session.execute(
+        select(EventAttendee).where(
+            EventAttendee.event_id == event.id,
+            EventAttendee.user_id == user_id,
+        )
+    )
+    attendee = result.scalar_one_or_none()
+    if not attendee:
+        raise ValueError(f"User {user_id}는 이 이벤트에 참가하고 있지 않습니다.")
+
+    await session.delete(attendee)
+    await session.commit()
+    return user_id

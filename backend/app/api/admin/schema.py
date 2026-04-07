@@ -171,6 +171,8 @@ class AdminEventSummary(BaseModel):
     board_size: int
     bingo_mission_count: int
     keywords: list[str] = Field(default_factory=list)
+    game_mode: str
+    team_size: int
     participant_count: int
     progress_current: int
     progress_total: int
@@ -193,6 +195,9 @@ class AdminEventDetailResponse(BaseSchema):
     event: Optional[AdminEventDetail] = None
 
 
+GameModeLiteral = Literal["individual", "team"]
+
+
 class AdminEventUpsertRequest(BaseModel):
     slug: str = Field(..., min_length=3, max_length=50)
     name: str = Field(..., min_length=1, max_length=100)
@@ -205,10 +210,35 @@ class AdminEventUpsertRequest(BaseModel):
     bingo_mission_count: int = Field(..., ge=1, le=5)
     keywords: list[str] = Field(default_factory=list)
     publish_state: PublishStateLiteral = "draft"
+    game_mode: GameModeLiteral = "individual"
+    team_size: int = Field(default=1, ge=1, le=50)
 
 
 class AdminEventResponse(BaseSchema):
     event: Optional[AdminEventDetail] = None
+
+
+class AdminRoomMemberItem(BaseModel):
+    user_id: int
+    user_name: Optional[str] = None
+    team_color: Optional[str] = None
+
+
+class AdminRoomItem(BaseModel):
+    room_id: int
+    room_number: int
+    is_open: bool
+    participant_count: int
+    members: list[AdminRoomMemberItem] = Field(default_factory=list)
+
+
+class AdminRoomListResponse(BaseSchema):
+    event_id: int
+    rooms: list[AdminRoomItem] = Field(default_factory=list)
+
+
+class AdminKickResponse(BaseSchema):
+    kicked_user_id: int
 
 
 class AdminEventResetStats(BaseModel):
