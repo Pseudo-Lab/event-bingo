@@ -34,6 +34,8 @@ from .schema import (
     AdminEventManagerRequestItem,
     AdminMemberItem,
     AdminPolicyTemplateItem,
+    AdminRoomItem,
+    AdminRoomMemberItem,
     AdminSessionInfo,
 )
 
