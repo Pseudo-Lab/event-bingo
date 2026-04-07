@@ -24,11 +24,7 @@ def test_validate_event_slug_accepts_expected_pattern():
     assert validate_event_slug("festival-networking-2026") == "festival-networking-2026"
 
 
-def test_validate_event_slug_accepts_korean_characters():
-    assert validate_event_slug("가짜-연구소-2026") == "가짜-연구소-2026"
-
-
-@pytest.mark.parametrize("slug", ["Admin", "ab", "invalid slug", "api"])
+@pytest.mark.parametrize("slug", ["Admin", "ab", "invalid slug", "api", "가짜-연구소-2026"])
 def test_validate_event_slug_rejects_invalid_values(slug: str):
     with pytest.raises(ValueError):
         validate_event_slug(slug)

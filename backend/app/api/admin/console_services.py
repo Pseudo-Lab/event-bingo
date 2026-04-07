@@ -44,7 +44,7 @@ from .schema import (
 DEFAULT_ADMIN_PHONE = "010-0000-0000"
 KST = ZoneInfo("Asia/Seoul")
 RESERVED_EVENT_SLUGS = {"admin", "login", "bingo", "api", "assets"}
-SLUG_PATTERN = re.compile(r"^[a-z0-9\uAC00-\uD7A3-]{3,50}$")
+SLUG_PATTERN = re.compile(r"^[a-z0-9-]{3,50}$")
 DEFAULT_ADMIN_PASSWORD = "Admin1234!"
 DEFAULT_BOOTSTRAP_ADMIN_EMAIL = "superadmin@laivdata.com"
 DEFAULT_BOOTSTRAP_ADMIN_NAME = "어드민의 아버지"
