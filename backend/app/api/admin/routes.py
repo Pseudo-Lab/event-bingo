@@ -292,16 +292,42 @@ async def list_event_manager_requests(
     require_admin_role(actor)
 
     requests = await EventManagerRequest.get_all(db)
+
+    # 검토자 admin을 일괄 조회 (N+1 제거)
+    reviewer_ids = {r.reviewed_by_admin_id for r in requests if r.reviewed_by_admin_id is not None}
+    reviewer_map: dict[int, Admin] = {}
+    if reviewer_ids:
+        reviewer_rows = await db.execute(select(Admin).where(Admin.id.in_(reviewer_ids)))
+        reviewer_map = {a.id: a for a in reviewer_rows.scalars().all()}
+
+    from .schema import AdminEventManagerRequestItem
     serialized_requests = [
-        await serialize_event_manager_request(db, request_item)
-        for request_item in requests
+        AdminEventManagerRequestItem(
+            id=r.id,
+            name=r.name,
+            email=r.email,
+            organization=r.organization,
+            event_name=r.event_name,
+            event_purpose=r.event_purpose,
+            expected_event_date=r.expected_event_date,
+            expected_attendee_count=r.expected_attendee_count,
+            notes=r.notes,
+            status=r.status.value,
+            review_note=r.review_note,
+            reviewed_at=r.reviewed_at,
+            reviewed_by_name=reviewer_map[r.reviewed_by_admin_id].name
+            if r.reviewed_by_admin_id and r.reviewed_by_admin_id in reviewer_map
+            else None,
+            created_at=r.created_at,
+        )
+        for r in requests
     ]
 
     return AdminEventManagerRequestListResponse(
         ok=True,
         message="이벤트 관리자 신청 목록을 불러왔습니다.",
         requests=serialized_requests,
-        pending_count=sum(1 for request_item in requests if request_item.status == EventManagerRequestStatus.PENDING),
+        pending_count=sum(1 for r in requests if r.status == EventManagerRequestStatus.PENDING),
     )
 
 
@@ -411,9 +437,80 @@ async def list_admin_events(
     db: AsyncSessionDepends,
     actor: Admin = Depends(authenticate_admin_session),
 ):
+    from collections import defaultdict
+    from .console_services import (
+        can_edit_event,
+        resolve_event_status,
+        resolve_operating_minutes,
+    )
+    from .schema import AdminEventSummary
+
     await ensure_admin_console_seed_data(db)
     events = await Event.get_all(db)
-    event_items = [await build_event_summary(db, event, actor) for event in events]
+
+    if not events:
+        return AdminEventListResponse(ok=True, message="이벤트 목록을 불러왔습니다.", events=[])
+
+    event_ids = [e.id for e in events]
+    admin_ids = {e.admin_id for e in events}
+
+    # 배치 1: 이벤트 담당 admin 일괄 조회
+    admin_rows = await db.execute(select(Admin).where(Admin.id.in_(admin_ids)))
+    admin_map: dict[int, Admin] = {a.id: a for a in admin_rows.scalars().all()}
+
+    # 배치 2: 이벤트별 참가자 수
+    count_rows = await db.execute(
+        select(EventAttendee.event_id, func.count(EventAttendee.id).label("cnt"))
+        .where(EventAttendee.event_id.in_(event_ids))
+        .group_by(EventAttendee.event_id)
+    )
+    participant_map: dict[int, int] = {row.event_id: row.cnt for row in count_rows}
+
+    # 배치 3: 이벤트별 빙고 달성 인원 (event별 success_condition이 달라 Python에서 집계)
+    bingo_rows = await db.execute(
+        select(EventAttendee.event_id, BingoBoards.bingo_count)
+        .join(BingoBoards, BingoBoards.user_id == EventAttendee.user_id)
+        .where(EventAttendee.event_id.in_(event_ids))
+    )
+    bingo_by_event: dict[int, list[int]] = defaultdict(list)
+    for row in bingo_rows:
+        bingo_by_event[row.event_id].append(row.bingo_count)
+
+    event_items = []
+    for event in events:
+        creator = admin_map.get(event.admin_id)
+        if not creator:
+            continue
+        participant_count = participant_map.get(event.id, 0)
+        progress_current = sum(
+            1 for bc in bingo_by_event.get(event.id, []) if bc >= event.success_condition
+        )
+        event_items.append(
+            AdminEventSummary(
+                id=event.id,
+                slug=event.slug,
+                name=event.name,
+                created_by_id=event.admin_id,
+                created_by_email=creator.email,
+                created_by_name=creator.name,
+                location=event.location,
+                event_team=event.event_team,
+                start_at=event.start_time,
+                end_at=event.end_time,
+                admin_email=event.admin_email,
+                board_size=event.bingo_size,
+                bingo_mission_count=event.success_condition,
+                keywords=[str(k) for k in (event.keywords or [])],
+                game_mode=event.game_mode.value,
+                team_size=event.team_size,
+                participant_count=participant_count,
+                progress_current=progress_current,
+                progress_total=participant_count,
+                status=resolve_event_status(event),
+                publish_state=event.publish_state.value,
+                can_edit=can_edit_event(actor, event),
+            )
+        )
 
     return AdminEventListResponse(
         ok=True,

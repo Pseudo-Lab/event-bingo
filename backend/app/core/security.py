@@ -19,8 +19,13 @@ SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")  # HS256 fallbac
 _jwks_cache: Optional[dict] = None
 
 
-def _fetch_jwks() -> Optional[dict]:
-    """Supabase JWKS 엔드포인트에서 키를 가져와 캐싱 (httpx 동기 호출)"""
+async def warm_jwks_cache() -> None:
+    """서버 시작 시 JWKS를 미리 로드해 첫 요청 블로킹을 방지합니다."""
+    await _fetch_jwks_async()
+
+
+async def _fetch_jwks_async() -> Optional[dict]:
+    """Supabase JWKS 엔드포인트에서 키를 비동기로 가져와 캐싱합니다."""
     global _jwks_cache
     if _jwks_cache is not None:
         return _jwks_cache
@@ -32,7 +37,8 @@ def _fetch_jwks() -> Optional[dict]:
         headers = {}
         if SUPABASE_KEY:
             headers["apikey"] = SUPABASE_KEY
-        resp = httpx.get(jwks_url, headers=headers, timeout=5)
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(jwks_url, headers=headers, timeout=5)
         resp.raise_for_status()
         _jwks_cache = resp.json()
         return _jwks_cache
@@ -45,14 +51,14 @@ def decode_supabase_token(token: str) -> Optional[dict]:
     """
     Supabase에서 발급한 JWT 토큰 검증 및 디코딩.
     JWKS 기반 비대칭 키 검증 후, 실패 시 HS256 Secret으로 폴백합니다.
+    캐시된 JWKS가 없으면 HS256 fallback만 시도합니다 (동기 컨텍스트 대비).
     """
-    # 1. JWKS 기반 검증 (RS256, ES256 등)
-    jwks = _fetch_jwks()
-    if jwks:
+    # 1. JWKS 기반 검증 (캐시된 경우만 — 동기 함수에서 호출되므로 네트워크 IO 없음)
+    if _jwks_cache:
         try:
             payload = jwt.decode(
                 token,
-                jwks,
+                _jwks_cache,
                 algorithms=["RS256", "ES256", "HS256"],
                 options={"verify_aud": False},
             )
