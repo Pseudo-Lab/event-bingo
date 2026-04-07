@@ -211,6 +211,20 @@ class AdminEventResponse(BaseSchema):
     event: Optional[AdminEventDetail] = None
 
 
+class AdminRoomMemberItem(BaseModel):
+    user_id: int
+    user_name: Optional[str] = None
+    team_color: Optional[str] = None
+
+
+class AdminRoomItem(BaseModel):
+    room_id: int
+    room_number: int
+    is_open: bool
+    participant_count: int
+    members: list[AdminRoomMemberItem] = Field(default_factory=list)
+
+
 class AdminEventResetStats(BaseModel):
     deleted_attendees: int = 0
     deleted_teams: int = 0
