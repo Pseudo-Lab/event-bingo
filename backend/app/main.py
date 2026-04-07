@@ -5,6 +5,7 @@ from fastapi.openapi.utils import get_openapi
 import os
 from contextlib import asynccontextmanager
 from core.db import db
+from core.security import warm_jwks_cache
 from api import api_router
 from starlette.middleware.cors import CORSMiddleware
 from core.dependencies import authenticate_user
@@ -16,6 +17,7 @@ async def lifespan(app: FastAPI):
     # 서버 시작 전 초기화 단계 작성
     db.initialize()
     await db.create_database()
+    await warm_jwks_cache()  # JWKS 미리 로드 — 첫 요청 블로킹 방지
     yield
 
 # docs_url, openapi_url을 None으로 비활성화

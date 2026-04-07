@@ -21,6 +21,7 @@ from models.event import Event, EventPublishState, EventStatus
 from models.event_attendee import EventAttendee
 from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 from models.policy_template import PolicyTemplate
+from models.room import Room
 from models.team import Team
 from models.user import BingoUser
 
@@ -34,6 +35,8 @@ from .schema import (
     AdminEventManagerRequestItem,
     AdminMemberItem,
     AdminPolicyTemplateItem,
+    AdminRoomItem,
+    AdminRoomMemberItem,
     AdminSessionInfo,
 )
 
@@ -41,7 +44,7 @@ from .schema import (
 DEFAULT_ADMIN_PHONE = "010-0000-0000"
 KST = ZoneInfo("Asia/Seoul")
 RESERVED_EVENT_SLUGS = {"admin", "login", "bingo", "api", "assets"}
-SLUG_PATTERN = re.compile(r"^[a-z0-9-]{3,50}$")
+SLUG_PATTERN = re.compile(r"^[a-z0-9\uAC00-\uD7A3-]{3,50}$")
 DEFAULT_ADMIN_PASSWORD = "Admin1234!"
 ADMIN_INVITE_TOKEN_EXPIRE_HOURS = int(os.getenv("ADMIN_INVITE_TOKEN_EXPIRE_HOURS", "72"))
 ADMIN_INVITE_URL_BASE = os.getenv("ADMIN_INVITE_URL_BASE", "http://localhost:5173/admin/invite")
@@ -382,6 +385,8 @@ async def build_event_summary(
         board_size=event.bingo_size,
         bingo_mission_count=event.success_condition,
         keywords=[str(keyword) for keyword in (event.keywords or [])],
+        game_mode=event.game_mode.value,
+        team_size=event.team_size,
         participant_count=participant_count,
         progress_current=progress_current,
         progress_total=participant_count,
