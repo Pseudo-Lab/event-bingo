@@ -56,7 +56,8 @@ jobs:
         run: |
           echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.image_suffix }}" >> "$GITHUB_OUTPUT"
 
-      - name: Build amd64 image
+      - name: Build amd64 image (backend)
+        if: matrix.component == 'backend'
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -67,7 +68,26 @@ jobs:
           sbom: false
           tags: |
             ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-amd64
-          build-args: ${{ matrix.component == 'frontend' && format('VITE_API_URL={0}\nVITE_SUPABASE_URL={1}\nVITE_SUPABASE_ANON_KEY={2}\nVITE_GOOGLE_CLIENT_ID={3}', secrets.VITE_API_URL, secrets.VITE_SUPABASE_URL, secrets.VITE_SUPABASE_ANON_KEY, secrets.VITE_GOOGLE_CLIENT_ID) || '' }}
+          cache-from: type=gha,scope=${{ matrix.component }}-amd64
+          cache-to: type=gha,scope=${{ matrix.component }}-amd64,mode=max
+
+      - name: Build amd64 image (frontend)
+        if: matrix.component == 'frontend'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-amd64
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
+            VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+            VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           cache-from: type=gha,scope=${{ matrix.component }}-amd64
           cache-to: type=gha,scope=${{ matrix.component }}-amd64,mode=max
 
@@ -112,7 +132,8 @@ jobs:
         run: |
           echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.image_suffix }}" >> "$GITHUB_OUTPUT"
 
-      - name: Build arm64 image
+      - name: Build arm64 image (backend)
+        if: matrix.component == 'backend'
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -123,7 +144,26 @@ jobs:
           sbom: false
           tags: |
             ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-arm64
-          build-args: ${{ matrix.component == 'frontend' && format('VITE_API_URL={0}\nVITE_SUPABASE_URL={1}\nVITE_SUPABASE_ANON_KEY={2}\nVITE_GOOGLE_CLIENT_ID={3}', secrets.VITE_API_URL, secrets.VITE_SUPABASE_URL, secrets.VITE_SUPABASE_ANON_KEY, secrets.VITE_GOOGLE_CLIENT_ID) || '' }}
+          cache-from: type=gha,scope=${{ matrix.component }}-arm64
+          cache-to: type=gha,scope=${{ matrix.component }}-arm64,mode=max
+
+      - name: Build arm64 image (frontend)
+        if: matrix.component == 'frontend'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/arm64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-arm64
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
+            VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+            VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           cache-from: type=gha,scope=${{ matrix.component }}-arm64
           cache-to: type=gha,scope=${{ matrix.component }}-arm64,mode=max
 
