@@ -8,8 +8,12 @@ from starlette.responses import StreamingResponse
 from core.db import AsyncSessionDepends
 from core.dependencies import authenticate_user
 from models.admin import Admin, AdminRole
-from models.event import Event, EventPublishState
+from models.event import Event, EventPublishState, GameMode
+from models.event_attendee import EventAttendee
 from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
+from models.room import Room
+from models.team import Team
+from models.user import BingoUser
 from models.policy_template import PolicyTemplate
 
 from .auth import (
@@ -20,12 +24,14 @@ from .auth import (
 from .console_services import (
     approve_event_manager_request,
     build_event_detail,
+    build_event_rooms,
     build_event_summary,
     can_edit_event,
     complete_admin_invitation,
     ensure_admin_console_seed_data,
     ensure_unique_event_slug,
     get_invited_admin_by_token,
+    kick_event_attendee,
     normalize_event_keywords,
     reset_event_runtime_data,
     serialize_event_manager_request,
@@ -52,6 +58,7 @@ from .schema import (
     AdminEventResetResponse,
     AdminEventResponse,
     AdminEventUpsertRequest,
+    AdminKickResponse,
     AdminLoginRequest,
     AdminLoginResponse,
     AdminMemberCreateRequest,
@@ -60,6 +67,9 @@ from .schema import (
     AdminMemberResponse,
     AdminPolicyTemplateResponse,
     AdminPolicyTemplateUpdateRequest,
+    AdminRoomItem,
+    AdminRoomListResponse,
+    AdminRoomMemberItem,
 )
 from .services import get_all_bingo_boards, get_all_users, set_test_bingo_board
 
@@ -459,6 +469,8 @@ async def create_admin_event(
             keywords=normalize_event_keywords(payload.keywords, payload.board_size),
             publish_state=publish_state,
             first_published_at=resolve_first_published_at(None, publish_state, None),
+            game_mode=GameMode(payload.game_mode),
+            team_size=payload.team_size,
         )
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
@@ -515,6 +527,8 @@ async def update_admin_event(
                 publish_state,
                 event.first_published_at,
             ),
+            game_mode=GameMode(payload.game_mode),
+            team_size=payload.team_size,
         )
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
@@ -552,6 +566,66 @@ async def reset_admin_event_data(
         ok=True,
         message="이벤트 데이터를 초기화했습니다.",
         stats=stats,
+    )
+
+
+@admin_router.get(
+    "/events/{event_id}/rooms",
+    response_model=AdminRoomListResponse,
+    summary="이벤트 방 목록 조회 (팀전 전용)",
+)
+async def list_admin_event_rooms(
+    event_id: int,
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    await ensure_admin_console_seed_data(db)
+    try:
+        event = await Event.get_by_id(db, event_id)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    rooms = await build_event_rooms(db, event)
+    return AdminRoomListResponse(
+        ok=True,
+        message="이벤트 방 목록을 불러왔습니다.",
+        event_id=event_id,
+        rooms=rooms,
+    )
+
+
+@admin_router.post(
+    "/events/{event_id}/kick/{user_id}",
+    response_model=AdminKickResponse,
+    summary="이벤트 참가자 강제 퇴장",
+)
+async def kick_admin_event_attendee(
+    event_id: int,
+    user_id: int,
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    await ensure_admin_console_seed_data(db)
+    try:
+        event = await Event.get_by_id(db, event_id)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    if not can_edit_event(actor, event):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="이 이벤트를 관리할 권한이 없습니다.",
+        )
+
+    try:
+        kicked_user_id = await kick_event_attendee(db, event, user_id)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    return AdminKickResponse(
+        ok=True,
+        message=f"사용자 {kicked_user_id}를 이벤트에서 퇴장시켰습니다.",
+        kicked_user_id=kicked_user_id,
     )
 
 
