@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Dialog } from "@mui/material";
+import characterIllustration from "../../assets/illustrations/character.svg";
 import type {
   AlertSeverity,
   BingoCell,
@@ -76,104 +77,11 @@ type BingoCelebrationDialogProps = {
 
 export function NetworkingIllustration() {
   return (
-    <svg
+    <img
       className="bingo-hero__illustration"
-      viewBox="0 0 250 190"
-      aria-hidden="true"
-    >
-      <rect x="84" y="114" width="82" height="14" rx="7" fill="#11785f" opacity="0.2" />
-      <path
-        d="M156 73c19 0 35 15 35 35v43h-34c-23 0-42-19-42-42 0-20 16-36 36-36h5Z"
-        fill="#9EF35D"
-        stroke="#1B6A51"
-        strokeWidth="2.2"
-      />
-      <path
-        d="M115 95c1-18 16-32 34-32 17 0 31 12 34 28"
-        fill="none"
-        stroke="#1B6A51"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M97 104c0-18 14-32 32-32 14 0 26 8 31 20"
-        fill="#F9F0E9"
-        stroke="#1B6A51"
-        strokeWidth="2.2"
-      />
-      <circle cx="113" cy="70" r="18" fill="#F9F0E9" stroke="#1B6A51" strokeWidth="2.2" />
-      <path
-        d="M102 62c2-11 12-18 23-16 9 2 15 9 15 18"
-        fill="none"
-        stroke="#7FDB44"
-        strokeWidth="4.2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M131 67c5-6 13-6 18-3 5 4 7 12 3 17"
-        fill="none"
-        stroke="#1B6A51"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M104 77c5 6 13 10 21 10 10 0 19-4 25-11"
-        fill="none"
-        stroke="#1B6A51"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M153 58c6-14 18-20 31-16 9 3 15 12 15 22"
-        fill="none"
-        stroke="#1B6A51"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M198 44v18M189 49l18 8M189 58l17-10"
-        fill="none"
-        stroke="#1B6A51"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M84 93 70 88c-9-3-14-12-11-21 3-9 13-13 22-10l16 6"
-        fill="none"
-        stroke="#1B6A51"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M95 90c-6 11-17 18-30 18-18 0-32-14-32-32s14-32 32-32c10 0 19 4 25 12"
-        fill="none"
-        stroke="#1B6A51"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M73 87c11 0 19-8 19-19 0-8-4-14-10-17"
-        fill="none"
-        stroke="#1B6A51"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <rect x="77" y="102" width="8" height="40" rx="4" fill="#F9F0E9" stroke="#1B6A51" strokeWidth="2.2" />
-      <path
-        d="M80 141h37M158 151h28"
-        fill="none"
-        stroke="#1B6A51"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M96 102c13 4 22 16 24 30"
-        fill="none"
-        stroke="#1B6A51"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-    </svg>
+      src={characterIllustration}
+      alt=""
+    />
   );
 }
 

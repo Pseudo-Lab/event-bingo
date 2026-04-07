@@ -32,10 +32,7 @@ const GoogleSignInButton = ({
   useEffect(() => {
     const containerElement = containerRef.current;
 
-    if (disabled || !containerElement) {
-      if (containerElement) {
-        containerElement.innerHTML = "";
-      }
+    if (!containerElement) {
       return;
     }
 
@@ -59,6 +56,10 @@ const GoogleSignInButton = ({
 
         googleIdentityApi.initialize({
           callback: async ({ credential }) => {
+            if (disabled) {
+              return;
+            }
+
             if (!credential) {
               onError?.("Google 인증 정보를 받지 못했습니다.");
               return;
@@ -115,19 +116,22 @@ const GoogleSignInButton = ({
 
   return (
     <div className={cn("space-y-3", className)}>
-      {disabled ? (
-        <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-white/80 px-4 py-4 text-center text-sm font-medium text-slate-500">
-          개인정보 처리 동의 후 Google 로그인 버튼이 활성화됩니다.
-        </div>
-      ) : (
+      <div className={cn("relative", disabled && "opacity-60")}>
         <div
           ref={containerRef}
           className={cn(
             "min-h-[44px]",
-            isSubmitting && "pointer-events-none opacity-70"
+            (disabled || isSubmitting) && "pointer-events-none opacity-70"
           )}
+          aria-disabled={disabled}
         />
-      )}
+        {disabled ? (
+          <div
+            className="absolute inset-0 z-10 cursor-not-allowed rounded-[999px]"
+            aria-hidden="true"
+          />
+        ) : null}
+      </div>
 
       {isSubmitting ? (
         <p className="text-center text-sm font-medium text-slate-500">

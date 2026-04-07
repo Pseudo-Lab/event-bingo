@@ -841,7 +841,6 @@ const BingoGame = () => {
                   <br />
                   소통해봐요!
                 </h1>
-                <p className="bingo-hero__hint">내 ID {userId}을(를) 보여주고 서로 키워드를 교환해 보세요.</p>
                 <form
                   className="bingo-hero__form"
                   onSubmit={(event) => {
