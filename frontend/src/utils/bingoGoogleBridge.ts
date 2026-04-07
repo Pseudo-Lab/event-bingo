@@ -131,22 +131,26 @@ export const ensureBingoGoogleBridge = async (
       bridgeMetadata.bridgeKey,
       eventSlug
     )) as BingoUserResult;
-    const authSession = toAuthSession(
-      loginResult,
-      bridgeMetadata.userName || googleProfile.displayName
-    );
 
-    clearLegacyLocalLoginStorage();
-    setAuthSession(authSession);
+    if (loginResult.ok) {
+      const authSession = toAuthSession(
+        loginResult,
+        bridgeMetadata.userName || googleProfile.displayName
+      );
 
-    return {
-      authSession,
-      googleProfile,
-      isNewUser: false,
-    };
+      clearLegacyLocalLoginStorage();
+      setAuthSession(authSession);
+
+      return {
+        authSession,
+        googleProfile,
+        isNewUser: false,
+      };
+    }
+    // 로그인 실패 (DB 초기화 등) → 아래에서 재등록 진행
   }
 
-  const bridgeKey = bridgeMetadata.bridgeKey || createBridgeKey();
+  const bridgeKey = createBridgeKey();
   const registerResult = (await registerBingoUser(
     googleProfile.displayName,
     bridgeKey,

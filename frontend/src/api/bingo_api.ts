@@ -13,6 +13,7 @@ import {
 } from "./mockBingoApi";
 import type { MockTesterUser } from "./mockBingoApi";
 import { getApiBaseUrl } from "../lib/apiBase";
+import { maybeGetSupabaseClient } from "../lib/supabaseClient";
 
 type ApiResponseBase = {
   ok: boolean;
@@ -36,6 +37,7 @@ type BingoBoardCell = {
 
 type BingoBoardResponse = ApiResponseBase & {
   user_id?: number | null;
+  display_name?: string | null;
   board_data?: Record<string, BingoBoardCell> | null;
   bingo_count?: number | null;
   user_interaction_count?: number | null;
@@ -97,11 +99,26 @@ const createApiUrl = (
   return url.toString();
 };
 
-const withJsonHeaders = (init: RequestInit = {}) => {
+const getSupabaseAccessToken = async (): Promise<string | null> => {
+  const client = maybeGetSupabaseClient();
+  if (!client) return null;
+
+  const { data } = await client.auth.getSession();
+  return data.session?.access_token ?? null;
+};
+
+const withJsonHeaders = async (init: RequestInit = {}) => {
   const headers = new Headers(init.headers);
 
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
+  }
+
+  if (!headers.has("Authorization")) {
+    const token = await getSupabaseAccessToken();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
   }
 
   return {
@@ -136,7 +153,7 @@ const requestJson = async <T>(
   init: RequestInit = {},
   params?: Record<string, string | number>
 ): Promise<T> => {
-  const response = await fetch(createApiUrl(path, params), withJsonHeaders(init));
+  const response = await fetch(createApiUrl(path, params), await withJsonHeaders(init));
 
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
@@ -254,23 +271,31 @@ export const createBingoBoard = async (
   userId: string,
   boardData: {
     [key: string]: { value: string; status: number; selected: number };
-  }
+  },
+  eventSlug?: string,
+  displayName?: string
 ) => {
   if (shouldUseMockApi()) {
-    return mockCreateBingoBoard(userId, boardData);
+    const ok = await mockCreateBingoBoard(userId, boardData);
+    return { ok, displayName };
   }
 
   const data = await requestJson<BingoBoardResponse>("/api/bingo/boards", {
     method: "POST",
-    body: JSON.stringify({ board_data: boardData, user_id: Number(userId) }),
+    body: JSON.stringify({
+      board_data: boardData,
+      user_id: Number(userId),
+      event_slug: eventSlug,
+      display_name: displayName,
+    }),
   });
 
-  return data.ok;
+  return { ok: data.ok, displayName: data.display_name ?? displayName };
 };
 
 export const getBingoBoard = async (userId: string) => {
   if (shouldUseMockApi()) {
-    return mockGetBingoBoard(userId);
+    return { board: await mockGetBingoBoard(userId), displayName: undefined };
   }
 
   const data = await requestJson<BingoBoardResponse>(
@@ -278,10 +303,10 @@ export const getBingoBoard = async (userId: string) => {
   );
 
   if (!data.ok) {
-    return [];
+    return { board: [], displayName: undefined };
   }
 
-  return toBoardItems(data.board_data);
+  return { board: toBoardItems(data.board_data), displayName: data.display_name ?? undefined };
 };
 
 export const createUserBingoInteraction = async (
@@ -365,4 +390,39 @@ export const getUserAllInteraction = async (
     ...data,
     interactions: toInteractionRecords(data.interactions ?? []),
   };
+};
+
+export type BingoParticipantItem = {
+  user_id: number;
+  display_name: string;
+};
+
+export const searchBingoParticipants = async (query: string, eventSlug: string) => {
+  if (shouldUseMockApi()) {
+    return [];
+  }
+
+  const data = await requestJson<
+    ApiResponseBase & { participants?: BingoParticipantItem[] }
+  >("/api/auth/bingo/search", { method: "GET" }, { q: query, event_slug: eventSlug });
+
+  return data.participants ?? [];
+};
+
+export const updateBingoDisplayName = async (userId: string, eventSlug: string, displayName: string) => {
+  if (shouldUseMockApi()) {
+    return { ok: true, message: "", display_name: displayName };
+  }
+
+  return requestJson<ApiResponseBase & { display_name?: string }>(
+    "/api/auth/bingo/display-name",
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        user_id: Number(userId),
+        event_slug: eventSlug,
+        display_name: displayName,
+      }),
+    }
+  );
 };

@@ -4,7 +4,7 @@ import asyncio
 import random
 
 from sqlalchemy.orm import mapped_column
-from sqlalchemy import Integer, DateTime, JSON, ForeignKey, PrimaryKeyConstraint, select, desc
+from sqlalchemy import Integer, String, DateTime, JSON, ForeignKey, PrimaryKeyConstraint, select, desc, func
 from sqlalchemy.ext.mutable import MutableDict
 
 from core.db import AsyncSession
@@ -21,6 +21,7 @@ class BingoBoards(Base):
 
     user_id = mapped_column(Integer, nullable=False)
     event_id = mapped_column(Integer, ForeignKey("events.id"), nullable=False)
+    display_name = mapped_column(String(110), nullable=True)
     board_data = mapped_column(MutableDict.as_mutable(JSON), nullable=False)
 
     bingo_count = mapped_column(Integer, default=0, nullable=False)
@@ -35,18 +36,71 @@ class BingoBoards(Base):
         nullable=False,
     )
 
+    SUFFIX_LETTERS = "BCDEFGHIJKLMNOPQRSTUVWXYZ"
+
     @classmethod
-    async def create(cls, session: AsyncSession, user_id: int, event_id: int, board_data: dict):
+    async def _resolve_display_name(cls, session: AsyncSession, event_id: int, base_name: str) -> str:
+        """같은 이벤트에서 동명이인이면 2번째부터 B, C, D... 접미사를 붙인다."""
+        result = await session.execute(
+            select(func.count()).select_from(cls).where(
+                cls.event_id == event_id,
+                cls.display_name == base_name,
+            )
+        )
+        if result.scalar() == 0:
+            return base_name
+
+        for suffix in cls.SUFFIX_LETTERS:
+            candidate = f"{base_name}{suffix}"
+            dup = await session.execute(
+                select(func.count()).select_from(cls).where(
+                    cls.event_id == event_id,
+                    cls.display_name == candidate,
+                )
+            )
+            if dup.scalar() == 0:
+                return candidate
+
+        raise ValueError("동명이인이 너무 많아 이름을 부여할 수 없습니다.")
+
+    @classmethod
+    async def create(cls, session: AsyncSession, user_id: int, event_id: int, board_data: dict, display_name: str | None = None):
         existing = await session.execute(
             select(cls).where(cls.user_id == user_id, cls.event_id == event_id)
         )
         if existing.scalar_one_or_none():
             raise ValueError(f"{user_id} 의 빙고판은 이미 존재합니다.")
-        new_status = BingoBoards(user_id=user_id, event_id=event_id, board_data=board_data)
+
+        resolved_name = None
+        if display_name:
+            resolved_name = await cls._resolve_display_name(session, event_id, display_name.strip())
+
+        new_status = BingoBoards(user_id=user_id, event_id=event_id, display_name=resolved_name, board_data=board_data)
         session.add(new_status)
         await session.commit()
         created_status = await cls.get_board(session, user_id, event_id)
         return created_status
+
+    @classmethod
+    async def search_by_display_name(cls, session: AsyncSession, event_id: int, query: str, limit: int = 20):
+        """이벤트 내에서 display_name으로 참가자 검색"""
+        result = await session.execute(
+            select(cls).where(
+                cls.event_id == event_id,
+                cls.display_name.ilike(f"%{query}%"),
+            ).limit(limit)
+        )
+        return result.scalars().all()
+
+    @classmethod
+    async def update_display_name(cls, session: AsyncSession, user_id: int, event_id: int, new_name: str):
+        """빙고 보드의 display_name을 변경 (동명이인 접미사 자동 부여)"""
+        board = await cls.get_board(session, user_id, event_id)
+        resolved = await cls._resolve_display_name(session, event_id, new_name.strip())
+        board.display_name = resolved
+        await session.commit()
+        await session.refresh(board)
+        return board
 
     @classmethod
     async def get_board(cls, session: AsyncSession, user_id: int, event_id: int):

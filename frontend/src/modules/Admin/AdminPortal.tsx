@@ -112,7 +112,6 @@ type EventFormState = {
 const ITEMS_PER_PAGE = 4;
 const DETAIL_PARTICIPANTS_PER_PAGE = 8;
 const DEFAULT_MEMBER_PASSWORD = "Admin1234!";
-const DEFAULT_SUPERADMIN_EMAIL = "superadmin@laivdata.com";
 const POLICY_PREVIEW_HOST = "샘플 행사 운영팀";
 const EVENT_DETAIL_TABS: Array<{ key: EventDetailTab; label: string }> = [
   { key: "overview", label: "개요" },
@@ -1368,11 +1367,6 @@ const AdminConsolePage = ({
       return;
     }
 
-    if (member.email === DEFAULT_SUPERADMIN_EMAIL) {
-      setPageError("기본 최고 관리자 계정은 삭제할 수 없습니다.");
-      return;
-    }
-
     const isConfirmed = window.confirm(
       `${member.name} (${member.email}) 계정을 삭제할까요?`
     );
@@ -1913,7 +1907,7 @@ const AdminConsolePage = ({
                               </Badge>
                             </TableCell>
                             <TableCell className="text-left">
-                              {member.id === session.id || member.email === DEFAULT_SUPERADMIN_EMAIL ? (
+                              {member.id === session.id ? (
                                 <span className="text-xs font-semibold text-slate-400">보호됨</span>
                               ) : (
                                 <div className="flex justify-start">

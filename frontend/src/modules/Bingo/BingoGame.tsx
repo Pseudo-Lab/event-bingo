@@ -5,7 +5,9 @@ import {
   createUserBingoInteraction,
   getBingoBoard,
   getUserAllInteraction,
+  searchBingoParticipants,
 } from "../../api/bingo_api.ts";
+import type { BingoParticipantItem } from "../../api/bingo_api.ts";
 import {
   getEventHomePath,
   withSearch,
@@ -74,6 +76,13 @@ const BingoGame = () => {
   const [myKeywords, setMyKeywords] = useState<string[]>([]);
   const [bingoBoard, setBingoBoard] = useState<BingoCell[] | null>(null);
   const [opponentId, setOpponentId] = useState("");
+  const [opponentQuery, setOpponentQuery] = useState("");
+  const [opponentSearchResults, setOpponentSearchResults] = useState<BingoParticipantItem[]>([]);
+  const [displayName, setDisplayName] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [nameSetupOpen, setNameSetupOpen] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
   const [bingoCount, setBingoCount] = useState(0);
   const [alertOpen, setAlertOpen] = useState(false);
@@ -128,16 +137,17 @@ const BingoGame = () => {
   }, [boardCellCount, markedKeywordCount]);
 
   const participantSummary = useMemo(() => {
+    const name = displayName || username;
     if (participantContact) {
-      return `${username} 님 | 코드 ${participantContact}`;
+      return `${name} 님 | 코드 ${participantContact}`;
     }
 
     if (userId) {
-      return `${username} 님 | ID ${userId}`;
+      return `${name} 님 | ID ${userId}`;
     }
 
-    return `${username} 님`;
-  }, [participantContact, userId, username]);
+    return `${name} 님`;
+  }, [displayName, participantContact, userId, username]);
 
   const historySummary = useMemo(() => {
     return buildExchangeHistory(interactionHistory, userId);
@@ -253,10 +263,11 @@ const BingoGame = () => {
       isPollingRef.current = true;
 
       try {
-        const [latestBoard, interactionResponse] = await Promise.all([
+        const [boardResult, interactionResponse] = await Promise.all([
           getBingoBoard(activeUserId),
           getUserAllInteraction(activeUserId, lastSeenInteractionIdRef.current),
         ]);
+        const latestBoard = boardResult.board;
 
         const interactionDelta = Array.isArray(interactionResponse.interactions)
           ? (interactionResponse.interactions as InteractionRecord[])
@@ -267,6 +278,10 @@ const BingoGame = () => {
 
         if (!latestBoard || latestBoard.length === 0) {
           return;
+        }
+
+        if (boardResult.displayName) {
+          setDisplayName(boardResult.displayName);
         }
 
         const previousBoard = bingoBoardRef.current;
@@ -364,20 +379,28 @@ const BingoGame = () => {
         return;
       }
 
+      setUserId(storedId);
+      if (storedName) {
+        setUsername(storedName);
+      }
+      if (storedContact) {
+        setParticipantContact(storedContact);
+      }
+
+      // 빙고 오픈 전이면 카운트다운만 표시 (API 호출 안 함)
+      if (!testModeEnabled && Date.now() < unlockTime) {
+        setIsBootstrapping(false);
+        return;
+      }
+
       try {
         setIsBootstrapping(true);
-        setUserId(storedId);
-        if (storedName) {
-          setUsername(storedName);
-        }
-        if (storedContact) {
-          setParticipantContact(storedContact);
-        }
 
-        const [boardData, interactionData] = await Promise.all([
+        const [boardResult, interactionData] = await Promise.all([
           getBingoBoard(storedId),
           getUserAllInteraction(storedId),
         ]);
+        const boardData = boardResult.board;
         const interactionRecords = Array.isArray(interactionData.interactions)
           ? (interactionData.interactions as InteractionRecord[])
           : [];
@@ -386,6 +409,11 @@ const BingoGame = () => {
         lastSeenInteractionIdRef.current = getLatestInteractionId(interactionRecords);
 
         if (boardData && boardData.length > 0) {
+          // 기존 보드가 있으면 빙고 화면으로
+          if (boardResult.displayName) {
+            setDisplayName(boardResult.displayName);
+            setUsername(boardResult.displayName);
+          }
           setBingoBoard(boardData);
           bingoBoardRef.current = boardData;
           setInitialSetupOpen(false);
@@ -407,33 +435,40 @@ const BingoGame = () => {
               latestIncomingBatch.signature;
           }
         } else {
-          const shuffledValues = shuffleArray(cellValues);
-          const initialBoard: BingoCell[] = Array(boardCellCount)
-            .fill(null)
-            .map((_, index) => ({
-              id: index,
-              value: shuffledValues[index % shuffledValues.length],
-              selected: 0,
-              status: 0,
-            }));
-
-          setBingoBoard(initialBoard);
-          bingoBoardRef.current = initialBoard;
-          setInitialSetupOpen(true);
+          // 보드 없음 → 이름 설정부터 시작
+          enterSetupFlow(storedName);
         }
       } catch (error) {
         console.error("Error loading user board:", error);
-        showAlert("보드 정보를 불러오는 중 문제가 발생했습니다.", "error");
+        // API 실패해도 셋업 플로우로 진입
+        enterSetupFlow(storedName);
       } finally {
         setIsBootstrapping(false);
       }
     };
 
+    const enterSetupFlow = (storedName: string) => {
+      const shuffledValues = shuffleArray(cellValues);
+      const initialBoard: BingoCell[] = Array(boardCellCount)
+        .fill(null)
+        .map((_, index) => ({
+          id: index,
+          value: shuffledValues[index % shuffledValues.length],
+          selected: 0,
+          status: 0,
+        }));
+
+      setBingoBoard(initialBoard);
+      bingoBoardRef.current = initialBoard;
+      setNameSetupOpen(true);
+      setNameInput(storedName);
+    };
+
     void init();
-  }, [boardCellCount, cellValues, eventHomePath, navigate, showAlert]);
+  }, [boardCellCount, cellValues, eventHomePath, navigate, showAlert, testModeEnabled, unlockTime]);
 
   useEffect(() => {
-    if (!userId) {
+    if (!userId || initialSetupOpen || nameSetupOpen) {
       return;
     }
 
@@ -442,7 +477,7 @@ const BingoGame = () => {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [refreshBingoState, userId]);
+  }, [refreshBingoState, userId, initialSetupOpen, nameSetupOpen]);
 
   const resetPreviewVisualState = useCallback(() => {
     setShowAllBingoModal(false);
@@ -529,9 +564,13 @@ const BingoGame = () => {
         return false;
       }
 
-      const isCreated = await createBingoBoard(storedId, boardData);
-      if (!isCreated) {
+      const result = await createBingoBoard(storedId, boardData, eventSlug ?? undefined, displayName || undefined);
+      if (!result.ok) {
         return false;
+      }
+      if (result.displayName) {
+        setDisplayName(result.displayName);
+        setUsername(result.displayName);
       }
 
       setUserId(storedId);
@@ -694,6 +733,61 @@ const BingoGame = () => {
     />
   );
 
+  const handleOpponentSearch = useCallback(
+    (query: string) => {
+      setOpponentQuery(query);
+      setOpponentId("");
+
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+
+      if (query.trim().length === 0) {
+        setOpponentSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
+
+      setIsSearching(true);
+      searchTimeoutRef.current = setTimeout(async () => {
+        try {
+          const results = await searchBingoParticipants(query.trim(), eventSlug ?? "");
+          const myId = getAuthSession()?.userId;
+          setOpponentSearchResults(
+            results.filter((u) => String(u.user_id) !== myId)
+          );
+        } catch {
+          setOpponentSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 300);
+    },
+    []
+  );
+
+  const handleSelectOpponent = useCallback(
+    (user: BingoParticipantItem) => {
+      setOpponentId(String(user.user_id));
+      setOpponentQuery(user.display_name);
+      setOpponentSearchResults([]);
+    },
+    []
+  );
+
+  const handleSaveName = async () => {
+    const trimmed = nameInput.trim();
+    if (trimmed.length === 0) {
+      showAlert("이름을 입력해주세요.", "warning");
+      return;
+    }
+
+    // 이름은 보드 생성 시 함께 전달되므로 여기서는 로컬 상태만 설정
+    setUsername(trimmed);
+    setDisplayName(trimmed);
+    setNameInput(trimmed);
+  };
+
   const handleExchange = async () => {
     if (isBoardPreviewActive) {
       showAlert("보드 프리뷰를 해제한 뒤 실제 전송을 진행해 주세요.", "info", {
@@ -704,7 +798,7 @@ const BingoGame = () => {
     }
 
     if (!opponentId.trim()) {
-      showAlert("상대방 ID를 입력해주세요.", "warning");
+      showAlert("상대방을 검색하여 선택해주세요.", "warning");
       return;
     }
 
@@ -753,6 +847,7 @@ const BingoGame = () => {
 
       appendInteractionHistory([exchangeResult.interaction]);
       setOpponentId("");
+      setOpponentQuery("");
 
       const deliverableKeywords = getUniqueKeywords(exchangeResult.updatedWords);
       const receiverName =
@@ -790,16 +885,62 @@ const BingoGame = () => {
     }
   };
 
-  if (isBootstrapping) {
-    return <BingoLoadingScreen brandTitle={brandTitle} />;
-  }
-
-  if (locked) {
+  if (nameSetupOpen) {
     return (
-      <BingoCountdownScreen
-        brandTitle={brandTitle}
-        remainingTime={remainingTime}
-      />
+      <div className="keyword-setup-page">
+        <div className="keyword-setup-page__mesh" aria-hidden="true" />
+        <main className="keyword-setup-shell">
+          <p className="keyword-setup-brand">{brandTitle}</p>
+
+          <header className="keyword-setup-header">
+            <div className="keyword-setup-header__title">
+              <span className="keyword-setup-header__spark keyword-setup-header__spark--left" />
+              <h1>이름 설정</h1>
+              <span className="keyword-setup-header__spark keyword-setup-header__spark--right" />
+            </div>
+            <p>빙고 게임에서 사용할 이름을 입력하세요.</p>
+          </header>
+
+          <section className="keyword-setup-card">
+            <div style={{ padding: "2rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <input
+                type="text"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                placeholder="이름을 입력하세요"
+                maxLength={100}
+                style={{
+                  width: "100%",
+                  padding: "0.75rem 1rem",
+                  fontSize: "1rem",
+                  borderRadius: "0.75rem",
+                  border: "1px solid #d1d5db",
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            <div className="keyword-setup-card__footer">
+              <button
+                type="button"
+                className="keyword-setup-submit"
+                onClick={() => {
+                  handleSaveName();
+                  if (nameInput.trim().length > 0) {
+                    setNameSetupOpen(false);
+                    setInitialSetupOpen(true);
+                  }
+                }}
+                disabled={nameInput.trim().length === 0}
+              >
+                다음
+              </button>
+            </div>
+          </section>
+        </main>
+        {alertToast}
+      </div>
     );
   }
 
@@ -814,6 +955,19 @@ const BingoGame = () => {
         onToggleKeyword={toggleInitialKeyword}
         onSubmit={handleInitialSetup}
         alertToast={alertToast}
+      />
+    );
+  }
+
+  if (isBootstrapping) {
+    return <BingoLoadingScreen brandTitle={brandTitle} />;
+  }
+
+  if (locked) {
+    return (
+      <BingoCountdownScreen
+        brandTitle={brandTitle}
+        remainingTime={remainingTime}
       />
     );
   }
@@ -848,19 +1002,80 @@ const BingoGame = () => {
                     void handleExchange();
                   }}
                 >
-                  <input
-                    value={opponentId}
-                    onChange={(event) => setOpponentId(event.target.value.replace(/\D/g, ""))}
-                    placeholder={
-                      isBoardPreviewActive
-                        ? "프리뷰 중에는 전송을 잠시 잠가두었어요"
-                        : "상대방 ID 입력"
-                    }
-                    inputMode="numeric"
-                    aria-label="상대방 ID 입력"
-                    disabled={isBoardPreviewActive}
-                  />
-                  <button type="submit" disabled={isBoardPreviewActive}>
+                  <div style={{ position: "relative", flex: 1 }}>
+                    <input
+                      value={opponentQuery}
+                      onChange={(event) => handleOpponentSearch(event.target.value)}
+                      placeholder={
+                        isBoardPreviewActive
+                          ? "프리뷰 중에는 전송을 잠시 잠가두었어요"
+                          : "상대방 이름 검색"
+                      }
+                      aria-label="상대방 이름 검색"
+                      disabled={isBoardPreviewActive}
+                    />
+                    {opponentSearchResults.length > 0 && (
+                      <ul
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          right: 0,
+                          background: "#fff",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "0.5rem",
+                          margin: "0.25rem 0 0",
+                          padding: "0.25rem 0",
+                          listStyle: "none",
+                          zIndex: 20,
+                          maxHeight: "12rem",
+                          overflowY: "auto",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        {opponentSearchResults.map((user) => (
+                          <li key={user.user_id}>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectOpponent(user)}
+                              style={{
+                                width: "100%",
+                                padding: "0.5rem 0.75rem",
+                                background: "none",
+                                border: "none",
+                                textAlign: "left",
+                                cursor: "pointer",
+                                fontSize: "0.875rem",
+                              }}
+                            >
+                              {user.display_name}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {isSearching && opponentQuery.trim().length > 0 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          right: 0,
+                          background: "#fff",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "0.5rem",
+                          margin: "0.25rem 0 0",
+                          padding: "0.75rem",
+                          fontSize: "0.875rem",
+                          color: "#6b7280",
+                          zIndex: 20,
+                        }}
+                      >
+                        검색 중...
+                      </div>
+                    )}
+                  </div>
+                  <button type="submit" disabled={isBoardPreviewActive || !opponentId}>
                     보내기
                   </button>
                 </form>

@@ -122,23 +122,6 @@ def test_validate_admin_member_deletion_blocks_self_delete():
         )
 
 
-def test_validate_admin_member_deletion_blocks_bootstrap_admin():
-    actor = type("AdminStub", (), {"id": 1, "email": "owner@laivdata.com", "role": AdminRole.ADMIN})()
-    target = type(
-        "AdminStub",
-        (),
-        {"id": 2, "email": "superadmin@laivdata.com", "role": AdminRole.ADMIN},
-    )()
-
-    with pytest.raises(ValueError, match="기본 최고 관리자"):
-        validate_admin_member_deletion(
-            actor,
-            target,
-            total_admin_count=2,
-            owned_event_count=0,
-        )
-
-
 def test_validate_admin_member_deletion_blocks_owner_with_events():
     actor = type("AdminStub", (), {"id": 1, "email": "owner@laivdata.com", "role": AdminRole.ADMIN})()
     target = type(

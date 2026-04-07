@@ -43,8 +43,6 @@ KST = ZoneInfo("Asia/Seoul")
 RESERVED_EVENT_SLUGS = {"admin", "login", "bingo", "api", "assets"}
 SLUG_PATTERN = re.compile(r"^[a-z0-9-]{3,50}$")
 DEFAULT_ADMIN_PASSWORD = "Admin1234!"
-DEFAULT_BOOTSTRAP_ADMIN_EMAIL = "superadmin@laivdata.com"
-DEFAULT_BOOTSTRAP_ADMIN_NAME = "어드민의 아버지"
 ADMIN_INVITE_TOKEN_EXPIRE_HOURS = int(os.getenv("ADMIN_INVITE_TOKEN_EXPIRE_HOURS", "72"))
 ADMIN_INVITE_URL_BASE = os.getenv("ADMIN_INVITE_URL_BASE", "http://localhost:5173/admin/invite")
 ADMIN_SMTP_HOST = os.getenv("ADMIN_SMTP_HOST", "").strip()
@@ -276,9 +274,6 @@ def validate_admin_member_deletion(
 
     if actor.id == target.id:
         raise ValueError("본인 계정은 삭제할 수 없습니다.")
-
-    if target.email == DEFAULT_BOOTSTRAP_ADMIN_EMAIL:
-        raise ValueError("기본 최고 관리자 계정은 삭제할 수 없습니다.")
 
     if owned_event_count > 0:
         raise ValueError("생성한 이벤트가 있는 관리자는 삭제할 수 없습니다.")
@@ -689,12 +684,68 @@ async def ensure_admin_console_seed_data(session: AsyncSession) -> None:
         await session.execute(delete(Admin).where(Admin.id.in_(legacy_admin_ids)))
         await session.commit()
 
-    existing_admin = await Admin.get_by_email(session, DEFAULT_BOOTSTRAP_ADMIN_EMAIL)
-    if not existing_admin:
-        await Admin.create(
-            session,
-            email=DEFAULT_BOOTSTRAP_ADMIN_EMAIL,
-            password=DEFAULT_ADMIN_PASSWORD,
-            name=DEFAULT_BOOTSTRAP_ADMIN_NAME,
-            role=AdminRole.ADMIN,
+
+
+async def build_event_rooms(
+    session: AsyncSession,
+    event: Event,
+) -> list[AdminRoomItem]:
+    """이벤트의 방 목록을 빌드합니다 (팀전 전용).
+    단일 JOIN 쿼리로 전체 방 + 참가자를 한 번에 조회합니다.
+    """
+    # 방 + 참가자 + 유저 + 팀을 단일 쿼리로 조회 (N+1 제거)
+    rows = await session.execute(
+        select(Room, EventAttendee, BingoUser, Team)
+        .outerjoin(EventAttendee, EventAttendee.room_id == Room.id)
+        .outerjoin(BingoUser, BingoUser.user_id == EventAttendee.user_id)
+        .outerjoin(Team, Team.id == EventAttendee.team_id)
+        .where(Room.event_id == event.id)
+        .order_by(Room.id.asc(), EventAttendee.id.asc())
+    )
+
+    # 방별로 데이터 그루핑 (Python에서 처리)
+    rooms_map: dict[int, tuple[Room, list[AdminRoomMemberItem]]] = {}
+    for room, attendee, user, team in rows.all():
+        if room.id not in rooms_map:
+            rooms_map[room.id] = (room, [])
+        if attendee is not None and user is not None:
+            rooms_map[room.id][1].append(
+                AdminRoomMemberItem(
+                    user_id=user.user_id,
+                    user_name=user.user_name,
+                    team_color=team.color.value if team else None,
+                )
+            )
+
+    return [
+        AdminRoomItem(
+            room_id=room.id,
+            room_number=room.room_number,
+            is_open=room.is_open,
+            participant_count=len(members),
+            members=members,
         )
+        for room, members in rooms_map.values()
+    ]
+
+
+async def kick_event_attendee(
+    session: AsyncSession,
+    event: Event,
+    user_id: int,
+) -> int:
+    """이벤트에서 특정 유저를 강제 퇴장시킵니다."""
+    # 참가자 조회
+    result = await session.execute(
+        select(EventAttendee).where(
+            EventAttendee.event_id == event.id,
+            EventAttendee.user_id == user_id,
+        )
+    )
+    attendee = result.scalar_one_or_none()
+    if not attendee:
+        raise ValueError(f"User {user_id}는 이 이벤트에 참가하고 있지 않습니다.")
+
+    await session.delete(attendee)
+    await session.commit()
+    return user_id

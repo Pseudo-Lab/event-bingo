@@ -69,7 +69,7 @@ async def get_current_user(
 
     # 1. provider_id로 조회
     result = await session.execute(
-        select(BingoUser).where(BingoUser.provider_id == supabase_id)
+        select(BingoUser).where(BingoUser.provider_id == supabase_id).limit(1)
     )
     user = result.scalar_one_or_none()
 
