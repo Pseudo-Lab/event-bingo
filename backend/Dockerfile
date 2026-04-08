@@ -12,4 +12,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["/bin/sh", "-c", "alembic upgrade head && python app/start.py"]
+CMD ["python", "app/start.py"]
