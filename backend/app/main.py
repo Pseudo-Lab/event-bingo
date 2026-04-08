@@ -51,6 +51,11 @@ def hc():
     return "server is running"
 
 
+@app.get("/health", include_in_schema=False)
+def health():
+    return {"status": "ok"}
+
+
 @app.post("/api/zozo-manual-reset-db")
 async def reset_db(response: Response, include_in_schema: bool = False):
     try:
