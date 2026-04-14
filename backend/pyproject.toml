@@ -17,6 +17,7 @@ cryptography = "^42.0.5"
 alembic = "^1.13.1"
 tzdata = "^2024.1"
 pyjwt = "^2.8.0"
+prometheus-fastapi-instrumentator = "^6.1.0"
 
 
 [tool.poetry.group.dev.dependencies]

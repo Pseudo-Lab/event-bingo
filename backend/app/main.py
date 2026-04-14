@@ -9,6 +9,7 @@ from core.security import warm_jwks_cache
 from api import api_router
 from starlette.middleware.cors import CORSMiddleware
 from core.dependencies import authenticate_user
+from prometheus_fastapi_instrumentator import Instrumentator
 
 
 # lifespan 유지
@@ -56,6 +57,9 @@ def hc():
 @app.get("/health", include_in_schema=False)
 def health():
     return {"status": "ok"}
+
+
+Instrumentator().instrument(app).expose(app, include_in_schema=False)
 
 
 @app.post("/api/zozo-manual-reset-db")
