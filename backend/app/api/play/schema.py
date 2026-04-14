@@ -30,6 +30,25 @@ class RoomStatusResponse(BaseSchema):
     teams: list[TeamStatusItem] = []
 
 
+class TeamMemberItem(BaseModel):
+    user_id: int
+    user_name: Optional[str] = None
+    bingo_count: int = 0
+
+
+class TeamWithMembersItem(BaseModel):
+    team_id: int
+    color: str
+    name: str
+    total_bingo_count: int = 0
+    members: list[TeamMemberItem] = []
+
+
+class RoomTeamsResponse(BaseSchema):
+    room_id: int
+    teams: list[TeamWithMembersItem] = []
+
+
 class MyEventItem(BaseModel):
     event_id: int
     event_slug: str
