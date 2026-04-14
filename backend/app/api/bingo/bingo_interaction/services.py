@@ -75,27 +75,42 @@ class CreateBingoInteraction(BaseBingoInteraction):
                 )
 
             event_id = await self._resolve_event_id(event_slug)
+            prefetched_receiver_board = None
             if event_id is None:
-                receiver_board = await BingoBoards.get_board_by_userid(self.async_session, receive_user_id)
-                event_id = receiver_board.event_id
+                prefetched_receiver_board = await BingoBoards.get_board_by_userid(self.async_session, receive_user_id)
+                event_id = prefetched_receiver_board.event_id
 
-            is_duplicate = await BingoInteraction.has_directional_interaction(
-                self.async_session,
-                send_user_id=send_user_id,
-                receive_user_id=receive_user_id,
-                event_id=event_id,
+            # 유저 두 명 + 보드 두 개를 각각 단일 IN 쿼리로 조회
+            users_result = await self.async_session.execute(
+                select(BingoUser).where(BingoUser.user_id.in_([send_user_id, receive_user_id]))
             )
-            if is_duplicate:
-                return BingoInteractionResponse(
-                    ok=False,
-                    message="이미 동일한 참가자에게 키워드를 전달한 적이 있습니다.",
+            users = {u.user_id: u for u in users_result.scalars().all()}
+            send_user = users.get(send_user_id)
+            receive_user = users.get(receive_user_id)
+
+            if prefetched_receiver_board is not None:
+                # event_id를 receiver_board에서 얻은 경우 sender 보드만 추가 조회
+                sender_board = await BingoBoards.get_board_by_userid(self.async_session, send_user_id, event_id)
+                board = prefetched_receiver_board
+            else:
+                # sender/receiver 보드를 단일 IN 쿼리로 배치 조회
+                boards_result = await self.async_session.execute(
+                    select(BingoBoards).where(
+                        BingoBoards.user_id.in_([send_user_id, receive_user_id]),
+                        BingoBoards.event_id == event_id,
+                    )
                 )
+                boards = {b.user_id: b for b in boards_result.scalars().all()}
+                board = boards.get(receive_user_id)
+                sender_board = boards.get(send_user_id)
 
-            send_user = await BingoUser.get_user_by_id(self.async_session, send_user_id)
-            receive_user = await BingoUser.get_user_by_id(self.async_session, receive_user_id)
-            board = await BingoBoards.get_board_by_userid(self.async_session, receive_user_id, event_id)
-            selected_words = await BingoBoards.get_user_selected_words(self.async_session, send_user_id, event_id)
+            selected_words = [
+                cell.get("value")
+                for cell in (sender_board.board_data.values() if sender_board else [])
+                if cell.get("selected") in (1, True) and cell.get("value")
+            ]
 
+            # DB 중복 체크 제거 — board_data에서 Python으로 판단 (동일 결과)
             if any(
                 cell_data.get("interaction_id") == send_user_id
                 for cell_data in board.board_data.values()
