@@ -12,7 +12,7 @@ charset-normalizer==3.4.1
 cleo==2.1.0
 click==8.1.7
 crashtest==0.4.1
-cryptography==42.0.5
+cryptography==46.0.7
 distlib==0.3.9
 dulwich==0.22.8
 et_xmlfile==2.0.0
