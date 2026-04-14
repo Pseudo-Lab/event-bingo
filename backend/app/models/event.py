@@ -1,7 +1,10 @@
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from typing import Optional
 import enum
+import hashlib
+import os
+import secrets
+from datetime import datetime
+from typing import Optional
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import String, Integer, DateTime, Enum, JSON, ForeignKey, select, func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -26,6 +29,11 @@ class GameMode(enum.Enum):
     TEAM = "team"
 
 
+AUTO_EVENT_SLUG_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
+AUTO_EVENT_SLUG_LENGTH = 8
+AUTO_EVENT_SLUG_SALT = os.getenv("EVENT_SLUG_SALT", "event-bingo-auto-slug").strip() or "event-bingo-auto-slug"
+
+
 class Event(Base):
     __tablename__ = "events"
 
@@ -48,7 +56,7 @@ class Event(Base):
     publish_state: Mapped[EventPublishState] = mapped_column(
         Enum(EventPublishState),
         nullable=False,
-        default=EventPublishState.DRAFT,
+        default=EventPublishState.PUBLISHED,
     )
     first_published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -86,12 +94,35 @@ class Event(Base):
         else:
             return EventStatus.FINISHED
 
+    @staticmethod
+    def _build_generated_slug(event_id: int, *, attempt: int = 0, length: int = AUTO_EVENT_SLUG_LENGTH) -> str:
+        digest = hashlib.sha256(f"{AUTO_EVENT_SLUG_SALT}:{event_id}:{attempt}".encode("utf-8")).digest()
+        value = int.from_bytes(digest[:10], "big")
+        base = len(AUTO_EVENT_SLUG_ALPHABET)
+        characters: list[str] = []
+
+        for _ in range(length):
+            value, remainder = divmod(value, base)
+            characters.append(AUTO_EVENT_SLUG_ALPHABET[remainder])
+
+        return "".join(characters)
+
+    @classmethod
+    async def _generate_unique_slug(cls, session: AsyncSession, event_id: int) -> str:
+        for attempt in range(6):
+            candidate = cls._build_generated_slug(event_id, attempt=attempt)
+            existing_event = await cls.get_by_slug(session, candidate)
+            if existing_event is None or existing_event.id == event_id:
+                return candidate
+
+        return cls._build_generated_slug(event_id, attempt=99, length=12)
+
     @classmethod
     async def create(
         cls,
         session: AsyncSession,
         name: str,
-        slug: str,
+        slug: Optional[str],
         location: str,
         event_team: str,
         start_time: datetime,
@@ -103,7 +134,7 @@ class Event(Base):
         keywords: list = None,
         game_mode: "GameMode" = None,
         team_size: int = 1,
-        publish_state: EventPublishState = EventPublishState.DRAFT,
+        publish_state: EventPublishState = EventPublishState.PUBLISHED,
         first_published_at: Optional[datetime] = None,
     ):
         """새 이벤트 생성"""
@@ -116,9 +147,14 @@ class Event(Base):
         from models.admin import Admin
         await Admin.get_by_id(session, admin_id)
 
+        resolved_publish_state = publish_state
+        resolved_first_published_at = first_published_at
+        if resolved_publish_state == EventPublishState.PUBLISHED and resolved_first_published_at is None:
+            resolved_first_published_at = datetime.now(ZoneInfo("Asia/Seoul"))
+
         new_event = Event(
             name=name,
-            slug=slug,
+            slug=slug or f"event-pending-{secrets.token_hex(8)}",
             location=location,
             event_team=event_team,
             start_time=start_time,
@@ -130,10 +166,15 @@ class Event(Base):
             keywords=keywords,
             game_mode=game_mode,
             team_size=team_size,
-            publish_state=publish_state,
-            first_published_at=first_published_at,
+            publish_state=resolved_publish_state,
+            first_published_at=resolved_first_published_at,
         )
         session.add(new_event)
+        await session.flush()
+
+        if not slug:
+            new_event.slug = await cls._generate_unique_slug(session, new_event.id)
+
         await session.commit()
         await session.refresh(new_event)
         return new_event

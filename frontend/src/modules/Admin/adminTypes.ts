@@ -1,5 +1,4 @@
 export type AdminRole = "admin" | "event_manager";
-export type AdminPublishState = "draft" | "published" | "archived";
 export type AdminApplicationStatus = "pending" | "approved" | "rejected";
 
 export type AdminMember = {
@@ -28,7 +27,7 @@ export type AdminEventStatus = "ended" | "in_progress" | "scheduled";
 export type AdminEventParticipant = {
   id: number;
   name: string;
-  userCode: string;
+  email: string;
   progressPercent: number;
   keywords: string[];
 };
@@ -115,8 +114,6 @@ export type AdminEvent = {
   progressCurrent: number;
   progressTotal: number;
   status: AdminEventStatus;
-  publishState: AdminPublishState;
-  isPublished: boolean;
   canEdit: boolean;
   publicPath?: string;
   participants?: AdminEventParticipant[];

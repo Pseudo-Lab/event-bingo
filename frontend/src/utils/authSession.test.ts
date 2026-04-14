@@ -49,12 +49,14 @@ describe("authSession", () => {
       userId: "11",
       userName: "테스터",
       loginId: "ABCD12",
+      userEmail: "tester@example.com",
     });
 
     expect(getAuthSession()).toEqual({
       userId: "11",
       userName: "테스터",
       loginId: "ABCD12",
+      userEmail: "tester@example.com",
     });
   });
 

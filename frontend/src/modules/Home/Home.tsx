@@ -181,15 +181,18 @@ const Home = () => {
     userId,
     userName,
     loginId,
+    userEmail,
   }: {
     userId: string;
     userName: string;
     loginId: string;
+    userEmail?: string;
   }) => {
     setAuthSession({
       userId,
       userName,
       loginId,
+      userEmail,
     });
     setParticipantName(userName);
     setCurrentLoginId(loginId);
@@ -340,6 +343,7 @@ const Home = () => {
         userId: String(result.user_id),
         userName: result.user_name,
         loginId: result.login_id,
+        userEmail: result.user_email ?? undefined,
       });
       openAlert(`"${result.user_name}" 계정으로 전환했습니다.`, "success");
       navigate(eventBingoPath, { replace: true });
@@ -478,7 +482,6 @@ const Home = () => {
                 <div className="login-dev-user__meta">
                   <strong>{tester.userName}</strong>
                   <span>ID {tester.userId}</span>
-                  <span>테스트 코드 {tester.accessCode}</span>
                   <span>{tester.hasBoard ? "보드 준비 완료" : "보드 미준비"}</span>
                 </div>
                 <div className="login-dev-user__actions">

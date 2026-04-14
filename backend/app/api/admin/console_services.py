@@ -5,7 +5,6 @@ from email.message import EmailMessage
 from email.utils import formataddr
 import hashlib
 import os
-import re
 import secrets
 import smtplib
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -17,7 +16,7 @@ from core.db import AsyncSession
 from models.admin import Admin, AdminRole
 from models.bingo.bingo_boards import BingoBoards
 from models.bingo.bingo_interaction import BingoInteraction
-from models.event import Event, EventPublishState, EventStatus
+from models.event import Event, EventStatus
 from models.event_attendee import EventAttendee
 from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 from models.policy_template import PolicyTemplate
@@ -42,8 +41,6 @@ from .schema import (
 
 DEFAULT_ADMIN_PHONE = "010-0000-0000"
 KST = ZoneInfo("Asia/Seoul")
-RESERVED_EVENT_SLUGS = {"admin", "login", "bingo", "api", "assets"}
-SLUG_PATTERN = re.compile(r"^[a-z0-9-]{3,50}$")
 DEFAULT_ADMIN_PASSWORD = "Admin1234!"
 ADMIN_INVITE_TOKEN_EXPIRE_HOURS = int(os.getenv("ADMIN_INVITE_TOKEN_EXPIRE_HOURS", "72"))
 ADMIN_INVITE_URL_BASE = os.getenv("ADMIN_INVITE_URL_BASE", "http://localhost:5173/admin/invite")
@@ -284,35 +281,6 @@ def validate_admin_member_deletion(
         raise ValueError("최소 한 명의 Admin 계정은 남아 있어야 합니다.")
 
 
-def validate_event_slug(slug: str) -> str:
-    normalized_slug = slug.strip().lower()
-
-    if not SLUG_PATTERN.fullmatch(normalized_slug):
-        raise ValueError("slug는 한글, 영문 소문자, 숫자, 하이픈(-)만 사용해 3자 이상 50자 이하로 입력해 주세요.")
-
-    if normalized_slug in RESERVED_EVENT_SLUGS:
-        raise ValueError("예약된 slug는 사용할 수 없습니다.")
-
-    return normalized_slug
-
-
-def validate_publish_transition(
-    current_state: EventPublishState | None,
-    next_state: EventPublishState,
-) -> None:
-    if current_state is None:
-        return
-
-    allowed_transitions = {
-        EventPublishState.DRAFT: {EventPublishState.DRAFT, EventPublishState.PUBLISHED, EventPublishState.ARCHIVED},
-        EventPublishState.PUBLISHED: {EventPublishState.PUBLISHED, EventPublishState.ARCHIVED},
-        EventPublishState.ARCHIVED: {EventPublishState.ARCHIVED},
-    }
-
-    if next_state not in allowed_transitions[current_state]:
-        raise ValueError("현재 공개 상태에서는 요청한 상태로 변경할 수 없습니다.")
-
-
 def resolve_event_status(event: Event) -> str:
     if event.status == EventStatus.FINISHED:
         return "ended"
@@ -326,6 +294,11 @@ def resolve_progress_percent(bingo_count: int, success_condition: int) -> int:
         return 0
 
     return min(100, round((bingo_count / success_condition) * 100))
+
+
+def resolve_participant_email(user: BingoUser) -> str:
+    user_email = (user.user_email or "").strip()
+    return user_email if "@" in user_email else "-"
 
 
 def resolve_operating_minutes(event: Event) -> int:
@@ -388,7 +361,6 @@ async def build_event_summary(
         progress_current=progress_current,
         progress_total=participant_count,
         status=resolve_event_status(event),
-        publish_state=event.publish_state.value,
         can_edit=can_edit_event(actor, event),
     )
 
@@ -422,7 +394,7 @@ async def build_event_detail(
             AdminEventParticipantItem(
                 id=user.user_id,
                 name=user.user_name,
-                user_code=user.login_id,
+                email=resolve_participant_email(user),
                 progress_percent=progress_percent,
                 keywords=keywords,
             )
@@ -466,7 +438,7 @@ async def build_event_detail(
     summary = await build_event_summary(session, event, actor)
     return AdminEventDetail(
         **summary.model_dump(),
-        public_path=f"/{event.slug}",
+        public_path=f"/event/{event.slug}",
         participants=participants,
         analytics=AdminEventAnalytics(
             review_participants=review_participants,
@@ -478,19 +450,6 @@ async def build_event_detail(
             keyword_rows=keyword_rows,
         ),
     )
-
-
-async def ensure_unique_event_slug(
-    session: AsyncSession,
-    slug: str,
-    current_event_id: int | None = None,
-) -> str:
-    normalized_slug = validate_event_slug(slug)
-    existing_event = await Event.get_by_slug(session, normalized_slug)
-    if existing_event and existing_event.id != current_event_id:
-        raise ValueError("이미 사용 중인 slug입니다.")
-
-    return normalized_slug
 
 
 async def reset_event_runtime_data(
@@ -555,19 +514,6 @@ async def reset_event_runtime_data(
         "deleted_interactions": deleted_interactions,
         "skipped_shared_users": len(shared_user_id_set),
     }
-
-
-def resolve_first_published_at(
-    current_state: EventPublishState | None,
-    next_state: EventPublishState,
-    existing_first_published_at: datetime | None,
-) -> datetime | None:
-    if current_state != EventPublishState.PUBLISHED and next_state == EventPublishState.PUBLISHED:
-        return existing_first_published_at or datetime.now(timezone.utc)
-
-    return existing_first_published_at
-
-
 async def approve_event_manager_request(
     session: AsyncSession,
     request: EventManagerRequest,

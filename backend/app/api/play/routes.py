@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from core.db import AsyncSessionDepends
 from core.dependencies import get_current_user
 from models.user import BingoUser
-from models.event import Event, EventPublishState, GameMode
+from models.event import Event, GameMode
 from models.event_attendee import EventAttendee
 from models.bingo.bingo_boards import BingoBoards
 from models.team import Team, TeamColor
@@ -98,9 +98,6 @@ async def join_event(
     event = await Event.get_by_slug(db, event_slug.strip().lower())
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="이벤트를 찾을 수 없습니다.")
-
-    if event.publish_state != EventPublishState.PUBLISHED:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="공개되지 않은 이벤트입니다.")
 
     # 중복 참가 체크
     from sqlalchemy import select as sa_select

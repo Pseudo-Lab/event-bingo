@@ -10,6 +10,7 @@ import {
   mockLoginWithTester,
   mockRegisterBingoUser,
   mockResetState,
+  mockSearchBingoParticipants,
 } from "./mockBingoApi";
 import type { MockTesterUser } from "./mockBingoApi";
 import { getApiBaseUrl } from "../lib/apiBase";
@@ -399,7 +400,7 @@ export type BingoParticipantItem = {
 
 export const searchBingoParticipants = async (query: string, eventSlug: string) => {
   if (shouldUseMockApi()) {
-    return [];
+    return mockSearchBingoParticipants(query);
   }
 
   const data = await requestJson<

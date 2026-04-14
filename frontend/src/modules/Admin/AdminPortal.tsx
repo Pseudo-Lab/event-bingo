@@ -25,7 +25,6 @@ import {
   reviewAdminEventManagerRequest,
   updateAdminPolicyTemplate,
   updateAdminEvent,
-  validateAdminSlugInput,
 } from "../../api/admin_api";
 import {
   formatEventDateLabel,
@@ -77,21 +76,12 @@ import {
   clampKeywordList,
   describeKeywordAutofill,
 } from "./adminKeywordUtils";
-import {
-  normalizeSlugDraftInput,
-  normalizeSlugForSave,
-  recommendEnglishSlugFromName,
-} from "./adminSlugUtils";
 
 type AdminSection = "dashboard" | "members" | "applications" | "event-settings" | "policies";
 type EventDetailTab = "overview" | "dashboard" | "participants";
 
 type EventFormState = {
   id?: number;
-  slug: string;
-  slugEdited: boolean;
-  isPublished: boolean;
-  wasPublished: boolean;
   name: string;
   location: string;
   eventTeam: string;
@@ -306,10 +296,6 @@ const createEventFormState = (adminEmail: string, eventItem?: AdminEvent): Event
   if (eventItem) {
     return {
       id: eventItem.id,
-      slug: eventItem.slug,
-      slugEdited: false,
-      isPublished: eventItem.isPublished,
-      wasPublished: eventItem.isPublished,
       name: eventItem.name,
       location: eventItem.location,
       eventTeam: eventItem.eventTeam,
@@ -329,10 +315,6 @@ const createEventFormState = (adminEmail: string, eventItem?: AdminEvent): Event
   }
 
   return {
-    slug: "",
-    slugEdited: false,
-    isPublished: false,
-    wasPublished: false,
     name: "",
     location: "",
     eventTeam: "",
@@ -881,8 +863,6 @@ const AdminConsolePage = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [addFormError, setAddFormError] = useState("");
   const [eventFormError, setEventFormError] = useState("");
-  const [slugAssistMessage, setSlugAssistMessage] = useState("");
-  const [slugAssistTone, setSlugAssistTone] = useState<"info" | "error">("info");
   const [pageError, setPageError] = useState("");
   const [pageNotice, setPageNotice] = useState("");
   const [inviteReviewResult, setInviteReviewResult] =
@@ -1217,56 +1197,17 @@ const AdminConsolePage = ({
 
   const openEventModal = (eventItem?: AdminEvent) => {
     setEventFormError("");
-    setSlugAssistMessage("");
-    setSlugAssistTone("info");
     setEventForm(createEventFormState(session?.email ?? "", eventItem));
     setShowEventModal(true);
   };
 
   const handleEventNameChange = (value: string) => {
-    setSlugAssistMessage("");
-    setSlugAssistTone("info");
     setEventForm((previousValue) => {
-      const nextSlug =
-        previousValue.isPublished || previousValue.slugEdited
-          ? previousValue.slug
-          : recommendEnglishSlugFromName(value) || previousValue.slug;
-
       return {
         ...previousValue,
         name: value,
-        slug: nextSlug,
       };
     });
-  };
-
-  const handleEventSlugChange = (value: string) => {
-    setSlugAssistMessage("");
-    setSlugAssistTone("info");
-    setEventForm((previousValue) => ({
-      ...previousValue,
-      slug: normalizeSlugDraftInput(value),
-      slugEdited: true,
-    }));
-  };
-
-  const handleRegenerateEventSlug = () => {
-    const recommendedSlug = recommendEnglishSlugFromName(eventForm.name);
-    if (!recommendedSlug) {
-      setSlugAssistTone("error");
-      setSlugAssistMessage(
-        "행사명에서 영문 slug 추천을 만들지 못했습니다. slug를 직접 입력해 주세요."
-      );
-      return;
-    }
-
-    setEventForm((previousValue) => ({
-      ...previousValue,
-      slug: recommendedSlug,
-      slugEdited: false,
-    }));
-    setSlugAssistTone("info");
-    setSlugAssistMessage(`행사명 기준 영문 slug 추천을 적용했습니다: /${recommendedSlug}`);
   };
 
   const addKeyword = (keyword: string) => {
@@ -1548,19 +1489,6 @@ const AdminConsolePage = ({
       return;
     }
 
-    const normalizedSlug = normalizeSlugForSave(eventForm.slug);
-
-    if (!normalizedSlug) {
-      setEventFormError("URL에 사용할 slug를 입력해 주세요.");
-      return;
-    }
-
-    const slugError = validateAdminSlugInput(normalizedSlug);
-    if (slugError) {
-      setEventFormError(slugError);
-      return;
-    }
-
     if (!eventForm.date) {
       setEventFormError("날짜를 입력해 주세요.");
       return;
@@ -1612,7 +1540,6 @@ const AdminConsolePage = ({
     try {
       const savedEvent = eventForm.id
         ? await updateAdminEvent(session.accessToken, eventForm.id, {
-            slug: normalizedSlug,
             name: eventForm.name,
             location: eventForm.location,
             eventTeam: eventForm.eventTeam,
@@ -1622,10 +1549,8 @@ const AdminConsolePage = ({
             boardSize: Number(eventForm.boardSize) === 3 ? 3 : 5,
             bingoMissionCount: Number(eventForm.bingoMissionCount),
             keywords: keywordsForSave,
-            publishState: eventForm.isPublished ? "published" : "draft",
           })
         : await createAdminEvent(session.accessToken, {
-            slug: normalizedSlug,
             name: eventForm.name,
             location: eventForm.location,
             eventTeam: eventForm.eventTeam,
@@ -1635,7 +1560,6 @@ const AdminConsolePage = ({
             boardSize: Number(eventForm.boardSize) === 3 ? 3 : 5,
             bingoMissionCount: Number(eventForm.bingoMissionCount),
             keywords: keywordsForSave,
-            publishState: eventForm.isPublished ? "published" : "draft",
           });
 
       setEvents((previousValue) => upsertAdminEvent(previousValue, savedEvent));
@@ -1660,7 +1584,6 @@ const AdminConsolePage = ({
   const selectedEventTimeRange = selectedEvent
     ? getTimeRangeLabel(selectedEvent.startAt, selectedEvent.endAt)
     : "";
-  const slugPreview = normalizeSlugForSave(eventForm.slug) || normalizeSlugDraftInput(eventForm.slug);
   const keywordAutofillSummary = describeKeywordAutofill(
     eventForm.keywords,
     eventForm.boardSize
@@ -1776,8 +1699,8 @@ const AdminConsolePage = ({
                       value: `${events.length}개`,
                     },
                     {
-                      label: "공개 이벤트 수",
-                      value: `${events.filter((eventItem) => eventItem.isPublished).length}개`,
+                      label: "진행/예정 행사 수",
+                      value: `${events.filter((eventItem) => eventItem.status !== "ended").length}개`,
                     },
                     ...(canManageApplications
                       ? [
@@ -1843,11 +1766,13 @@ const AdminConsolePage = ({
                   <Card className="rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
                     <CardHeader className="space-y-2 p-7 pb-0">
                       <CardTitle>라우팅 안내</CardTitle>
-                      <CardDescription>관리자 URL은 고정되고, 공개 페이지는 이벤트 slug로 분기됩니다.</CardDescription>
+                      <CardDescription>
+                        관리자 URL은 고정되고, 이벤트 페이지는 <code>/event/{"{token}"}</code> 형식을 사용합니다.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4 p-7 pt-6">
                       {[
-                        ["이벤트 홈", featuredEvent ? getEventHomePath(featuredEvent.slug) : "/{eventSlug}"],
+                        ["이벤트 홈", featuredEvent ? getEventHomePath(featuredEvent.slug) : "/event/{token}"],
                         ["관리자 로그인", getAdminPath()],
                         ["이벤트 관리", getAdminPath("event-settings")],
                       ].map(([label, value]) => (
@@ -2405,7 +2330,7 @@ const AdminConsolePage = ({
                               <TableHeader className="bg-[#f6f8ef]">
                                 <TableRow className="border-none hover:bg-transparent">
                                   <TableHead>이름</TableHead>
-                                  <TableHead>유저코드</TableHead>
+                                  <TableHead>이메일</TableHead>
                                   <TableHead>상태</TableHead>
                                   <TableHead>키워드</TableHead>
                                 </TableRow>
@@ -2417,7 +2342,7 @@ const AdminConsolePage = ({
                                       {participant.name}
                                     </TableCell>
                                     <TableCell className="text-[1.05rem] text-slate-800">
-                                      {participant.userCode}
+                                      {participant.email}
                                     </TableCell>
                                     <TableCell className="min-w-[24rem]">
                                       <div className="flex items-center gap-3">
@@ -2582,7 +2507,7 @@ const AdminConsolePage = ({
                                   <p>{eventItem.name}</p>
                                   <div className="flex flex-wrap items-center gap-2 text-xs">
                                     <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-500">
-                                      /{eventItem.slug}
+                                      {getEventHomePath(eventItem.slug)}
                                     </span>
                                     <span
                                       className={cn(
@@ -3053,8 +2978,6 @@ const AdminConsolePage = ({
                 onClick={() => {
                   setShowEventModal(false);
                   setEventFormError("");
-                  setSlugAssistMessage("");
-                  setSlugAssistTone("info");
                 }}
               >
                 <CloseIcon />
@@ -3107,95 +3030,15 @@ const AdminConsolePage = ({
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label htmlFor="event-modal-slug">slug</Label>
-                    {eventForm.isPublished ? (
-                      <span className="text-xs font-semibold text-slate-400">
-                        공개 후 잠금
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="text-xs font-semibold text-brand-700"
-                        onClick={handleRegenerateEventSlug}
-                      >
-                        행사명 기준으로 다시 생성
-                      </button>
-                    )}
-                  </div>
-                  <Input
-                    id="event-modal-slug"
-                    value={eventForm.slug}
-                    onChange={(event) => handleEventSlugChange(event.target.value)}
-                    placeholder="festival-networking-2026"
-                    disabled={eventForm.isPublished}
-                    className="h-12 rounded-xl font-mono"
-                  />
-                  <div className="space-y-1 text-xs">
-                    <p className="text-slate-400">
-                      한글, 영문 소문자, 숫자, 하이픈(-)만 사용합니다.
-                    </p>
-                    <p className="text-slate-400">
-                      입력 중 하이픈은 유지되고, 저장 시 앞뒤 하이픈은 자동으로 정리됩니다.
-                    </p>
-                    {slugAssistMessage ? (
-                      <p
-                        className={cn(
-                          "font-semibold",
-                          slugAssistTone === "error" ? "text-rose-500" : "text-brand-700"
-                        )}
-                      >
-                        {slugAssistMessage}
-                      </p>
-                    ) : (
-                      <p className="text-slate-400">
-                        행사명 기준 자동 생성은 가능하면 영문 slug를 추천합니다.
-                      </p>
-                    )}
-                    <p className="font-semibold text-brand-700">
-                      공개 URL: {slugPreview ? getEventHomePath(slugPreview) : "/{slug}"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>공개 상태</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {([
-                      [false, "Draft"],
-                      [true, "Published"],
-                    ] as const).map(([value, label]) => (
-                      <Button
-                        key={label}
-                        disabled={eventForm.wasPublished && !value}
-                        variant={eventForm.isPublished === value ? "outline" : "secondary"}
-                        className={cn(
-                          "h-12 rounded-xl border-brand-600 bg-white text-base font-semibold text-slate-700 hover:bg-brand-50",
-                          eventForm.isPublished !== value &&
-                            "border-slate-200 bg-white text-slate-400 hover:bg-slate-50"
-                        )}
-                        onClick={() =>
-                          setEventForm((previousValue) => ({
-                            ...previousValue,
-                            isPublished: value,
-                          }))
-                        }
-                      >
-                        {label}
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                    <span className="mt-0.5 shrink-0">
-                      <InfoIcon />
-                    </span>
-                    <p className="font-semibold leading-5">
-                      {eventForm.wasPublished
-                        ? "한 번 Published로 저장된 이벤트는 Draft로 되돌릴 수 없고 slug도 변경할 수 없습니다."
-                        : "Published로 저장하면 slug가 즉시 고정되며, 이후에는 Draft로 되돌리거나 slug를 변경할 수 없습니다."}
-                    </p>
-                  </div>
+                <div className="flex items-start gap-2 rounded-xl border border-brand-200 bg-brand-50 px-3 py-3 text-xs text-brand-800">
+                  <span className="mt-0.5 shrink-0">
+                    <InfoIcon />
+                  </span>
+                  <p className="font-semibold leading-5">
+                    이벤트 URL은 저장 후 자동 생성됩니다. 생성된 주소는
+                    <span className="mx-1 font-mono">{"/event/{token}"}</span>
+                    형식으로 발급되며, 상세 화면에서 바로 확인할 수 있습니다.
+                  </p>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-[1.1fr_0.9fr_0.9fr]">

@@ -50,6 +50,33 @@ import type { BoardPreviewPreset } from "./bingoGameTypes";
 import { syncTestModeFromUrl } from "../../utils/testMode";
 import "./BingoGame.css";
 
+const MOCK_EMAIL_DOMAIN = "mock.event-bingo.local";
+
+const resolveParticipantEmail = (authSession: ReturnType<typeof getAuthSession>) => {
+  const userEmail = authSession?.userEmail?.trim();
+  if (userEmail) {
+    return userEmail;
+  }
+
+  const loginId = authSession?.loginId?.trim() ?? "";
+  if (!loginId) {
+    return "";
+  }
+
+  if (loginId.includes("@")) {
+    return loginId;
+  }
+
+  if (typeof window !== "undefined" && window.sessionStorage.getItem("bingo.mockApiMode") === "true") {
+    const userId = authSession?.userId?.trim() ?? "";
+    if (userId) {
+      return `tester-${userId}@${MOCK_EMAIL_DOMAIN}`;
+    }
+  }
+
+  return "";
+};
+
 const BingoGame = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -139,11 +166,7 @@ const BingoGame = () => {
   const participantSummary = useMemo(() => {
     const name = displayName || username;
     if (participantContact) {
-      return `${name} 님 | 코드 ${participantContact}`;
-    }
-
-    if (userId) {
-      return `${name} 님 | ID ${userId}`;
+      return `${name} 님 | ${participantContact}`;
     }
 
     return `${name} 님`;
@@ -372,7 +395,7 @@ const BingoGame = () => {
       const authSession = getAuthSession();
       const storedId = authSession?.userId ?? "";
       const storedName = authSession?.userName ?? "";
-      const storedContact = authSession?.loginId ?? "";
+      const storedContact = resolveParticipantEmail(authSession);
 
       if (!storedId) {
         navigate(eventHomePath, { replace: true });
@@ -1002,7 +1025,7 @@ const BingoGame = () => {
                     void handleExchange();
                   }}
                 >
-                  <div style={{ position: "relative", flex: 1 }}>
+                  <div className="bingo-hero__form-field">
                     <input
                       value={opponentQuery}
                       onChange={(event) => handleOpponentSearch(event.target.value)}
@@ -1015,38 +1038,13 @@ const BingoGame = () => {
                       disabled={isBoardPreviewActive}
                     />
                     {opponentSearchResults.length > 0 && (
-                      <ul
-                        style={{
-                          position: "absolute",
-                          top: "100%",
-                          left: 0,
-                          right: 0,
-                          background: "#fff",
-                          border: "1px solid #d1d5db",
-                          borderRadius: "0.5rem",
-                          margin: "0.25rem 0 0",
-                          padding: "0.25rem 0",
-                          listStyle: "none",
-                          zIndex: 20,
-                          maxHeight: "12rem",
-                          overflowY: "auto",
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                        }}
-                      >
+                      <ul className="bingo-hero__search-results">
                         {opponentSearchResults.map((user) => (
-                          <li key={user.user_id}>
+                          <li key={user.user_id} className="bingo-hero__search-result-item">
                             <button
                               type="button"
+                              className="bingo-hero__search-result-button"
                               onClick={() => handleSelectOpponent(user)}
-                              style={{
-                                width: "100%",
-                                padding: "0.5rem 0.75rem",
-                                background: "none",
-                                border: "none",
-                                textAlign: "left",
-                                cursor: "pointer",
-                                fontSize: "0.875rem",
-                              }}
                             >
                               {user.display_name}
                             </button>
@@ -1055,22 +1053,7 @@ const BingoGame = () => {
                       </ul>
                     )}
                     {isSearching && opponentQuery.trim().length > 0 && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "100%",
-                          left: 0,
-                          right: 0,
-                          background: "#fff",
-                          border: "1px solid #d1d5db",
-                          borderRadius: "0.5rem",
-                          margin: "0.25rem 0 0",
-                          padding: "0.75rem",
-                          fontSize: "0.875rem",
-                          color: "#6b7280",
-                          zIndex: 20,
-                        }}
-                      >
+                      <div className="bingo-hero__search-status">
                         검색 중...
                       </div>
                     )}

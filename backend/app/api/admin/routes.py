@@ -8,7 +8,7 @@ from starlette.responses import StreamingResponse
 from core.db import AsyncSessionDepends
 from core.dependencies import authenticate_user
 from models.admin import Admin, AdminRole
-from models.event import Event, EventPublishState
+from models.event import Event
 from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 from models.policy_template import PolicyTemplate
 
@@ -24,12 +24,10 @@ from .console_services import (
     can_edit_event,
     complete_admin_invitation,
     ensure_admin_console_seed_data,
-    ensure_unique_event_slug,
     get_invited_admin_by_token,
     normalize_event_keywords,
     reset_event_runtime_data,
     serialize_event_manager_request,
-    resolve_first_published_at,
     serialize_admin_member,
     serialize_policy_template,
     serialize_admin_session,
@@ -37,7 +35,6 @@ from .console_services import (
     validate_admin_member_deletion,
     validate_event_manager_request_transition,
     validate_event_schedule,
-    validate_publish_transition,
 )
 from .schema import (
     AdminEventDetailResponse,
@@ -66,14 +63,9 @@ from .services import get_all_bingo_boards, get_all_users, set_test_bingo_board
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-def to_publish_state(value: str) -> EventPublishState:
-    try:
-        return EventPublishState(value)
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="지원하지 않는 공개 상태입니다.",
-        ) from error
+def resolve_export_email(user) -> str:
+    user_email = (getattr(user, "user_email", "") or "").strip()
+    return user_email if "@" in user_email else "-"
 
 
 def to_event_manager_request_status(value: str) -> EventManagerRequestStatus:
@@ -438,16 +430,13 @@ async def create_admin_event(
     actor: Admin = Depends(authenticate_admin_session),
 ):
     try:
-        publish_state = to_publish_state(payload.publish_state)
-        validate_publish_transition(None, publish_state)
-        slug = await ensure_unique_event_slug(db, payload.slug)
         start_time = payload.start_at
         end_time = payload.end_at
         validate_event_schedule(start_time, end_time)
         event = await Event.create(
             db,
             name=payload.name.strip(),
-            slug=slug,
+            slug=None,
             location=payload.location.strip(),
             event_team=payload.event_team.strip(),
             start_time=start_time,
@@ -457,8 +446,6 @@ async def create_admin_event(
             bingo_size=payload.board_size,
             success_condition=payload.bingo_mission_count,
             keywords=normalize_event_keywords(payload.keywords, payload.board_size),
-            publish_state=publish_state,
-            first_published_at=resolve_first_published_at(None, publish_state, None),
         )
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
@@ -489,18 +476,11 @@ async def update_admin_event(
         )
 
     try:
-        publish_state = to_publish_state(payload.publish_state)
-        validate_publish_transition(event.publish_state, publish_state)
-        slug = await ensure_unique_event_slug(db, payload.slug, current_event_id=event.id)
         validate_event_schedule(payload.start_at, payload.end_at)
-        if event.publish_state == EventPublishState.PUBLISHED and event.slug != slug:
-            raise ValueError("공개된 이후에는 slug를 변경할 수 없습니다.")
-
         updated_event = await Event.update(
             db,
             event_id=event.id,
             name=payload.name.strip(),
-            slug=slug,
             location=payload.location.strip(),
             event_team=payload.event_team.strip(),
             start_time=payload.start_at,
@@ -509,12 +489,6 @@ async def update_admin_event(
             bingo_size=payload.board_size,
             success_condition=payload.bingo_mission_count,
             keywords=normalize_event_keywords(payload.keywords, payload.board_size),
-            publish_state=publish_state,
-            first_published_at=resolve_first_published_at(
-                event.publish_state,
-                publish_state,
-                event.first_published_at,
-            ),
         )
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
@@ -593,7 +567,7 @@ async def download_attendance_data(
         {
             "ID": user.user_id,
             "Name": user.user_name,
-            "LoginID": user.login_id,
+            "Email": resolve_export_email(user),
             "Rating": user.rating,
             "Review": user.review,
             "AgreedAt": user.agreement_at.strftime('%Y-%m-%d %H:%M:%S') if user.agreement_at else None,
@@ -638,7 +612,7 @@ async def download_bingo_participation_data(
             participation_data.append({
                 "ID": user.user_id,
                 "Name": user.user_name,
-                "LoginID": user.login_id,
+                "Email": resolve_export_email(user),
                 "BingoCount": board.bingo_count,
                 "InteractionCount": board.user_interaction_count,
                 "SelectedWords": ", ".join(selected_words) if selected_words else "",

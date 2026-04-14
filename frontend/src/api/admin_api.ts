@@ -8,7 +8,6 @@ import type {
   AdminInvitationPreview,
   AdminMember,
   AdminPolicyTemplate,
-  AdminPublishState,
   AdminSession,
 } from "../modules/Admin/adminTypes";
 import { getApiBaseUrl } from "../lib/apiBase";
@@ -110,7 +109,7 @@ type AdminPolicyTemplateResponse = ApiResponseBase & {
 type AdminEventParticipantPayload = {
   id: number;
   name: string;
-  user_code: string;
+  email: string;
   progress_percent: number;
   keywords: string[];
 };
@@ -157,7 +156,6 @@ type AdminEventPayload = {
   progress_current: number;
   progress_total: number;
   status: EventStatusLiteral;
-  publish_state: AdminPublishState;
   can_edit: boolean;
   public_path?: string;
   participants?: AdminEventParticipantPayload[];
@@ -184,7 +182,6 @@ type AdminEventResetResponse = ApiResponseBase & {
 };
 
 export type AdminEventUpsertInput = {
-  slug: string;
   name: string;
   location: string;
   eventTeam: string;
@@ -194,7 +191,6 @@ export type AdminEventUpsertInput = {
   boardSize: 3 | 5;
   bingoMissionCount: number;
   keywords: string[];
-  publishState: AdminPublishState;
 };
 
 export type AdminEventManagerRequestReviewInput = {
@@ -346,7 +342,7 @@ const mapParticipants = (
   return (payloads ?? []).map((participant) => ({
     id: participant.id,
     name: participant.name,
-    userCode: participant.user_code,
+    email: participant.email,
     progressPercent: participant.progress_percent,
     keywords: participant.keywords,
   }));
@@ -400,27 +396,11 @@ const mapAdminEvent = (payload: AdminEventPayload): AdminEvent => {
     progressCurrent: payload.progress_current,
     progressTotal: payload.progress_total,
     status: payload.status,
-    publishState: payload.publish_state,
-    isPublished: payload.publish_state === "published",
     canEdit: payload.can_edit,
     publicPath: payload.public_path,
     participants: mapParticipants(payload.participants),
     analytics: mapAnalytics(payload.analytics),
   };
-};
-
-export const validateAdminSlugInput = (value: string) => {
-  const normalizedValue = value.trim().toLowerCase();
-  if (!/^[a-z0-9가-힣-]+$/.test(normalizedValue)) {
-    return "slug는 한글, 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.";
-  }
-  if (normalizedValue.length < 3 || normalizedValue.length > 50) {
-    return "slug는 3자 이상 50자 이하로 입력해 주세요.";
-  }
-  if (["admin", "login", "bingo", "api", "assets"].includes(normalizedValue)) {
-    return "예약된 slug는 사용할 수 없습니다.";
-  }
-  return "";
 };
 
 export const loginAdmin = async (email: string, password: string) => {
@@ -614,7 +594,6 @@ export const createAdminEvent = async (accessToken: string, input: AdminEventUps
     {
       method: "POST",
       body: JSON.stringify({
-        slug: input.slug,
         name: input.name,
         location: input.location,
         event_team: input.eventTeam,
@@ -624,7 +603,6 @@ export const createAdminEvent = async (accessToken: string, input: AdminEventUps
         board_size: input.boardSize,
         bingo_mission_count: input.bingoMissionCount,
         keywords: input.keywords,
-        publish_state: input.publishState,
       }),
     },
     accessToken
@@ -647,7 +625,6 @@ export const updateAdminEvent = async (
     {
       method: "PUT",
       body: JSON.stringify({
-        slug: input.slug,
         name: input.name,
         location: input.location,
         event_team: input.eventTeam,
@@ -657,7 +634,6 @@ export const updateAdminEvent = async (
         board_size: input.boardSize,
         bingo_mission_count: input.bingoMissionCount,
         keywords: input.keywords,
-        publish_state: input.publishState,
       }),
     },
     accessToken

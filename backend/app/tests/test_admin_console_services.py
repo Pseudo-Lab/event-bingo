@@ -11,36 +11,10 @@ from api.admin.console_services import (
     validate_admin_member_deletion,
     validate_event_manager_request_transition,
     validate_event_schedule,
-    validate_event_slug,
-    validate_publish_transition,
 )
 from datetime import datetime
 from models.admin import AdminRole
-from models.event import EventPublishState
 from models.event_manager_request import EventManagerRequestStatus
-
-
-def test_validate_event_slug_accepts_expected_pattern():
-    assert validate_event_slug("festival-networking-2026") == "festival-networking-2026"
-
-
-def test_validate_event_slug_accepts_korean_characters():
-    assert validate_event_slug("가짜-연구소-2026") == "가짜-연구소-2026"
-
-
-@pytest.mark.parametrize("slug", ["Admin", "ab", "invalid slug", "api"])
-def test_validate_event_slug_rejects_invalid_values(slug: str):
-    with pytest.raises(ValueError):
-        validate_event_slug(slug)
-
-
-def test_validate_publish_transition_blocks_published_to_draft():
-    with pytest.raises(ValueError):
-        validate_publish_transition(EventPublishState.PUBLISHED, EventPublishState.DRAFT)
-
-
-def test_validate_publish_transition_allows_draft_to_published():
-    validate_publish_transition(EventPublishState.DRAFT, EventPublishState.PUBLISHED)
 
 
 def test_validate_event_schedule_blocks_invalid_range():

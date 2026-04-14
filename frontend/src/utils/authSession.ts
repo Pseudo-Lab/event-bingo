@@ -2,12 +2,14 @@ export type AuthSession = {
   userId: string;
   userName: string;
   loginId: string;
+  userEmail?: string;
 };
 
 const AUTH_STORAGE_KEYS = {
   userId: "myID",
   userName: "myUserName",
   loginId: "myLoginId",
+  userEmail: "myUserEmail",
 } as const;
 
 const LEGACY_STORAGE_KEYS = {
@@ -32,12 +34,22 @@ const readAuthSessionFromStorage = (storage: Storage | null): AuthSession | null
     storage.getItem(LEGACY_STORAGE_KEYS.loginKey) ??
     storage.getItem(LEGACY_STORAGE_KEYS.userEmail) ??
     "";
+  const userEmail =
+    storage.getItem(AUTH_STORAGE_KEYS.userEmail) ??
+    storage.getItem(LEGACY_STORAGE_KEYS.userEmail) ??
+    "";
 
-  return {
+  const nextSession: AuthSession = {
     userId,
     userName: storage.getItem(AUTH_STORAGE_KEYS.userName) ?? "",
     loginId,
   };
+
+  if (userEmail) {
+    nextSession.userEmail = userEmail;
+  }
+
+  return nextSession;
 };
 
 const removeAuthSessionFromStorage = (storage: Storage | null) => {
@@ -62,6 +74,11 @@ export const setAuthSession = (session: AuthSession) => {
   window.sessionStorage.setItem(AUTH_STORAGE_KEYS.userId, session.userId);
   window.sessionStorage.setItem(AUTH_STORAGE_KEYS.userName, session.userName);
   window.sessionStorage.setItem(AUTH_STORAGE_KEYS.loginId, session.loginId);
+  if (session.userEmail) {
+    window.sessionStorage.setItem(AUTH_STORAGE_KEYS.userEmail, session.userEmail);
+  } else {
+    window.sessionStorage.removeItem(AUTH_STORAGE_KEYS.userEmail);
+  }
   window.sessionStorage.removeItem(LEGACY_STORAGE_KEYS.userEmail);
   window.sessionStorage.removeItem(LEGACY_STORAGE_KEYS.loginKey);
 };

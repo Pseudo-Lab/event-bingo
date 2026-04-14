@@ -22,6 +22,7 @@ type BingoUserResult = {
   login_id?: string | null;
   message: string;
   user_id?: number | null;
+  user_email?: string | null;
   user_name?: string | null;
 };
 
@@ -83,15 +84,22 @@ const createBridgeKey = () => {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 };
 
-const toAuthSession = (result: BingoUserResult, fallbackName: string): AuthSession => {
+const toAuthSession = (
+  result: BingoUserResult,
+  fallbackName: string,
+  fallbackEmail?: string
+): AuthSession => {
   if (!result.ok || result.user_id == null || !result.login_id) {
     throw new Error(result.message || "빙고 계정 정보를 확인하지 못했습니다.");
   }
+
+  const userEmail = pickString(result.user_email) || pickString(fallbackEmail);
 
   return {
     userId: String(result.user_id),
     userName: pickString(result.user_name) || fallbackName,
     loginId: result.login_id,
+    userEmail: userEmail || undefined,
   };
 };
 
@@ -135,7 +143,8 @@ export const ensureBingoGoogleBridge = async (
     if (loginResult.ok) {
       const authSession = toAuthSession(
         loginResult,
-        bridgeMetadata.userName || googleProfile.displayName
+        bridgeMetadata.userName || googleProfile.displayName,
+        googleProfile.email
       );
 
       clearLegacyLocalLoginStorage();
@@ -156,7 +165,11 @@ export const ensureBingoGoogleBridge = async (
     bridgeKey,
     eventSlug
   )) as BingoUserResult;
-  const authSession = toAuthSession(registerResult, googleProfile.displayName);
+  const authSession = toAuthSession(
+    registerResult,
+    googleProfile.displayName,
+    googleProfile.email
+  );
 
   clearLegacyLocalLoginStorage();
   setAuthSession(authSession);

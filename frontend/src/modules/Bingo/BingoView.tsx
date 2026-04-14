@@ -1,6 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Dialog } from "@mui/material";
 import characterIllustration from "../../assets/illustrations/character.svg";
+import bingoCellStarFill from "../../assets/illustrations/Star 1.svg";
+import bingoCellStarOutline from "../../assets/illustrations/Star 2.svg";
 import type {
   AlertSeverity,
   BingoCell,
@@ -309,7 +311,7 @@ export function BingoBoardSection({
             <strong>
               {isBoardPreviewActive
                 ? "프리뷰 중에는 보드 실시간 동기화를 잠시 멈췄어요"
-                : "1줄부터 올클리어까지 화면 상태를 바로 미리볼 수 있어요"}
+                : "한칸부터 올클리어까지 화면 상태를 바로 미리볼 수 있어요"}
             </strong>
             <span>실제 보드는 복원 버튼으로 바로 되돌릴 수 있습니다.</span>
           </div>
@@ -404,17 +406,33 @@ export function BingoBoardSection({
 
             return (
               <article key={cell.id} className={classNames}>
-                {isPlaceholder ? (
-                  <div className="bingo-board-cell__brand">
-                    <span>PseudoLab</span>
-                  </div>
-                ) : isLineCell ? (
-                  <div className="bingo-board-cell__complete-badge">
-                    <span className="bingo-board-cell__label">{displayValue}</span>
-                  </div>
-                ) : (
+                <div className="bingo-board-cell__inner">
+                  {isLineCell ? (
+                    <div
+                      className="bingo-board-cell__art"
+                      aria-hidden="true"
+                      style={
+                        {
+                          "--cell-gap-mask": `url("${bingoCellStarFill}")`,
+                        } as CSSProperties
+                      }
+                    >
+                      <img
+                        className="bingo-board-cell__star bingo-board-cell__star--outline"
+                        src={bingoCellStarOutline}
+                        alt=""
+                      />
+                      <span className="bingo-board-cell__star-gap" />
+                      <img
+                        className="bingo-board-cell__star bingo-board-cell__star--fill"
+                        src={bingoCellStarFill}
+                        alt=""
+                      />
+                    </div>
+                  ) : null}
+
                   <span className="bingo-board-cell__label">{displayValue}</span>
-                )}
+                </div>
               </article>
             );
           })}

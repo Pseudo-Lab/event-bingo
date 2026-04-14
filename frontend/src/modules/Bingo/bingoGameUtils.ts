@@ -288,6 +288,7 @@ export const BOARD_PREVIEW_OPTIONS: Array<{
   id: BoardPreviewPreset;
   label: string;
 }> = [
+  { id: "one-cell", label: "한칸 완성" },
   { id: "one-line", label: "1줄 완성" },
   { id: "two-lines", label: "2줄 완성" },
   { id: "three-lines", label: "3줄 완성" },
@@ -299,6 +300,13 @@ export const buildPreviewBoard = (
   preset: BoardPreviewPreset,
   boardSize: number
 ) => {
+  if (preset === "one-cell") {
+    return sourceBoard.map((cell, index) => ({
+      ...cell,
+      status: index === 0 ? 1 : 0,
+    }));
+  }
+
   if (preset === "full") {
     return sourceBoard.map((cell) => ({
       ...cell,
@@ -311,7 +319,7 @@ export const buildPreviewBoard = (
     { type: "col", index: 0 },
     { type: "diagonal", index: 1 },
   ];
-  const lineCountByPreset: Record<Exclude<BoardPreviewPreset, "full">, number> = {
+  const lineCountByPreset: Record<Exclude<BoardPreviewPreset, "one-cell" | "full">, number> = {
     "one-line": 1,
     "two-lines": 2,
     "three-lines": 3,

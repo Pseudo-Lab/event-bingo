@@ -7,7 +7,6 @@ from core.base_schema import BaseSchema
 
 
 AdminRoleLiteral = Literal["admin", "event_manager"]
-PublishStateLiteral = Literal["draft", "published", "archived"]
 EventStatusLiteral = Literal["scheduled", "in_progress", "ended"]
 EventManagerRequestStatusLiteral = Literal["pending", "approved", "rejected"]
 
@@ -128,7 +127,7 @@ class AdminPolicyTemplateUpdateRequest(BaseModel):
 class AdminEventParticipantItem(BaseModel):
     id: int
     name: str
-    user_code: str
+    email: str
     progress_percent: int
     keywords: list[str] = Field(default_factory=list)
 
@@ -175,7 +174,6 @@ class AdminEventSummary(BaseModel):
     progress_current: int
     progress_total: int
     status: EventStatusLiteral
-    publish_state: PublishStateLiteral
     can_edit: bool
 
 
@@ -194,7 +192,6 @@ class AdminEventDetailResponse(BaseSchema):
 
 
 class AdminEventUpsertRequest(BaseModel):
-    slug: str = Field(..., min_length=3, max_length=50)
     name: str = Field(..., min_length=1, max_length=100)
     location: str = Field(..., min_length=1, max_length=200)
     event_team: str = Field(..., min_length=1, max_length=120)
@@ -204,7 +201,6 @@ class AdminEventUpsertRequest(BaseModel):
     board_size: Literal[3, 5]
     bingo_mission_count: int = Field(..., ge=1, le=5)
     keywords: list[str] = Field(default_factory=list)
-    publish_state: PublishStateLiteral = "draft"
 
 
 class AdminEventResponse(BaseSchema):
