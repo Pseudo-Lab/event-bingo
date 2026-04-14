@@ -1828,7 +1828,9 @@ const AdminConsolePage = ({
                             <TableHead>행사명</TableHead>
                             <TableHead>행사 목적</TableHead>
                             <TableHead>예상 일정</TableHead>
-                            <TableHead>상태</TableHead>
+                            <TableHead className="w-[8rem] min-w-[8rem] whitespace-nowrap">
+                              상태
+                            </TableHead>
                             <TableHead className="w-[13rem] text-center">관리</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -1867,10 +1869,10 @@ const AdminConsolePage = ({
                                   </p>
                                 ) : null}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="w-[8rem] min-w-[8rem] whitespace-nowrap">
                                 <div className="space-y-2">
                                   <span
-                                    className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getApplicationStatusClassName(requestItem.status)}`}
+                                    className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${getApplicationStatusClassName(requestItem.status)}`}
                                   >
                                     {getApplicationStatusLabel(requestItem.status)}
                                   </span>
@@ -2381,13 +2383,17 @@ const AdminConsolePage = ({
 
                   <div className="overflow-hidden rounded-[1.6rem] border border-slate-100 bg-[#fbfcf8]">
                     <div className="overflow-x-auto">
-                      <Table className="min-w-[920px]">
+                      <Table className="min-w-[1020px]">
                         <TableHeader className="bg-[#f6f8ef]">
                           <TableRow className="border-none hover:bg-transparent">
                             <TableHead className="w-[6rem]">번호</TableHead>
-                            <TableHead>행사명</TableHead>
-                            <TableHead>날짜</TableHead>
-                            <TableHead>참여자수</TableHead>
+                            <TableHead className="min-w-[18rem]">행사명</TableHead>
+                            <TableHead className="w-[10rem] min-w-[10rem] whitespace-nowrap">
+                              날짜
+                            </TableHead>
+                            <TableHead className="w-[7rem] min-w-[7rem] whitespace-nowrap">
+                              참여자수
+                            </TableHead>
                             <TableHead>상태</TableHead>
                             <TableHead>진행도</TableHead>
                             <TableHead className="w-[4rem]" />
@@ -2403,7 +2409,7 @@ const AdminConsolePage = ({
                               <TableCell className="font-bold text-slate-900">
                                 {(eventPage - 1) * ITEMS_PER_PAGE + index + 1}
                               </TableCell>
-                              <TableCell className="font-semibold text-slate-800">
+                              <TableCell className="min-w-[18rem] font-semibold text-slate-800">
                                 <div className="space-y-2">
                                   <p>{eventItem.name}</p>
                                   <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -2423,12 +2429,12 @@ const AdminConsolePage = ({
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="whitespace-nowrap">
                                 <span className="inline-flex rounded-lg bg-slate-100 px-3 py-2 font-medium text-slate-700">
                                   {formatEventRowDate(eventItem.startAt)}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-lg font-medium text-slate-800">
+                              <TableCell className="whitespace-nowrap text-lg font-medium text-slate-800">
                                 {eventItem.participantCount}
                               </TableCell>
                               <TableCell>

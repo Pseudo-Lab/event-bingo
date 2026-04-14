@@ -1631,6 +1631,13 @@
   }
 }
 
+@media (min-width: 721px) and (max-width: 960px) {
+  .bingo-hero__illustration {
+    bottom: -0.9rem;
+    right: -1.8rem;
+  }
+}
+
 @media (max-width: 720px) {
   .bingo-countdown__timer {
     grid-template-columns: repeat(2, minmax(0, 1fr));

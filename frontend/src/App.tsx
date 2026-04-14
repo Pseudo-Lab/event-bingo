@@ -19,6 +19,9 @@ import {
 } from "./modules/Admin/AdminPortal";
 import { getAdminPath, getEventBingoPath, getEventHomePath } from "./config/eventProfiles";
 
+const APP_FONT_FAMILY =
+  '"Nanum Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif';
+
 const defaultTheme = createTheme({
   palette: {
     mode: "light",
@@ -27,8 +30,7 @@ const defaultTheme = createTheme({
     },
   },
   typography: {
-    fontFamily:
-      '"Spoqa Han Sans Neo", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif',
+    fontFamily: APP_FONT_FAMILY,
   },
 });
 

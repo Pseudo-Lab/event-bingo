@@ -14,7 +14,6 @@ import {
 import type { MockTesterUser } from "../../api/bingo_api";
 import GoogleSignInButton from "../Auth/GoogleSignInButton";
 import {
-  formatEventDateLabel,
   getEventBingoPath,
   getEventHomePath,
   withSearch,
@@ -38,24 +37,11 @@ import { isTestModeEnabled, syncTestModeFromUrl } from "../../utils/testMode";
 import bingoLoginCharacterIllustration from "../../assets/illustrations/bingo-login-character.svg";
 import topIllustration from "../../assets/illustrations/top.svg";
 import ConsentDialog from "./ConsentDialog";
+import {
+  HOME_EVENT_DISPLAY_FALLBACKS,
+  resolveHomeEventSummary,
+} from "./homeDisplay";
 import "./Home.css";
-
-const DISPLAY_FALLBACKS = {
-  title: "Bingo Networking",
-  subtitle: "빙고로 즐기는 새로운 네트워킹",
-  eventName: "가짜연구소 2025\nGrand Gathering",
-  date: "2025년 11월 15일",
-  place: "서울 컨벤션 센터",
-  eventTeam: "행사 운영팀",
-} as const;
-
-const isPlaceholderValue = (value: string | undefined, placeholders: string[]) => {
-  if (!value) {
-    return true;
-  }
-
-  return placeholders.includes(value.trim());
-};
 
 const normalizeTesterCode = (value: string | undefined | null) => {
   return value?.trim().toUpperCase().replace(/\s/g, "") ?? "";
@@ -65,7 +51,7 @@ const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { eventSlug } = useParams();
-  const { eventProfile } = useEventProfile(eventSlug);
+  const { eventProfile, isResolved: isEventProfileResolved } = useEventProfile(eventSlug);
   const eventHomePath = useMemo(
     () => withSearch(getEventHomePath(eventProfile.slug), location.search),
     [eventProfile.slug, location.search]
@@ -94,6 +80,10 @@ const Home = () => {
   const [handledTestCode, setHandledTestCode] = useState<string | null>(null);
   const shouldUseGoogleAuth =
     !testModeEnabled && isSupabaseConfigured() && isGoogleIdentityConfigured();
+  const eventSummary = useMemo(
+    () => resolveHomeEventSummary(eventProfile, isEventProfileResolved),
+    [eventProfile, isEventProfileResolved]
+  );
 
   useEffect(() => {
     setTestModeEnabledState(syncTestModeFromUrl(location.search));
@@ -125,31 +115,6 @@ const Home = () => {
     setIsLoggedIn(true);
     setIsAgreed(true);
   }, [shouldUseGoogleAuth]);
-
-  const displayEventTeam = useMemo(() => {
-    return isPlaceholderValue(eventProfile.eventTeam, ["행사 주최자", "Event Team"])
-      ? DISPLAY_FALLBACKS.eventTeam
-      : eventProfile.eventTeam;
-  }, [eventProfile.eventTeam]);
-
-  const displayEventName = useMemo(() => {
-    return isPlaceholderValue(eventProfile.subTitle, ["YYYY 행사 이름"])
-      ? DISPLAY_FALLBACKS.eventName
-      : eventProfile.subTitle;
-  }, [eventProfile.subTitle]);
-
-  const displayDate = useMemo(() => {
-    const formattedDate = formatEventDateLabel(eventProfile.startAt);
-    return isPlaceholderValue(formattedDate, ["MM월 DD일"])
-      ? DISPLAY_FALLBACKS.date
-      : formattedDate;
-  }, [eventProfile.startAt]);
-
-  const displayPlace = useMemo(() => {
-    return isPlaceholderValue(eventProfile.place, ["장소"])
-      ? DISPLAY_FALLBACKS.place
-      : eventProfile.place;
-  }, [eventProfile.place]);
 
   const testCodeFromQuery = useMemo(() => {
     return normalizeTesterCode(new URLSearchParams(location.search).get("testCode"));
@@ -560,25 +525,48 @@ const Home = () => {
           <img
             className="login-hero__image"
             src={topIllustration}
-            alt={`${DISPLAY_FALLBACKS.title} ${DISPLAY_FALLBACKS.subtitle}`}
+            alt={`${HOME_EVENT_DISPLAY_FALLBACKS.title} ${HOME_EVENT_DISPLAY_FALLBACKS.subtitle}`}
           />
         </header>
 
-        <section className="login-event-card" aria-label="event summary">
+        <section
+          className="login-event-card"
+          aria-label="event summary"
+          aria-busy={!isEventProfileResolved}
+        >
           <div className="login-event-card__copy">
             <p className="login-event-card__eyebrow">{eventProfile.title}</p>
-            <h2>{displayEventName}</h2>
-            <p className="login-event-card__team">{displayEventTeam}</p>
-            <div className="login-event-card__meta">
-              <span>
-                <CalendarMonthOutlinedIcon fontSize="inherit" />
-                {displayDate}
-              </span>
-              <span>
-                <PlaceOutlinedIcon fontSize="inherit" />
-                {displayPlace}
-              </span>
-            </div>
+            {isEventProfileResolved ? (
+              <>
+                <h2>{eventSummary.eventName}</h2>
+                <p className="login-event-card__team">{eventSummary.eventTeam}</p>
+                <div className="login-event-card__meta">
+                  <span>
+                    <CalendarMonthOutlinedIcon fontSize="inherit" />
+                    {eventSummary.date}
+                  </span>
+                  <span>
+                    <PlaceOutlinedIcon fontSize="inherit" />
+                    {eventSummary.place}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="login-event-card__title-skeleton" aria-hidden="true">
+                  <span className="login-event-card__skeleton login-event-card__skeleton--title" />
+                  <span className="login-event-card__skeleton login-event-card__skeleton--title-short" />
+                </div>
+                <span
+                  className="login-event-card__skeleton login-event-card__skeleton--team"
+                  aria-hidden="true"
+                />
+                <div className="login-event-card__meta" aria-hidden="true">
+                  <span className="login-event-card__skeleton login-event-card__skeleton--meta-wide" />
+                  <span className="login-event-card__skeleton login-event-card__skeleton--meta" />
+                </div>
+              </>
+            )}
           </div>
 
           <div className="login-event-card__art" aria-hidden="true">
@@ -639,7 +627,7 @@ const Home = () => {
       >
         {agreeOpen ? (
           <ConsentDialog
-            eventTeam={displayEventTeam}
+            eventTeam={eventSummary.eventTeam}
             onDecline={() => setAgreeOpen(false)}
             onAccept={() => {
               setIsAgreed(true);
