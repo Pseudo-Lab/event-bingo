@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAutoFilledKeywordList,
-  buildRecommendedEventKeywords,
+  buildEventKeywordPresetKeywords,
   clampKeywordList,
   describeKeywordAutofill,
+  getEventKeywordPresetDefinitions,
   getKeywordGoalCount,
 } from "./adminKeywordUtils";
 
@@ -57,43 +58,32 @@ describe("adminKeywordUtils", () => {
     });
   });
 
-  it("builds full-length event keyword recommendations from event context", () => {
-    const recommendations = buildRecommendedEventKeywords({
-      name: "가짜연구소 2026 Bingo Networking Day",
-      location: "강남역",
-      eventTeam: "PseudoLab",
-      date: "2026-04-14",
-      boardSize: "5",
-    });
-
-    expect(recommendations).toHaveLength(25);
-    expect(recommendations).toContain("강남역 로컬");
-    expect(recommendations.some((keyword) => keyword.includes("PseudoLab"))).toBe(true);
-    expect(recommendations.some((keyword) => keyword.includes("4월"))).toBe(true);
-    expect(recommendations.some((keyword) => keyword.includes("가짜연구소"))).toBe(true);
-    expect(recommendations.every((keyword) => keyword.length <= 14)).toBe(true);
+  it("exposes the built-in preset categories", () => {
+    expect(getEventKeywordPresetDefinitions()).toEqual([
+      expect.objectContaining({ id: "business", label: "비즈니스" }),
+      expect.objectContaining({ id: "community", label: "커뮤니티" }),
+      expect.objectContaining({ id: "tech", label: "테크" }),
+      expect.objectContaining({ id: "maker", label: "메이커" }),
+    ]);
   });
 
-  it("changes recommendation order when the variation seed changes", () => {
-    const firstBatch = buildRecommendedEventKeywords({
-      name: "AI 데이터 밋업",
-      location: "성수",
-      eventTeam: "PseudoLab",
-      date: "2026-04-14",
-      boardSize: "3",
-      variationSeed: 0,
-    });
-    const secondBatch = buildRecommendedEventKeywords({
-      name: "AI 데이터 밋업",
-      location: "성수",
-      eventTeam: "PseudoLab",
-      date: "2026-04-14",
-      boardSize: "3",
-      variationSeed: 1,
-    });
+  it("builds preset keywords to match the selected board size", () => {
+    const techKeywords = buildEventKeywordPresetKeywords("tech", "3");
+    const communityKeywords = buildEventKeywordPresetKeywords("community", "5");
 
-    expect(firstBatch).toHaveLength(9);
-    expect(secondBatch).toHaveLength(9);
-    expect(firstBatch).not.toEqual(secondBatch);
+    expect(techKeywords).toHaveLength(9);
+    expect(techKeywords).toEqual([
+      "프론트엔드",
+      "백엔드",
+      "풀스택",
+      "React",
+      "TypeScript",
+      "Python",
+      "SQL",
+      "AI",
+      "LLM",
+    ]);
+    expect(communityKeywords).toHaveLength(25);
+    expect(communityKeywords).toContain("새로운인연");
   });
 });

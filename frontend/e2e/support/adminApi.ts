@@ -44,6 +44,22 @@ export const seedAdminSession = async (page: Page, session: AdminSessionSeed) =>
       "event-bingo.admin-session.v1",
       JSON.stringify(seededSession)
     );
+    window.sessionStorage.setItem(
+      "event-bingo.supabase.auth.v1",
+      JSON.stringify({
+        access_token: seededSession.accessToken,
+        refresh_token: "refresh-token",
+        token_type: "bearer",
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        user: {
+          id: "supabase-admin-user",
+          email: seededSession.email,
+          aud: "authenticated",
+          role: "authenticated",
+        },
+      })
+    );
   }, session);
 };
 
@@ -87,7 +103,7 @@ export const buildAdminEventPayload = ({
     status,
     publish_state: publishState,
     can_edit: canEdit,
-    public_path: `/${slug}`,
+    public_path: `/event/${slug}`,
     participants: [],
     analytics: {
       review_participants: 0,

@@ -61,8 +61,27 @@ export const mockPublicEventProfile = async (
         board_size: 5,
         bingo_mission_count: 3,
         keywords: Array.from({ length: 25 }, (_, index) => `키워드 ${index + 1}`),
-        publish_state: "published",
       },
+    });
+  });
+};
+
+export const mockParticipantSearch = async (
+  page: Page,
+  participants: Array<{ user_id: number; display_name: string }>,
+  eventSlug = "bingo-networking"
+) => {
+  await page.route("**/api/auth/bingo/search?**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("event_slug") !== eventSlug) {
+      await route.fallback();
+      return;
+    }
+
+    await fulfillJson(route, {
+      ok: true,
+      message: "ok",
+      participants,
     });
   });
 };
@@ -149,7 +168,7 @@ export const buildBoardData = ({
 };
 
 export const mockEmptyBoardBootstrap = async (page: Page, userId: number) => {
-  await page.route(`**/api/bingo/boards/${userId}`, async (route) => {
+  await page.route(`**/api/bingo/boards/${userId}**`, async (route) => {
     await fulfillJson(route, {
       ok: true,
       message: "ok",
@@ -180,7 +199,7 @@ export const mockBoardBootstrap = async ({
   activeValues?: string[];
   interactions?: JsonBody[];
 }) => {
-  await page.route(`**/api/bingo/boards/${userId}`, async (route) => {
+  await page.route(`**/api/bingo/boards/${userId}**`, async (route) => {
     await fulfillJson(route, {
       ok: true,
       message: "ok",

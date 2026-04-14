@@ -8,7 +8,8 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: "npx vite --host 127.0.0.1 --port 4173",
+    command:
+      "VITE_SUPABASE_URL=http://127.0.0.1:54321 VITE_SUPABASE_ANON_KEY=test-anon-key VITE_GOOGLE_CLIENT_ID=test-google-client-id npx vite --host 127.0.0.1 --port 4173",
     port: 4173,
     reuseExistingServer: !process.env.CI,
   },

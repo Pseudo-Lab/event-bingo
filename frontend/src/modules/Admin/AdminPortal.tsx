@@ -73,9 +73,11 @@ import type {
 import { getEventDateParts } from "./adminEventDate";
 import {
   buildAutoFilledKeywordList,
-  buildRecommendedEventKeywords,
+  buildEventKeywordPresetKeywords,
   clampKeywordList,
   describeKeywordAutofill,
+  getEventKeywordPresetDefinitions,
+  type EventKeywordPresetId,
 } from "./adminKeywordUtils";
 
 type AdminSection = "dashboard" | "members" | "applications" | "event-settings" | "policies";
@@ -110,6 +112,7 @@ const EVENT_DETAIL_TABS: Array<{ key: EventDetailTab; label: string }> = [
 ];
 const canUseGoogleAdminAuth = () =>
   isSupabaseConfigured() && isGoogleIdentityConfigured();
+const EVENT_KEYWORD_PRESET_OPTIONS = getEventKeywordPresetDefinitions();
 
 const formatAdminDate = (value: string) => {
   try {
@@ -761,7 +764,13 @@ const AdminConsolePage = ({
     name: "",
     role: "admin" as AdminRole,
   });
-  const [keywordRecommendationSeed, setKeywordRecommendationSeed] = useState(0);
+  const [selectedKeywordPresetId, setSelectedKeywordPresetId] =
+    useState<EventKeywordPresetId | "">("");
+  const [isKeywordPresetPanelOpen, setIsKeywordPresetPanelOpen] = useState(false);
+  const [isImportEventPanelOpen, setIsImportEventPanelOpen] = useState(false);
+  const [importSourceEventId, setImportSourceEventId] = useState("");
+  const [keywordRecommendationNotice, setKeywordRecommendationNotice] = useState("");
+  const [keywordRecommendationError, setKeywordRecommendationError] = useState("");
   const isKeywordDraftComposingRef = useRef(false);
   const skipKeywordDraftBlurRef = useRef(false);
   const [eventForm, setEventForm] = useState<EventFormState>(() =>
@@ -969,6 +978,13 @@ const AdminConsolePage = ({
     );
   }, [participantPage, selectedEventInsights]);
 
+  const availableImportEvents = useMemo(() => {
+    return events.filter((eventItem) => eventItem.id !== eventForm.id && eventItem.keywords.length > 0);
+  }, [eventForm.id, events]);
+  const selectedKeywordPreset = useMemo(() => {
+    return EVENT_KEYWORD_PRESET_OPTIONS.find((item) => item.id === selectedKeywordPresetId) ?? null;
+  }, [selectedKeywordPresetId]);
+
   const memberTotalPages = Math.max(1, Math.ceil(members.length / ITEMS_PER_PAGE));
   const eventTotalPages = Math.max(1, Math.ceil(filteredEvents.length / ITEMS_PER_PAGE));
   const participantTotalPages = Math.max(
@@ -993,6 +1009,27 @@ const AdminConsolePage = ({
       setParticipantPage(participantTotalPages);
     }
   }, [participantPage, participantTotalPages]);
+
+  useEffect(() => {
+    if (!isImportEventPanelOpen) {
+      return;
+    }
+
+    if (availableImportEvents.length === 0) {
+      if (importSourceEventId) {
+        setImportSourceEventId("");
+      }
+      return;
+    }
+
+    const hasSelectedEvent = availableImportEvents.some(
+      (eventItem) => String(eventItem.id) === importSourceEventId
+    );
+
+    if (!hasSelectedEvent) {
+      setImportSourceEventId(String(availableImportEvents[0].id));
+    }
+  }, [availableImportEvents, importSourceEventId, isImportEventPanelOpen]);
 
   useEffect(() => {
     setEventPage(1);
@@ -1076,7 +1113,12 @@ const AdminConsolePage = ({
 
   const openEventModal = (eventItem?: AdminEvent) => {
     setEventFormError("");
-    setKeywordRecommendationSeed(0);
+    setSelectedKeywordPresetId("");
+    setIsKeywordPresetPanelOpen(false);
+    setIsImportEventPanelOpen(false);
+    setImportSourceEventId("");
+    setKeywordRecommendationNotice("");
+    setKeywordRecommendationError("");
     setEventForm(createEventFormState(session?.email ?? "", eventItem));
     setShowEventModal(true);
   };
@@ -1096,6 +1138,7 @@ const AdminConsolePage = ({
       return;
     }
 
+    setSelectedKeywordPresetId("");
     setEventForm((previousValue) => {
       if (previousValue.keywords.includes(normalizedKeyword)) {
         return {
@@ -1131,47 +1174,61 @@ const AdminConsolePage = ({
     addKeyword(event.currentTarget.value);
   };
 
-  const buildEventKeywordRecommendations = (variationSeed: number) => {
-    return buildRecommendedEventKeywords({
-      name: eventForm.name,
-      location: eventForm.location,
-      eventTeam: eventForm.eventTeam,
-      date: eventForm.date,
-      boardSize: eventForm.boardSize,
-      variationSeed,
-    });
-  };
+  const handleApplyKeywordPreset = (presetId: EventKeywordPresetId) => {
+    const selectedPreset = EVENT_KEYWORD_PRESET_OPTIONS.find((item) => item.id === presetId);
+    if (!selectedPreset) {
+      return;
+    }
 
-  const applyKeywordRecommendations = (variationSeed: number) => {
-    const recommendedKeywords = buildEventKeywordRecommendations(variationSeed);
-    setKeywordRecommendationSeed(variationSeed);
+    if (eventForm.keywords.length > 0 && selectedKeywordPresetId !== presetId) {
+      const confirmed = window.confirm(
+        `현재 키워드를 "${selectedPreset.label}" 카테고리 키워드로 바꿀까요?`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    setSelectedKeywordPresetId(presetId);
+    setIsKeywordPresetPanelOpen(false);
+    setKeywordRecommendationNotice(`"${selectedPreset.label}" 카테고리 키워드를 적용했습니다.`);
+    setKeywordRecommendationError("");
     setEventForm((previousValue) => ({
       ...previousValue,
-      keywords: recommendedKeywords,
+      keywords: buildEventKeywordPresetKeywords(presetId, previousValue.boardSize),
       keywordDraft: "",
     }));
   };
 
-  const handleRecommendKeywords = () => {
+  const handleImportKeywordsFromEvent = () => {
+    const sourceEvent = availableImportEvents.find(
+      (eventItem) => String(eventItem.id) === importSourceEventId
+    );
+
+    if (!sourceEvent) {
+      setKeywordRecommendationError("가져올 기존 행사를 먼저 선택해 주세요.");
+      setKeywordRecommendationNotice("");
+      return;
+    }
+
     if (eventForm.keywords.length > 0) {
-      const confirmed = window.confirm("현재 입력한 키워드를 추천 키워드로 바꿀까요?");
+      const confirmed = window.confirm(
+        `현재 키워드를 "${sourceEvent.name}" 행사 키워드로 바꿀까요?`
+      );
       if (!confirmed) {
         return;
       }
     }
 
-    applyKeywordRecommendations(0);
-  };
-
-  const handleRefreshRecommendedKeywords = () => {
-    if (eventForm.keywords.length > 0) {
-      const confirmed = window.confirm("현재 키워드를 새로운 추천 키워드로 다시 만들까요?");
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    applyKeywordRecommendations(keywordRecommendationSeed + 1);
+    setSelectedKeywordPresetId("");
+    setEventForm((previousValue) => ({
+      ...previousValue,
+      keywords: clampKeywordList(sourceEvent.keywords, previousValue.boardSize),
+      keywordDraft: "",
+    }));
+    setKeywordRecommendationError("");
+    setKeywordRecommendationNotice(`"${sourceEvent.name}" 행사 키워드를 가져왔습니다.`);
+    setIsImportEventPanelOpen(false);
   };
 
   const handleCreateAdmin = async (event: FormEvent<HTMLFormElement>) => {
@@ -2948,13 +3005,16 @@ const AdminConsolePage = ({
                           setEventForm((previousValue) => {
                             const nextGoal =
                               size === "3" ? "3" : previousValue.bingoMissionCount;
+                            const nextKeywords = selectedKeywordPresetId
+                              ? buildEventKeywordPresetKeywords(selectedKeywordPresetId, size)
+                              : clampKeywordList(previousValue.keywords, size);
 
                             return {
                               ...previousValue,
                               boardSize: size,
                               bingoMissionCount:
                                 Number(nextGoal) > Number(size) ? size : nextGoal,
-                              keywords: clampKeywordList(previousValue.keywords, size),
+                              keywords: nextKeywords,
                             };
                           })
                         }
@@ -2999,7 +3059,7 @@ const AdminConsolePage = ({
                         현재 키워드: {keywordAutofillSummary.currentCount}개, 필요 키워드 {keywordAutofillSummary.goalCount}개
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
-                        행사명, 장소, 운영팀을 바탕으로 추천 초안을 만들 수 있습니다.
+                        카테고리를 고르면 행사 분위기에 맞는 기본 키워드가 바로 채워집니다.
                       </p>
                       {keywordAutofillSummary.missingCount > 0 ? (
                         <p className="mt-1 text-xs text-amber-700">
@@ -3018,49 +3078,78 @@ const AdminConsolePage = ({
                         variant="secondary"
                         size="sm"
                         className="h-7 rounded-md bg-emerald-100 px-3 text-[0.72rem] font-bold text-emerald-800 hover:bg-emerald-200"
-                        onClick={
-                          eventForm.keywords.length > 0
-                            ? handleRefreshRecommendedKeywords
-                            : handleRecommendKeywords
+                        onClick={() =>
+                          setIsKeywordPresetPanelOpen((previousValue) => !previousValue)
                         }
                       >
-                        {eventForm.keywords.length > 0
-                          ? "다시 추천받기"
-                          : "추천 키워드 만들기"}
+                        {isKeywordPresetPanelOpen
+                          ? "카테고리 닫기"
+                          : selectedKeywordPreset
+                            ? `카테고리: ${selectedKeywordPreset.label}`
+                            : "카테고리 고르기"}
                       </Button>
                       <Button
                         variant="secondary"
                         size="sm"
                         className="h-7 rounded-md bg-brand-100 px-3 text-[0.72rem] font-bold text-brand-800 hover:bg-brand-200"
-                        onClick={() => {
-                          const sourceEvent = events.find((eventItem) => eventItem.id !== eventForm.id);
-                          if (!sourceEvent) {
-                            return;
-                          }
-
-                          setEventForm((previousValue) => ({
-                            ...previousValue,
-                            keywords: clampKeywordList(sourceEvent.keywords, previousValue.boardSize),
-                          }));
-                        }}
+                        onClick={() =>
+                          setIsImportEventPanelOpen((previousValue) => !previousValue)
+                        }
                       >
-                        + 기존 행사에서 가져오기
+                        {isImportEventPanelOpen ? "가져오기 닫기" : "기존 행사에서 가져오기"}
                       </Button>
                       <Button
                         size="sm"
                         className="h-7 rounded-md bg-brand-700 px-3 text-[0.72rem] font-bold hover:bg-brand-800"
-                        onClick={() =>
+                        onClick={() => {
+                          setSelectedKeywordPresetId("");
                           setEventForm((previousValue) => ({
                             ...previousValue,
                             keywords: [],
                             keywordDraft: "",
-                          }))
-                        }
+                          }));
+                        }}
                       >
                         전체 삭제
                       </Button>
                     </div>
                   </div>
+
+                  {isKeywordPresetPanelOpen ? (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {EVENT_KEYWORD_PRESET_OPTIONS.map((preset) => {
+                          const isSelected = selectedKeywordPresetId === preset.id;
+
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              className={cn(
+                                "rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors",
+                                isSelected
+                                  ? "border-emerald-500 bg-emerald-600 text-white"
+                                  : "border-emerald-200 bg-white text-emerald-900 hover:border-emerald-300"
+                              )}
+                              onClick={() => handleApplyKeywordPreset(preset.id)}
+                            >
+                              {preset.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {selectedKeywordPreset ? (
+                        <p className="mt-2 text-xs text-slate-600">
+                          {selectedKeywordPreset.description}
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-600">
+                          원하는 분위기 카테고리를 골라 키워드를 바로 채우세요.
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
 
                   <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                     <div className="flex flex-wrap gap-2">
@@ -3069,12 +3158,13 @@ const AdminConsolePage = ({
                           key={keyword}
                           type="button"
                           className="rounded-md bg-brand-100 px-3 py-1 text-sm font-semibold text-brand-700"
-                          onClick={() =>
+                          onClick={() => {
+                            setSelectedKeywordPresetId("");
                             setEventForm((previousValue) => ({
                               ...previousValue,
                               keywords: previousValue.keywords.filter((item) => item !== keyword),
-                            }))
-                          }
+                            }));
+                          }}
                         >
                           {keyword}
                         </button>
@@ -3110,25 +3200,57 @@ const AdminConsolePage = ({
                     </div>
                   </div>
 
-                  {keywordAutofillSummary.missingCount > 0 ? (
-                    <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/70 px-3 py-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                        Auto-Filled Preview
-                      </p>
-                      <p className="mt-1 text-xs text-amber-800">
-                        확인을 누르면 아래 placeholder 키워드가 함께 저장됩니다.
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {keywordAutofillSummary.generatedKeywords.map((keyword) => (
-                          <span
-                            key={keyword}
-                            className="rounded-md border border-amber-200 bg-white px-3 py-1 text-xs font-semibold text-amber-800"
-                          >
-                            {keyword}
-                          </span>
-                        ))}
+                  {isImportEventPanelOpen ? (
+                    <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/70 px-4 py-4">
+                      <div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">기존 행사 키워드 가져오기</p>
+                          <p className="mt-1 text-xs text-slate-600">
+                            가져올 행사를 먼저 선택한 뒤 키워드를 불러오세요.
+                          </p>
+                        </div>
                       </div>
+
+                      {availableImportEvents.length > 0 ? (
+                        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end">
+                          <div className="flex-1 space-y-2">
+                            <Label htmlFor="event-modal-import-source">가져올 행사</Label>
+                            <select
+                              id="event-modal-import-source"
+                              value={importSourceEventId}
+                              onChange={(event) => setImportSourceEventId(event.target.value)}
+                              className="h-12 w-full rounded-xl border border-input bg-background px-3 text-sm text-slate-900 outline-none transition-colors focus:border-brand-500"
+                            >
+                              {availableImportEvents.map((eventItem) => (
+                                <option key={eventItem.id} value={String(eventItem.id)}>
+                                  {`${eventItem.name} · ${formatEventRowDate(eventItem.startAt)} · ${eventItem.boardSize}x${eventItem.boardSize}`}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <Button
+                            size="sm"
+                            className="h-12 rounded-xl bg-brand-700 px-4 text-sm font-bold hover:bg-brand-800"
+                            onClick={handleImportKeywordsFromEvent}
+                          >
+                            키워드 가져오기
+                          </Button>
+                        </div>
+                      ) : (
+                        <p className="mt-4 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-500">
+                          가져올 수 있는 기존 행사가 없습니다.
+                        </p>
+                      )}
                     </div>
+                  ) : null}
+
+                  {keywordRecommendationNotice ? (
+                    <p className="text-xs font-semibold text-sky-700">{keywordRecommendationNotice}</p>
+                  ) : null}
+
+                  {keywordRecommendationError ? (
+                    <p className="text-xs font-semibold text-rose-600">{keywordRecommendationError}</p>
                   ) : null}
                 </div>
 

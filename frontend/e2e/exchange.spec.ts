@@ -4,6 +4,7 @@ import {
   buildInteractionCreateResponse,
   buildInteractionRecord,
   mockBoardBootstrap,
+  mockParticipantSearch,
   mockPublicEventProfile,
   seedBingoSession,
 } from "./support/bingoApi";
@@ -31,9 +32,16 @@ const openExchangePage = async ({
     selectedValues,
     interactions,
   });
+  await mockParticipantSearch(page, [{ user_id: 9, display_name: "상대방" }]);
 
-  await page.goto("/bingo-networking/bingo");
-  await expect(page.getByLabel("상대방 ID 입력")).toBeVisible();
+  await page.goto("/event/bingo-networking/bingo");
+  await expect(page.getByLabel("상대방 이름 검색")).toBeVisible();
+};
+
+const selectOpponent = async (page: Page) => {
+  await page.getByLabel("상대방 이름 검색").fill("상대");
+  await expect(page.getByRole("button", { name: "상대방" })).toBeVisible();
+  await page.getByRole("button", { name: "상대방" }).click();
 };
 
 test("sends keywords from an existing bingo session", async ({ page }) => {
@@ -54,14 +62,13 @@ test("sends keywords from an existing bingo session", async ({ page }) => {
   });
 
   await openExchangePage({ page });
-
-  await page.getByLabel("상대방 ID 입력").fill("9");
+  await selectOpponent(page);
   await page.getByRole("button", { name: "보내기" }).click();
 
   await expect(page.locator(".bingo-toast__title")).toHaveText("키워드를 전송했어요");
   await expect(page.getByText('"상대방"님에게 새로운 키워드를 전송했어요.')).toBeVisible();
   await expect(page.locator(".history-panel").first()).toContainText("상대방");
-  await expect(page.getByLabel("상대방 ID 입력")).toHaveValue("");
+  await expect(page.getByLabel("상대방 이름 검색")).toHaveValue("");
 });
 
 test("blocks duplicate exchange before calling the API", async ({ page }) => {
@@ -86,13 +93,13 @@ test("blocks duplicate exchange before calling the API", async ({ page }) => {
     ],
   });
 
-  await page.getByLabel("상대방 ID 입력").fill("9");
+  await selectOpponent(page);
   await page.getByRole("button", { name: "보내기" }).click();
 
   await expect(page.locator(".bingo-toast__title")).toHaveText("이미 전송한 참가자예요");
   await expect(page.getByText("이미 같은 참가자에게 키워드를 보냈어요.")).toBeVisible();
   expect(postCalled).toBe(false);
-  await expect(page.getByLabel("상대방 ID 입력")).toHaveValue("9");
+  await expect(page.getByLabel("상대방 이름 검색")).toHaveValue("상대방");
 });
 
 test("shows an error and allows retrying the exchange", async ({ page }) => {
@@ -129,19 +136,18 @@ test("shows an error and allows retrying the exchange", async ({ page }) => {
   });
 
   await openExchangePage({ page });
-
-  await page.getByLabel("상대방 ID 입력").fill("9");
+  await selectOpponent(page);
   await page.getByRole("button", { name: "보내기" }).click();
 
   await expect(page.locator(".bingo-toast__title")).toHaveText("문제가 발생했어요");
   await expect(page.getByText("에러가 발생했습니다. 잠시 후 다시 시도해주세요.")).toBeVisible();
-  await expect(page.getByLabel("상대방 ID 입력")).toHaveValue("9");
+  await expect(page.getByLabel("상대방 이름 검색")).toHaveValue("상대방");
 
   await page.getByRole("button", { name: "보내기" }).click();
 
   await expect(page.locator(".bingo-toast__title")).toHaveText("새 키워드만 전송했어요");
   await expect(page.getByText('"상대방"님이 이미 가진 키워드는 제외하고 새로운 키워드만 전송했어요.')).toBeVisible();
   await expect(page.locator(".history-panel").first()).toContainText("상대방");
-  await expect(page.getByLabel("상대방 ID 입력")).toHaveValue("");
+  await expect(page.getByLabel("상대방 이름 검색")).toHaveValue("");
   expect(requestCount).toBe(2);
 });
