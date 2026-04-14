@@ -11,6 +11,7 @@ from core.dependencies import authenticate_user
 from models.admin import Admin, AdminRole
 from models.event import Event, GameMode
 from models.event_attendee import EventAttendee
+from models.bingo.bingo_boards import BingoBoards
 from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 from models.room import Room
 from models.team import Team
@@ -412,7 +413,6 @@ async def list_admin_events(
                 progress_current=progress_current,
                 progress_total=participant_count,
                 status=resolve_event_status(event),
-                publish_state=event.publish_state.value,
                 can_edit=can_edit_event(actor, event),
             )
         )

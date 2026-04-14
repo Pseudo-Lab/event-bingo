@@ -161,21 +161,26 @@ async def get_room_status(
 ):
     from sqlalchemy import select as sa_select, func
 
-    room = await Room.get_by_id(db, room_id)
-    event = await Event.get_by_id(db, room.event_id)
+    # Room + Event 단일 JOIN 쿼리
+    room_event_row = await db.execute(
+        sa_select(Room, Event).join(Event, Event.id == Room.event_id).where(Room.id == room_id)
+    )
+    result = room_event_row.one_or_none()
+    if not result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="방을 찾을 수 없습니다.")
+    room, event = result
 
     if event.game_mode != GameMode.TEAM:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="팀전 이벤트가 아닙니다.")
 
-    participant_count = await Room.get_participant_count(db, room_id)
-
-    # 팀 목록 + 팀별 인원수를 단일 쿼리로 조회 (N+1 제거)
+    # 팀 목록 + 팀별 인원수 단일 쿼리 — participant_count도 합산으로 계산
     team_count_rows = await db.execute(
         sa_select(Team, func.count(EventAttendee.id).label("member_count"))
         .outerjoin(EventAttendee, (EventAttendee.team_id == Team.id) & (EventAttendee.room_id == room_id))
         .where(Team.room_id == room_id)
         .group_by(Team.id)
     )
+    rows = team_count_rows.all()
     team_items = [
         TeamStatusItem(
             team_id=team.id,
@@ -183,8 +188,9 @@ async def get_room_status(
             name=team.name,
             member_count=count,
         )
-        for team, count in team_count_rows.all()
+        for team, count in rows
     ]
+    participant_count = sum(count for _, count in rows)
 
     return RoomStatusResponse(
         ok=True,
@@ -258,8 +264,13 @@ async def get_room_teams(
 ):
     from sqlalchemy import select as sa_select
 
-    room = await Room.get_by_id(db, room_id)
-    event = await Event.get_by_id(db, room.event_id)
+    room_event_row = await db.execute(
+        sa_select(Room, Event).join(Event, Event.id == Room.event_id).where(Room.id == room_id)
+    )
+    result = room_event_row.one_or_none()
+    if not result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="방을 찾을 수 없습니다.")
+    room, event = result
 
     if event.game_mode != GameMode.TEAM:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="팀전 이벤트가 아닙니다.")

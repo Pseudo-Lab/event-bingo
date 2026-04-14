@@ -1,4 +1,5 @@
 import logging
+import time
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -11,6 +12,10 @@ logger = logging.getLogger(__name__)
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
+# supabase_id → (Admin, expires_at) 60초 캐시
+_admin_cache: dict[str, tuple[Admin, float]] = {}
+_ADMIN_CACHE_TTL = 60.0
+
 
 async def _try_supabase_admin_auth(db, token: str):
     """Supabase JWT로 Admin 인증 시도. 실패하면 None 반환."""
@@ -19,10 +24,20 @@ async def _try_supabase_admin_auth(db, token: str):
         return None
 
     email = payload.get("email")
-    if not email:
+    supabase_id = payload.get("sub")
+    if not email or not supabase_id:
         return None
 
+    # 캐시 확인 (TTL 내면 DB 조회 스킵)
+    cached = _admin_cache.get(supabase_id)
+    if cached:
+        admin, expires_at = cached
+        if time.monotonic() < expires_at:
+            return admin
+
     admin = await Admin.get_by_email(db, email)
+    if admin:
+        _admin_cache[supabase_id] = (admin, time.monotonic() + _ADMIN_CACHE_TTL)
     return admin
 
 

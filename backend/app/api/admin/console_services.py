@@ -1,4 +1,6 @@
 from collections import Counter
+
+_seed_data_cleaned = False
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from email.message import EmailMessage
@@ -433,7 +435,31 @@ async def build_event_detail(
         for index, (keyword, count) in enumerate(keyword_counter.most_common(5), start=1)
     ]
 
-    summary = await build_event_summary(session, event, actor)
+    creator = await Admin.get_by_id(session, event.admin_id)
+    progress_current = bingo_distribution.get(event.success_condition, 0)
+    summary = AdminEventSummary(
+        id=event.id,
+        slug=event.slug,
+        name=event.name,
+        created_by_id=event.admin_id,
+        created_by_email=creator.email,
+        created_by_name=creator.name,
+        location=event.location,
+        event_team=event.event_team,
+        start_at=event.start_time,
+        end_at=event.end_time,
+        admin_email=event.admin_email,
+        board_size=event.bingo_size,
+        bingo_mission_count=event.success_condition,
+        keywords=[str(k) for k in (event.keywords or [])],
+        game_mode=event.game_mode.value,
+        team_size=event.team_size,
+        participant_count=participant_count,
+        progress_current=progress_current,
+        progress_total=participant_count,
+        status=resolve_event_status(event),
+        can_edit=can_edit_event(actor, event),
+    )
     return AdminEventDetail(
         **summary.model_dump(),
         public_path=f"/event/{event.slug}",
@@ -574,6 +600,10 @@ async def approve_event_manager_request(
 
 
 async def ensure_admin_console_seed_data(session: AsyncSession) -> None:
+    global _seed_data_cleaned
+    if _seed_data_cleaned:
+        return
+
     legacy_event_ids = (
         await session.execute(select(Event.id).where(Event.slug.in_(LEGACY_SEED_EVENT_SLUGS)))
     ).scalars().all()
@@ -594,6 +624,8 @@ async def ensure_admin_console_seed_data(session: AsyncSession) -> None:
     if legacy_admin_ids:
         await session.execute(delete(Admin).where(Admin.id.in_(legacy_admin_ids)))
         await session.commit()
+
+    _seed_data_cleaned = True
 
 
 
