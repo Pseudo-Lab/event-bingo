@@ -44,7 +44,7 @@ pandas==2.2.3
 pbs-installer==2025.3.17
 pkginfo==1.12.1.2
 platformdirs==4.3.7
-poetry==2.1.2
+poetry==2.3.3
 poetry-core==2.1.2
 pycparser==2.21
 pydantic==2.6.0
