@@ -165,6 +165,23 @@ const BingoGame = () => {
   const exchangeKeywordCount = eventProfile.exchangeKeywordCount;
   const isBoardPreviewActive = boardPreviewPreset !== null;
 
+  const syncSessionDisplayName = useCallback((nextName: string) => {
+    const trimmedName = nextName.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    const authSession = getAuthSession();
+    if (!authSession?.userId) {
+      return;
+    }
+
+    setAuthSession({
+      ...authSession,
+      userName: trimmedName,
+    });
+  }, []);
+
   const markedKeywordCount = useMemo(
     () => bingoBoard?.filter((cell) => cell.status === 1).length ?? 0,
     [bingoBoard]
@@ -337,6 +354,8 @@ const BingoGame = () => {
 
         if (boardResult.displayName) {
           setDisplayName(boardResult.displayName);
+          setUsername(boardResult.displayName);
+          syncSessionDisplayName(boardResult.displayName);
         }
 
         const previousBoard = bingoBoardRef.current;
@@ -419,7 +438,7 @@ const BingoGame = () => {
         isPollingRef.current = false;
       }
     },
-    [appendInteractionHistory, showAlert]
+    [appendInteractionHistory, showAlert, syncSessionDisplayName]
   );
 
   useEffect(() => {
@@ -438,32 +457,31 @@ const BingoGame = () => {
         return;
       }
 
-      if (!storedContact) {
-        const supabase = maybeGetSupabaseClient();
-        if (supabase) {
-          try {
-            const {
-              data: { session },
-            } = await supabase.auth.getSession();
-            const sessionEmail = normalizeAuthEmail(session?.user?.email);
-            if (session?.user && authSession?.loginId) {
-              const bridgeResult = await ensureBingoGoogleBridge(
-                session.user,
-                eventSlug ?? undefined
-              );
-              storedContact = resolveParticipantEmail(bridgeResult.authSession);
-            } else if (sessionEmail) {
-              storedContact = sessionEmail;
-              setAuthSession({
-                userId: storedId,
-                userName: authSession?.userName ?? storedName,
-                loginId: authSession?.loginId ?? "",
-                userEmail: sessionEmail,
-              });
-            }
-          } catch (error) {
-            console.warn("Failed to restore participant email from Supabase session.", error);
+      const supabase = maybeGetSupabaseClient();
+      if (supabase) {
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          const sessionEmail = normalizeAuthEmail(session?.user?.email);
+
+          if (session?.user && authSession?.loginId) {
+            const bridgeResult = await ensureBingoGoogleBridge(
+              session.user,
+              eventSlug ?? undefined
+            );
+            storedContact = resolveParticipantEmail(bridgeResult.authSession) || storedContact;
+          } else if (!storedContact && sessionEmail) {
+            storedContact = sessionEmail;
+            setAuthSession({
+              userId: storedId,
+              userName: authSession?.userName ?? storedName,
+              loginId: authSession?.loginId ?? "",
+              userEmail: sessionEmail,
+            });
           }
+        } catch (error) {
+          console.warn("Failed to restore participant email from Supabase session.", error);
         }
       }
 
@@ -506,6 +524,7 @@ const BingoGame = () => {
           if (boardResult.displayName) {
             setDisplayName(boardResult.displayName);
             setUsername(boardResult.displayName);
+            syncSessionDisplayName(boardResult.displayName);
           }
           setBingoBoard(boardData);
           bingoBoardRef.current = boardData;
@@ -685,6 +704,7 @@ const BingoGame = () => {
       if (result.displayName) {
         setDisplayName(result.displayName);
         setUsername(result.displayName);
+        syncSessionDisplayName(result.displayName);
       }
 
       setUserId(storedId);
@@ -899,6 +919,7 @@ const BingoGame = () => {
     // 이름은 보드 생성 시 함께 전달되므로 여기서는 로컬 상태만 설정
     setUsername(trimmed);
     setDisplayName(trimmed);
+    syncSessionDisplayName(trimmed);
     setNameInput(trimmed);
   };
 
@@ -1005,8 +1026,6 @@ const BingoGame = () => {
       <div className="keyword-setup-page">
         <div className="keyword-setup-page__mesh" aria-hidden="true" />
         <main className="keyword-setup-shell">
-          <p className="keyword-setup-brand">{brandTitle}</p>
-
           <header className="keyword-setup-header">
             <div className="keyword-setup-header__title">
               <span className="keyword-setup-header__spark keyword-setup-header__spark--left" />
@@ -1062,7 +1081,6 @@ const BingoGame = () => {
   if (initialSetupOpen) {
     return (
       <KeywordSetupScreen
-        brandTitle={brandTitle}
         exchangeKeywordCount={exchangeKeywordCount}
         isInitializingBoard={isInitializingBoard}
         keywords={cellValues}

@@ -694,13 +694,16 @@ const LoginPage = () => {
                 </p>
               </div>
 
-              <GoogleSignInButton
-                className="mx-auto max-w-[360px]"
-                context="signin"
-                onError={(message) => setErrorMessage(message)}
-                onSuccess={handleGoogleLogin}
-                text="signin_with"
-              />
+              <div className="flex w-full justify-center">
+                <div className="w-full max-w-[360px]">
+                  <GoogleSignInButton
+                    context="signin"
+                    onError={(message) => setErrorMessage(message)}
+                    onSuccess={handleGoogleLogin}
+                    text="signin_with"
+                  />
+                </div>
+              </div>
             </div>
           ) : (
             <div className="space-y-5 rounded-[2rem] border border-amber-100 bg-amber-50/90 p-7 shadow-soft">
@@ -2168,25 +2171,25 @@ const AdminConsolePage = ({
                       <div className="space-y-6">
                         <div className="overflow-hidden rounded-[1.6rem] border border-slate-100 bg-[#fbfcf8]">
                           <div className="overflow-x-auto">
-                            <Table className="min-w-[980px]">
+                            <Table className="min-w-[940px]">
                               <TableHeader className="bg-[#f6f8ef]">
                                 <TableRow className="border-none hover:bg-transparent">
-                                  <TableHead>이름</TableHead>
-                                  <TableHead>이메일</TableHead>
-                                  <TableHead>상태</TableHead>
+                                  <TableHead className="w-[13rem]">이름</TableHead>
+                                  <TableHead className="w-[16rem]">이메일</TableHead>
+                                  <TableHead className="w-[15rem]">상태</TableHead>
                                   <TableHead>키워드</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {visibleParticipants.map((participant) => (
                                   <TableRow key={participant.id}>
-                                    <TableCell className="text-[1.65rem] font-black tracking-tight text-slate-900">
+                                    <TableCell className="w-[13rem] min-w-[13rem] whitespace-nowrap text-[1.65rem] font-black tracking-tight text-slate-900">
                                       {participant.name}
                                     </TableCell>
-                                    <TableCell className="text-[1.05rem] text-slate-800">
+                                    <TableCell className="w-[16rem] min-w-[16rem] whitespace-nowrap text-[1.05rem] text-slate-800">
                                       {participant.email}
                                     </TableCell>
-                                    <TableCell className="min-w-[24rem]">
+                                    <TableCell className="w-[12rem] min-w-[12rem]">
                                       <div className="flex items-center gap-3">
                                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
                                           <div
@@ -2199,7 +2202,7 @@ const AdminConsolePage = ({
                                         </span>
                                       </div>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="min-w-[24rem]">
                                       <div className="flex flex-wrap gap-3">
                                         {participant.keywords.length > 0 ? (
                                           participant.keywords.map((keyword) => (

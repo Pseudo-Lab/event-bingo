@@ -537,14 +537,17 @@ const Home = () => {
           </button>
         </div>
 
-        <GoogleSignInButton
-          className="login-google-panel__button"
-          context="use"
-          disabled={!isAgreed}
-          onError={(message) => openAlert(message)}
-          onSuccess={handleGoogleBingoLogin}
-          text="continue_with"
-        />
+        <div className="login-google-panel__button-wrap">
+          <div className="login-google-panel__button-slot">
+            <GoogleSignInButton
+              context="use"
+              disabled={!isAgreed}
+              onError={(message) => openAlert(message)}
+              onSuccess={handleGoogleBingoLogin}
+              text="continue_with"
+            />
+          </div>
+        </div>
       </div>
     );
   };

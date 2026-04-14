@@ -144,18 +144,23 @@
 .login-google-panel {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
   gap: 1.1rem;
   min-height: 16rem;
   min-width: 0;
 }
 
-.login-google-panel__button {
+.login-google-panel__button-wrap {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.login-google-panel__button-slot {
   width: min(100%, 22rem);
   max-width: 100%;
   min-width: 0;
-  margin: 0 auto;
 }
 
 .login-consent {

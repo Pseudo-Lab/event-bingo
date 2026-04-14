@@ -43,7 +43,6 @@ type BingoCountdownScreenProps = {
 };
 
 type KeywordSetupScreenProps = {
-  brandTitle: string;
   exchangeKeywordCount: number;
   isInitializingBoard: boolean;
   keywords: string[];
@@ -223,7 +222,6 @@ export function BingoCountdownScreen({
 }
 
 export function KeywordSetupScreen({
-  brandTitle,
   exchangeKeywordCount,
   isInitializingBoard,
   keywords,
@@ -236,8 +234,6 @@ export function KeywordSetupScreen({
     <div className="keyword-setup-page">
       <div className="keyword-setup-page__mesh" aria-hidden="true" />
       <main className="keyword-setup-shell">
-        <p className="keyword-setup-brand">{brandTitle}</p>
-
         <header className="keyword-setup-header">
           <div className="keyword-setup-header__title">
             <span className="keyword-setup-header__spark keyword-setup-header__spark--left" />
