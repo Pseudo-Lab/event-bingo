@@ -71,7 +71,7 @@ typing_extensions==4.9.0
 tzdata==2024.1
 urllib3==2.6.3
 uvicorn==0.27.0.post1
-virtualenv==20.30.0
+virtualenv==20.36.1
 xattr==1.1.4
 zipp==3.21.0
 zstandard==0.23.0
