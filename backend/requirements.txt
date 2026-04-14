@@ -69,7 +69,7 @@ tomlkit==0.13.2
 trove-classifiers==2025.3.19.19
 typing_extensions==4.9.0
 tzdata==2024.1
-urllib3==2.3.0
+urllib3==2.6.3
 uvicorn==0.27.0.post1
 virtualenv==20.30.0
 xattr==1.1.4
