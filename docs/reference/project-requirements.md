@@ -59,6 +59,7 @@
 - team assignment and team leaderboard API
 - WebSocket infrastructure and broadcast payloads
 - Debug issue #81 (keyword exchange recorded but board not updated)
+- migrate existing Postgres data to Supabase
 
 ### P2
 - keyword_sets bulk table and API
@@ -85,17 +86,6 @@
 
 ## Infra and DevOps Priorities
 - Deployment GitOps repository for k3s/ArgoCD manifests: `https://github.com/Pseudo-Lab/DevFactory-Ops`
-
-### P0
-- migrate Docker Compose to k3s
-- configure ArgoCD GitOps deployment in `Pseudo-Lab/DevFactory-Ops`
-- sealed secrets for Supabase keys
-- Nginx ingress and cert-manager SSL
-- CI: GitHub Actions build and GHCR publish
-
-### P1
-- migrate existing Postgres data to Supabase
-- VictoriaMetrics and Gatus availability checks
 
 
 

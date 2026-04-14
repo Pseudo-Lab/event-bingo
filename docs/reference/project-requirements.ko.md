@@ -59,6 +59,7 @@
 - 팀 배정 및 팀 리더보드 API
 - WebSocket 인프라 및 브로드캐스트
 - Issue #81 유형 디싱크 회귀 수정
+- 기존 Postgres -> Supabase 데이터 이관
 
 ### P2
 - keyword_sets 테이블/API
@@ -85,15 +86,4 @@
 
 ## 인프라/데브옵스 우선순위
 - k3s/ArgoCD 매니페스트용 GitOps 저장소: `https://github.com/Pseudo-Lab/DevFactory-Ops`
-
-### P0
-- Docker Compose -> k3s 이관
-- `Pseudo-Lab/DevFactory-Ops`에서 ArgoCD GitOps 배포 구성
-- Supabase Key Sealed Secrets 처리
-- Nginx ingress + cert-manager SSL
-- GitHub Actions 빌드/GHCR 푸시 자동화
-
-### P1
-- 기존 Postgres -> Supabase 데이터 이관
-- VictoriaMetrics + Gatus 가용성 체크
 
