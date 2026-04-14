@@ -1,5 +1,9 @@
 # AI Agent
 CLAUDE.md
+.claude/
+
+# Design assets
+design/
 
 # IDE & Editor
 .idea/
