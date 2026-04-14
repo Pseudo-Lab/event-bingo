@@ -29,6 +29,7 @@ import {
 import {
   clearAuthSession,
   getAuthSession,
+  normalizeAuthEmail,
   setAuthSession,
 } from "../../utils/authSession";
 import { ensureBingoGoogleBridge } from "../../utils/bingoGoogleBridge";
@@ -64,7 +65,7 @@ const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { eventSlug } = useParams();
-  const eventProfile = useEventProfile(eventSlug);
+  const { eventProfile } = useEventProfile(eventSlug);
   const eventHomePath = useMemo(
     () => withSearch(getEventHomePath(eventProfile.slug), location.search),
     [eventProfile.slug, location.search]
@@ -109,6 +110,7 @@ const Home = () => {
 
       setParticipantName(storedSession.userName);
       setCurrentLoginId(storedSession.loginId);
+      setGoogleAccountEmail(normalizeAuthEmail(storedSession.userEmail));
       setIsLoggedIn(true);
       setIsAgreed(true);
       return;
@@ -231,7 +233,7 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
-    if (!shouldUseGoogleAuth || isLoggedIn) {
+    if (!shouldUseGoogleAuth || googleAccountEmail) {
       return;
     }
 
@@ -276,7 +278,7 @@ const Home = () => {
     return () => {
       cancelled = true;
     };
-  }, [applyGoogleBridgeState, eventProfile.slug, isLoggedIn, openAlert, shouldUseGoogleAuth]);
+  }, [applyGoogleBridgeState, eventProfile.slug, googleAccountEmail, openAlert, shouldUseGoogleAuth]);
 
   const handleGoogleBingoLogin = async ({
     credential,

@@ -16,6 +16,8 @@ const primaryLinkClassName =
   "inline-flex items-center justify-center rounded-full bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-800";
 const outlineLinkClassName =
   "inline-flex items-center justify-center rounded-full border border-brand-700 bg-white px-5 py-2.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50";
+const eventCardLinkClassName =
+  "inline-flex min-w-[7.75rem] shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-brand-700 bg-white px-6 py-2.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50";
 const ghostLinkClassName =
   "inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50";
 
@@ -404,7 +406,7 @@ const LandingHomePage = () => {
                           </p>
                         </div>
 
-                        <Link to={getEventHomePath(eventItem.slug)} className={outlineLinkClassName}>
+                        <Link to={getEventHomePath(eventItem.slug)} className={eventCardLinkClassName}>
                           링크
                         </Link>
                       </div>

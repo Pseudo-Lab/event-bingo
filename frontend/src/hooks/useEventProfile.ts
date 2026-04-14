@@ -16,9 +16,11 @@ export const useEventProfile = (eventSlug?: string | null) => {
     return resolveEventProfile(eventSlug);
   }, [eventSlug]);
   const [eventProfile, setEventProfile] = useState<EventProfile>(fallbackProfile);
+  const [isResolved, setIsResolved] = useState(false);
 
   useEffect(() => {
     setEventProfile(fallbackProfile);
+    setIsResolved(false);
   }, [fallbackProfile]);
 
   useEffect(() => {
@@ -29,10 +31,12 @@ export const useEventProfile = (eventSlug?: string | null) => {
         const publicEventProfile = await getPublicEventProfile(eventSlug);
         if (!cancelled) {
           setEventProfile(publicEventProfile);
+          setIsResolved(true);
         }
       } catch {
         if (!cancelled) {
           setEventProfile(fallbackProfile);
+          setIsResolved(true);
         }
       }
     };
@@ -44,5 +48,5 @@ export const useEventProfile = (eventSlug?: string | null) => {
     };
   }, [eventSlug, fallbackProfile]);
 
-  return eventProfile;
+  return { eventProfile, isResolved };
 };

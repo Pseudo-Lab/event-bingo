@@ -18,11 +18,6 @@ class AdminSessionInfo(BaseModel):
     role: AdminRoleLiteral
 
 
-class AdminLoginRequest(BaseModel):
-    email: str = Field(..., min_length=3, max_length=100)
-    password: str = Field(..., min_length=4, max_length=100)
-
-
 class AdminLoginResponse(BaseSchema):
     access_token: Optional[str] = None
     admin: Optional[AdminSessionInfo] = None
@@ -43,7 +38,6 @@ class AdminMemberListResponse(BaseSchema):
 
 class AdminMemberCreateRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=100)
-    password: str = Field(..., min_length=8, max_length=100)
     name: str = Field(..., min_length=1, max_length=100)
     role: AdminRoleLiteral
 
@@ -86,27 +80,7 @@ class AdminEventManagerRequestUpdateRequest(BaseModel):
 class AdminEventManagerRequestResponse(BaseSchema):
     request: Optional[AdminEventManagerRequestItem] = None
     invited_admin: Optional[AdminMemberItem] = None
-    invite_link: Optional[str] = None
     invite_email_sent: bool = False
-    invite_expires_at: Optional[datetime] = None
-
-
-class AdminInvitationPreviewItem(BaseModel):
-    email: str
-    name: str
-    expires_at: datetime
-
-
-class AdminInvitationPreviewResponse(BaseSchema):
-    invitation: Optional[AdminInvitationPreviewItem] = None
-
-
-class AdminInvitationCompleteRequest(BaseModel):
-    password: str = Field(..., min_length=8, max_length=100)
-
-
-class AdminInvitationCompleteResponse(BaseSchema):
-    member: Optional[AdminMemberItem] = None
 
 
 class AdminPolicyTemplateItem(BaseModel):

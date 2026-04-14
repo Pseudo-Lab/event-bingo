@@ -33,6 +33,8 @@ type BingoAlertToastProps = {
 
 type BingoLoadingScreenProps = {
   brandTitle: string;
+  title?: string;
+  description?: string;
 };
 
 type BingoCountdownScreenProps = {
@@ -169,15 +171,19 @@ export function BingoAlertToast({
   );
 }
 
-export function BingoLoadingScreen({ brandTitle }: BingoLoadingScreenProps) {
+export function BingoLoadingScreen({
+  brandTitle,
+  title = "로딩 중입니다",
+  description = "잠시만 기다려 주세요.",
+}: BingoLoadingScreenProps) {
   return (
     <div className="bingo-game-page">
       <div className="bingo-game-page__mesh" aria-hidden="true" />
       <div className="bingo-loading-screen">
         <section className="bingo-loading-card" aria-label="bingo loading">
           <p className="bingo-loading-card__label">{brandTitle}</p>
-          <h1>빙고 보드를 준비하고 있어요</h1>
-          <p>저장된 보드와 교환 기록을 불러오는 중입니다.</p>
+          <h1>{title}</h1>
+          <p>{description}</p>
         </section>
       </div>
     </div>

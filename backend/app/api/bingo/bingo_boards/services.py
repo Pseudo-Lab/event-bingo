@@ -15,22 +15,28 @@ class BaseBingoBoard:
     def __init__(self, session: AsyncSessionDepends):
         self.async_session = session
 
+    async def resolve_event_id(self, event_slug: str | None) -> int | None:
+        normalized_slug = (event_slug or "").strip().lower()
+        if not normalized_slug:
+            return None
+
+        event = await Event.get_by_slug(self.async_session, normalized_slug)
+        if not event:
+            raise ValueError("이벤트를 찾을 수 없습니다.")
+
+        return event.id
+
 
 class CreateBingoBoard(BaseBingoBoard):
     async def execute(self, user_id: int, board_data: dict, event_slug: str | None = None, display_name: str | None = None) -> BingoBoards:
         try:
-            # event_slug로 event_id 조회
-            event_id = 0
-            if event_slug:
-                event = await Event.get_by_slug(self.async_session, event_slug)
-                if event:
-                    event_id = event.id
+            event_id = await self.resolve_event_id(event_slug) or 0
 
             # 빙고판 생성 (display_name은 동명이인 접미사 자동 부여)
             res = await BingoBoards.create(self.async_session, user_id, event_id, board_data, display_name=display_name)
 
             # 선택된 단어들 업데이트
-            selected_words = await BingoBoards.get_user_selected_words(self.async_session, user_id)
+            selected_words = await BingoBoards.get_user_selected_words(self.async_session, user_id, event_id)
             logger.info(f"User {user_id} selected words: {selected_words}")
             await BingoUser.update_selected_words(self.async_session, user_id, selected_words)
 
@@ -45,18 +51,20 @@ class CreateBingoBoard(BaseBingoBoard):
 
 
 class GetBingoBoardByUserId(BaseBingoBoard):
-    async def execute(self, user_id: int) -> BingoBoards:
+    async def execute(self, user_id: int, event_slug: str | None = None) -> BingoBoards:
         try:
-            res = await BingoBoards.get_board_by_userid(self.async_session, user_id)
+            event_id = await self.resolve_event_id(event_slug)
+            res = await BingoBoards.get_board_by_userid(self.async_session, user_id, event_id)
             return BingoBoardResponse(**res.__dict__, ok=True, message="빙고판 조회에 성공하였습니다.")
         except ValueError as e:
             return BingoBoardResponse(ok=False, message=str(e))
 
 
 class UpdateBingoBoardByUserId(BaseBingoBoard):
-    async def execute(self, user_id: int, board_data: dict) -> BingoBoards:
+    async def execute(self, user_id: int, board_data: dict, event_slug: str | None = None, display_name: str | None = None) -> BingoBoards:
         try:
-            res = await BingoBoards.update_board_by_userid(self.async_session, user_id, board_data)
+            event_id = await self.resolve_event_id(event_slug)
+            res = await BingoBoards.update_board_by_userid(self.async_session, user_id, board_data, event_id)
             return BingoBoardResponse(**res.__dict__, ok=True, message="빙고판 수정에 성공하였습니다.")
         except ValueError as e:
             return BingoBoardResponse(ok=False, message=str(e))

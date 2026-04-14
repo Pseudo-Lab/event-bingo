@@ -2,6 +2,7 @@ from sqlalchemy import select
 
 from core.db import AsyncSessionDepends
 from models.bingo import BingoBoards, BingoInteraction
+from models.event import Event
 from models.user import BingoUser
 from api.bingo.bingo_interaction.schema import BingoInteractionResponse, BingoInteractionListResponse
 
@@ -9,6 +10,17 @@ from api.bingo.bingo_interaction.schema import BingoInteractionResponse, BingoIn
 class BaseBingoInteraction:
     def __init__(self, session: AsyncSessionDepends):
         self.async_session = session
+
+    async def _resolve_event_id(self, event_slug: str | None) -> int | None:
+        normalized_slug = (event_slug or "").strip().lower()
+        if not normalized_slug:
+            return None
+
+        event = await Event.get_by_slug(self.async_session, normalized_slug)
+        if not event:
+            raise ValueError("이벤트를 찾을 수 없습니다.")
+
+        return event.id
 
     async def _build_user_name_map(self, interactions: list[BingoInteraction]) -> dict[int, str]:
         user_ids = {
@@ -53,6 +65,7 @@ class CreateBingoInteraction(BaseBingoInteraction):
         word_id_list: str,
         send_user_id: int,
         receive_user_id: int,
+        event_slug: str | None = None,
     ) -> BingoInteractionResponse:
         try:
             if send_user_id == receive_user_id:
@@ -61,10 +74,16 @@ class CreateBingoInteraction(BaseBingoInteraction):
                     message="보내는 계정과 받는 계정이 같습니다.",
                 )
 
+            event_id = await self._resolve_event_id(event_slug)
+            if event_id is None:
+                receiver_board = await BingoBoards.get_board_by_userid(self.async_session, receive_user_id)
+                event_id = receiver_board.event_id
+
             is_duplicate = await BingoInteraction.has_directional_interaction(
                 self.async_session,
                 send_user_id=send_user_id,
                 receive_user_id=receive_user_id,
+                event_id=event_id,
             )
             if is_duplicate:
                 return BingoInteractionResponse(
@@ -74,8 +93,8 @@ class CreateBingoInteraction(BaseBingoInteraction):
 
             send_user = await BingoUser.get_user_by_id(self.async_session, send_user_id)
             receive_user = await BingoUser.get_user_by_id(self.async_session, receive_user_id)
-            board = await BingoBoards.get_board_by_userid(self.async_session, receive_user_id)
-            selected_words = await BingoBoards.get_user_selected_words(self.async_session, send_user_id)
+            board = await BingoBoards.get_board_by_userid(self.async_session, receive_user_id, event_id)
+            selected_words = await BingoBoards.get_user_selected_words(self.async_session, send_user_id, event_id)
 
             if any(
                 cell_data.get("interaction_id") == send_user_id
@@ -98,15 +117,17 @@ class CreateBingoInteraction(BaseBingoInteraction):
                     self.async_session,
                     receive_user_id,
                     dict(board.board_data),
+                    event_id,
                 )
 
             board.user_interaction_count += 1
-            board = await BingoBoards.update_bingo_count(self.async_session, receive_user_id)
+            board = await BingoBoards.update_bingo_count(self.async_session, receive_user_id, event_id)
             interaction = await BingoInteraction.create(
                 self.async_session,
                 word_id_list,
                 send_user_id,
                 receive_user_id,
+                event_id=event_id,
             )
 
             return BingoInteractionResponse(
@@ -127,9 +148,20 @@ class CreateBingoInteraction(BaseBingoInteraction):
 
 
 class GetUserLatestInteraction(BaseBingoInteraction):
-    async def execute(self, user_id: int, limit: int) -> list[BingoInteractionResponse] | BingoInteractionResponse:
+    async def execute(
+        self,
+        user_id: int,
+        limit: int,
+        event_slug: str | None = None,
+    ) -> list[BingoInteractionResponse] | BingoInteractionResponse:
         try:
-            interactions = await BingoInteraction.get_user_latest_interaction(self.async_session, user_id, limit)
+            event_id = await self._resolve_event_id(event_slug)
+            interactions = await BingoInteraction.get_user_latest_interaction(
+                self.async_session,
+                user_id,
+                limit,
+                event_id=event_id,
+            )
             responses = await self._serialize_interactions(
                 interactions,
                 "유저의 최근 빙고 인터렉션 조회에 성공하였습니다.",
@@ -144,13 +176,16 @@ class GetUserAllInteractions(BaseBingoInteraction):
     async def execute(
         self,
         user_id: int,
+        event_slug: str | None = None,
         after_interaction_id: int | None = None,
     ) -> BingoInteractionListResponse:
         try:
+            event_id = await self._resolve_event_id(event_slug)
             interactions = await BingoInteraction.get_user_all_interactions(
                 self.async_session,
                 user_id,
                 after_interaction_id=after_interaction_id,
+                event_id=event_id,
             )
             serialized_interactions = await self._serialize_interactions(
                 interactions,

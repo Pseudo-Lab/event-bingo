@@ -19,6 +19,11 @@ const LEGACY_STORAGE_KEYS = {
 
 const hasWindow = () => typeof window !== "undefined";
 
+export const normalizeAuthEmail = (value?: string | null) => {
+  const trimmedValue = value?.trim() ?? "";
+  return trimmedValue.includes("@") ? trimmedValue : "";
+};
+
 const readAuthSessionFromStorage = (storage: Storage | null): AuthSession | null => {
   if (!storage) {
     return null;
@@ -35,9 +40,9 @@ const readAuthSessionFromStorage = (storage: Storage | null): AuthSession | null
     storage.getItem(LEGACY_STORAGE_KEYS.userEmail) ??
     "";
   const userEmail =
-    storage.getItem(AUTH_STORAGE_KEYS.userEmail) ??
-    storage.getItem(LEGACY_STORAGE_KEYS.userEmail) ??
-    "";
+    normalizeAuthEmail(storage.getItem(AUTH_STORAGE_KEYS.userEmail)) ||
+    normalizeAuthEmail(storage.getItem(LEGACY_STORAGE_KEYS.userEmail)) ||
+    normalizeAuthEmail(loginId);
 
   const nextSession: AuthSession = {
     userId,
@@ -71,11 +76,13 @@ export const setAuthSession = (session: AuthSession) => {
     return;
   }
 
+  const userEmail = normalizeAuthEmail(session.userEmail) || normalizeAuthEmail(session.loginId);
+
   window.sessionStorage.setItem(AUTH_STORAGE_KEYS.userId, session.userId);
   window.sessionStorage.setItem(AUTH_STORAGE_KEYS.userName, session.userName);
   window.sessionStorage.setItem(AUTH_STORAGE_KEYS.loginId, session.loginId);
-  if (session.userEmail) {
-    window.sessionStorage.setItem(AUTH_STORAGE_KEYS.userEmail, session.userEmail);
+  if (userEmail) {
+    window.sessionStorage.setItem(AUTH_STORAGE_KEYS.userEmail, userEmail);
   } else {
     window.sessionStorage.removeItem(AUTH_STORAGE_KEYS.userEmail);
   }

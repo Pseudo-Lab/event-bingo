@@ -20,7 +20,6 @@ import {
   getAdminMe,
   getAdminMembers,
   getAdminPolicyTemplate,
-  loginAdmin,
   resetAdminEventData,
   reviewAdminEventManagerRequest,
   updateAdminPolicyTemplate,
@@ -56,7 +55,6 @@ import { isGoogleIdentityConfigured } from "../../lib/googleIdentity";
 import {
   clearAdminSession,
   getAdminSession,
-  hasAdminSession,
   setAdminSession,
 } from "../../utils/adminSession";
 import { clearLegacyLocalLoginStorage } from "../../utils/legacyAuthStorage";
@@ -101,7 +99,6 @@ type EventFormState = {
 
 const ITEMS_PER_PAGE = 4;
 const DETAIL_PARTICIPANTS_PER_PAGE = 8;
-const DEFAULT_MEMBER_PASSWORD = "Admin1234!";
 const POLICY_PREVIEW_HOST = "샘플 행사 운영팀";
 const EVENT_DETAIL_TABS: Array<{ key: EventDetailTab; label: string }> = [
   { key: "overview", label: "개요" },
@@ -319,7 +316,7 @@ const createEventFormState = (adminEmail: string, eventItem?: AdminEvent): Event
     location: "",
     eventTeam: "",
     boardSize: "5",
-    bingoMissionCount: "4",
+    bingoMissionCount: "3",
     keywords: [],
     keywordDraft: "",
     date: "",
@@ -395,22 +392,6 @@ const FileIcon = () => (
     <path d="M14 2v6h6" />
     <path d="M8 13h8" />
     <path d="M8 17h6" />
-  </IconBase>
-);
-
-const EyeIcon = () => (
-  <IconBase>
-    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
-    <circle cx="12" cy="12" r="2.8" />
-  </IconBase>
-);
-
-const EyeOffIcon = () => (
-  <IconBase>
-    <path d="M3 3l18 18" />
-    <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
-    <path d="M9.88 5.09A10.94 10.94 0 0 1 12 5c6.5 0 10 7 10 7a18.9 18.9 0 0 1-4.11 4.88" />
-    <path d="M6.61 6.61A18.48 18.48 0 0 0 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.11-1.17" />
   </IconBase>
 );
 
@@ -540,44 +521,6 @@ const SectionHeader = ({
   );
 };
 
-const LoginField = ({
-  id,
-  type,
-  placeholder,
-  value,
-  onChange,
-  trailing,
-}: {
-  id: string;
-  type: string;
-  placeholder: string;
-  value: string;
-  onChange: (value: string) => void;
-  trailing?: ReactNode;
-}) => {
-  return (
-    <div className="relative">
-      <Label htmlFor={id} className="sr-only">
-        {placeholder}
-      </Label>
-      <Input
-        id={id}
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        className={cn(
-          "h-14 rounded-2xl border-slate-300 bg-white px-5 text-base",
-          trailing ? "pr-14" : ""
-        )}
-      />
-      {trailing ? (
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500">{trailing}</div>
-      ) : null}
-    </div>
-  );
-};
-
 const EventStatusBadge = ({ status }: { status: AdminEventStatus }) => {
   const label =
     status === "ended" ? "종료" : status === "in_progress" ? "진행 중" : "예정";
@@ -642,9 +585,6 @@ const EmptyPanelState = ({
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const shouldUseGoogleAdminAuth = canUseGoogleAdminAuth();
@@ -654,9 +594,6 @@ const LoginPage = () => {
 
     const redirectAuthenticatedAdmin = async () => {
       if (!shouldUseGoogleAdminAuth) {
-        if (hasAdminSession()) {
-          navigate(getAdminPath("event-settings"), { replace: true });
-        }
         return;
       }
 
@@ -694,21 +631,6 @@ const LoginPage = () => {
       cancelled = true;
     };
   }, [navigate, shouldUseGoogleAdminAuth]);
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    try {
-      setIsSubmitting(true);
-      const nextSession = await loginAdmin(email, password);
-      setAdminSession(nextSession);
-      navigate(getAdminPath("event-settings"), { replace: true });
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "이메일 또는 비밀번호를 확인해 주세요.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleGoogleLogin = async ({
     credential,
@@ -781,49 +703,16 @@ const LoginPage = () => {
               />
             </div>
           ) : (
-            <form className="grid gap-4 md:grid-cols-[minmax(0,1fr)_8rem]" onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <LoginField
-                  id="admin-email"
-                  type="email"
-                  value={email}
-                  placeholder="이메일 주소"
-                  onChange={(nextValue) => {
-                    setEmail(nextValue);
-                    setErrorMessage("");
-                  }}
-                />
-
-                <LoginField
-                  id="admin-password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  placeholder="비밀번호"
-                  onChange={(nextValue) => {
-                    setPassword(nextValue);
-                    setErrorMessage("");
-                  }}
-                  trailing={
-                    <button
-                      type="button"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100"
-                      aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
-                      onClick={() => setShowPassword((previousValue) => !previousValue)}
-                    >
-                      {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                    </button>
-                  }
-                />
+            <div className="space-y-5 rounded-[2rem] border border-amber-100 bg-amber-50/90 p-7 shadow-soft">
+              <div className="space-y-2 text-center">
+                <h2 className="text-2xl font-black tracking-tight text-amber-900">
+                  Google 관리자 로그인이 필요합니다
+                </h2>
+                <p className="text-sm leading-6 text-amber-800/80">
+                  현재 환경에는 관리자용 Google/Supabase 설정이 없어 로그인할 수 없습니다.
+                </p>
               </div>
-
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="h-full min-h-[122px] rounded-2xl bg-gradient-to-b from-[#5fd0a8] to-[#45bc90] text-2xl font-black tracking-tight text-white hover:from-[#55c79f] hover:to-[#39b081] md:min-w-[8rem]"
-              >
-                {isSubmitting ? "확인 중" : "로그인"}
-              </Button>
-            </form>
+            </div>
           )}
 
           {errorMessage ? (
@@ -859,8 +748,6 @@ const AdminConsolePage = ({
   const [eventSearchQuery, setEventSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [addFormError, setAddFormError] = useState("");
   const [eventFormError, setEventFormError] = useState("");
   const [pageError, setPageError] = useState("");
@@ -880,8 +767,6 @@ const AdminConsolePage = ({
   const [resettingEventId, setResettingEventId] = useState<number | null>(null);
   const [newAdminForm, setNewAdminForm] = useState({
     email: "",
-    password: "",
-    confirmPassword: "",
     name: "",
     role: "admin" as AdminRole,
   });
@@ -894,17 +779,17 @@ const AdminConsolePage = ({
 
     const bootstrapSession = async () => {
       try {
-        let accessToken = "";
-
-        if (shouldUseGoogleAdminAuth) {
-          const supabase = getSupabaseClient();
-          const {
-            data: { session: supabaseSession },
-          } = await supabase.auth.getSession();
-          accessToken = supabaseSession?.access_token ?? "";
-        } else {
-          accessToken = getAdminSession()?.accessToken ?? "";
+        if (!shouldUseGoogleAdminAuth) {
+          clearAdminSession();
+          navigate(getAdminPath(), { replace: true });
+          return;
         }
+
+        const supabase = getSupabaseClient();
+        const {
+          data: { session: supabaseSession },
+        } = await supabase.auth.getSession();
+        const accessToken = supabaseSession?.access_token ?? "";
 
         if (!accessToken) {
           navigate(getAdminPath(), { replace: true });
@@ -1259,16 +1144,6 @@ const AdminConsolePage = ({
       return;
     }
 
-    if (newAdminForm.password.length < 8 || !/[A-Z]/.test(newAdminForm.password)) {
-      setAddFormError("비밀번호는 영어 대문자를 포함해 8자 이상이어야 합니다.");
-      return;
-    }
-
-    if (newAdminForm.password !== newAdminForm.confirmPassword) {
-      setAddFormError("비밀번호 확인이 일치하지 않습니다.");
-      return;
-    }
-
     if (!newAdminForm.name.trim()) {
       setAddFormError("이름을 입력해 주세요.");
       return;
@@ -1277,7 +1152,6 @@ const AdminConsolePage = ({
     try {
       const nextMember = await createAdminMember(session.accessToken, {
         email: normalizedEmail,
-        password: newAdminForm.password,
         name: newAdminForm.name,
         role: newAdminForm.role,
       });
@@ -1288,8 +1162,6 @@ const AdminConsolePage = ({
       setAddFormError("");
       setNewAdminForm({
         email: "",
-        password: "",
-        confirmPassword: "",
         name: "",
         role: "admin",
       });
@@ -1374,19 +1246,6 @@ const AdminConsolePage = ({
       setInviteReviewResult(null);
     } finally {
       setReviewingApplicationId(null);
-    }
-  };
-
-  const handleCopyInviteLink = async () => {
-    if (!inviteReviewResult?.inviteLink) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(inviteReviewResult.inviteLink);
-      setPageNotice("초대 링크를 복사했습니다.");
-    } catch {
-      setPageError("초대 링크를 복사하지 못했습니다.");
     }
   };
 
@@ -1885,35 +1744,18 @@ const AdminConsolePage = ({
                 {pageNotice ? (
                   <div className="rounded-2xl border border-brand-100 bg-brand-50 px-4 py-4 text-sm font-semibold text-brand-800">
                     <p>{pageNotice}</p>
-                    {inviteReviewResult?.inviteLink ? (
-                      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-600">
-                            초대 링크
-                          </p>
-                          <code className="block break-all rounded-2xl bg-white px-4 py-3 text-xs font-semibold leading-6 text-brand-700">
-                            {inviteReviewResult.inviteLink}
-                          </code>
-                          <p className="text-xs text-brand-700/80">
-                            {inviteReviewResult.invitedAdmin
-                              ? `생성 계정: ${inviteReviewResult.invitedAdmin.email}`
-                              : "기존 관리자 계정을 사용합니다."}
-                            {inviteReviewResult.inviteExpiresAt
-                              ? ` · 만료 ${formatAdminDate(inviteReviewResult.inviteExpiresAt)}`
-                              : ""}
-                            {inviteReviewResult.inviteEmailSent
-                              ? " · 초대 메일 발송 완료"
-                              : " · 메일 설정이 없거나 발송에 실패해 링크를 직접 전달해 주세요."}
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="rounded-full px-5"
-                          onClick={() => void handleCopyInviteLink()}
-                        >
-                          링크 복사
-                        </Button>
+                    {inviteReviewResult ? (
+                      <div className="mt-3 space-y-2 rounded-2xl bg-white px-4 py-3 text-xs font-semibold leading-6 text-brand-700">
+                        <p>
+                          {inviteReviewResult.invitedAdmin
+                            ? `권한 부여 계정: ${inviteReviewResult.invitedAdmin.email}`
+                            : "기존 관리자 계정 권한을 유지합니다."}
+                        </p>
+                        <p>
+                          {inviteReviewResult.inviteEmailSent
+                            ? "환영 메일 발송 완료 · 승인된 이메일의 Google 계정으로 관리자 로그인할 수 있습니다."
+                            : "메일 발송에 실패했거나 설정이 없어, 승인된 이메일의 Google 계정으로 바로 로그인하면 됩니다."}
+                        </p>
                       </div>
                     ) : null}
                   </div>
@@ -2812,7 +2654,7 @@ const AdminConsolePage = ({
               <div>
                 <h2 className="text-2xl font-black tracking-tight text-brand-800">관리자 추가</h2>
                 <p className="mt-2 text-sm text-slate-500">
-                  기본 데모 비밀번호는 `{DEFAULT_MEMBER_PASSWORD}` 입니다.
+                  승인된 이메일은 Google 로그인으로 바로 관리자 콘솔에 접근할 수 있습니다.
                 </p>
               </div>
               <Button
@@ -2844,62 +2686,6 @@ const AdminConsolePage = ({
                     }
                     placeholder="abcd@gmail.com"
                   />
-                </div>
-
-                <div className="grid gap-5 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="new-admin-password">비밀번호</Label>
-                    <div className="relative">
-                      <Input
-                        id="new-admin-password"
-                        type={showNewPassword ? "text" : "password"}
-                        value={newAdminForm.password}
-                        onChange={(event) =>
-                          setNewAdminForm((previousValue) => ({
-                            ...previousValue,
-                            password: event.target.value,
-                          }))
-                        }
-                        placeholder="영어 대문자 포함 8자 이상"
-                        className="pr-12"
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
-                        aria-label={showNewPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
-                        onClick={() => setShowNewPassword((previousValue) => !previousValue)}
-                      >
-                        {showNewPassword ? <EyeOffIcon /> : <EyeIcon />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="new-admin-password-confirm">비밀번호 확인</Label>
-                    <div className="relative">
-                      <Input
-                        id="new-admin-password-confirm"
-                        type={showConfirmPassword ? "text" : "password"}
-                        value={newAdminForm.confirmPassword}
-                        onChange={(event) =>
-                          setNewAdminForm((previousValue) => ({
-                            ...previousValue,
-                            confirmPassword: event.target.value,
-                          }))
-                        }
-                        placeholder="영어 대문자 포함 8자 이상"
-                        className="pr-12"
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
-                        aria-label={showConfirmPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
-                        onClick={() => setShowConfirmPassword((previousValue) => !previousValue)}
-                      >
-                        {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -3150,7 +2936,7 @@ const AdminConsolePage = ({
                         bingoMissionCount: event.target.value,
                       }))
                     }
-                    placeholder="4줄"
+                    placeholder="3줄"
                     className="h-12 rounded-xl"
                   />
                 </div>

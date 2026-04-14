@@ -2,7 +2,7 @@ import type { User } from "@supabase/supabase-js";
 
 import { loginBingoUser, registerBingoUser } from "../api/bingo_api";
 import { getSupabaseClient } from "../lib/supabaseClient";
-import { setAuthSession, type AuthSession } from "./authSession";
+import { normalizeAuthEmail, setAuthSession, type AuthSession } from "./authSession";
 import { clearLegacyLocalLoginStorage } from "./legacyAuthStorage";
 
 const LOGIN_ID_METADATA_KEY = "event_bingo_login_id";
@@ -93,7 +93,8 @@ const toAuthSession = (
     throw new Error(result.message || "빙고 계정 정보를 확인하지 못했습니다.");
   }
 
-  const userEmail = pickString(result.user_email) || pickString(fallbackEmail);
+  const userEmail =
+    normalizeAuthEmail(fallbackEmail) || normalizeAuthEmail(pickString(result.user_email));
 
   return {
     userId: String(result.user_id),
@@ -137,7 +138,8 @@ export const ensureBingoGoogleBridge = async (
     const loginResult = (await loginBingoUser(
       bridgeMetadata.loginId,
       bridgeMetadata.bridgeKey,
-      eventSlug
+      eventSlug,
+      googleProfile.email
     )) as BingoUserResult;
 
     if (loginResult.ok) {
@@ -163,7 +165,8 @@ export const ensureBingoGoogleBridge = async (
   const registerResult = (await registerBingoUser(
     googleProfile.displayName,
     bridgeKey,
-    eventSlug
+    eventSlug,
+    googleProfile.email
   )) as BingoUserResult;
   const authSession = toAuthSession(
     registerResult,

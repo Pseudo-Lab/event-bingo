@@ -13,7 +13,14 @@ import {
   withSearch,
 } from "../../config/eventProfiles";
 import { useEventProfile } from "../../hooks/useEventProfile";
-import { getAuthSession } from "../../utils/authSession";
+import { maybeGetSupabaseClient } from "../../lib/supabaseClient";
+import {
+  getAuthSession,
+  normalizeAuthEmail,
+  setAuthSession,
+} from "../../utils/authSession";
+import { ensureBingoGoogleBridge } from "../../utils/bingoGoogleBridge";
+import bingoNetworkingWordmark from "../../assets/illustrations/Bingo Networking.svg";
 import {
   BingoAlertToast,
   BingoBoardSection,
@@ -50,10 +57,10 @@ import type { BoardPreviewPreset } from "./bingoGameTypes";
 import { syncTestModeFromUrl } from "../../utils/testMode";
 import "./BingoGame.css";
 
-const MOCK_EMAIL_DOMAIN = "mock.event-bingo.local";
+const PSEUDOLAB_URL = "https://pseudo-lab.com/";
 
 const resolveParticipantEmail = (authSession: ReturnType<typeof getAuthSession>) => {
-  const userEmail = authSession?.userEmail?.trim();
+  const userEmail = normalizeAuthEmail(authSession?.userEmail);
   if (userEmail) {
     return userEmail;
   }
@@ -67,21 +74,25 @@ const resolveParticipantEmail = (authSession: ReturnType<typeof getAuthSession>)
     return loginId;
   }
 
-  if (typeof window !== "undefined" && window.sessionStorage.getItem("bingo.mockApiMode") === "true") {
-    const userId = authSession?.userId?.trim() ?? "";
-    if (userId) {
-      return `tester-${userId}@${MOCK_EMAIL_DOMAIN}`;
-    }
+  return "";
+};
+
+const getBoardReadyStorageKey = (eventSlug: string, userId: string) =>
+  `event-bingo.board-ready.v1:${eventSlug}:${userId}`;
+
+const readBoardReadyFlag = (eventSlug?: string, userId?: string) => {
+  if (typeof window === "undefined" || !eventSlug || !userId) {
+    return false;
   }
 
-  return "";
+  return window.sessionStorage.getItem(getBoardReadyStorageKey(eventSlug, userId)) === "1";
 };
 
 const BingoGame = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { eventSlug } = useParams();
-  const eventProfile = useEventProfile(eventSlug);
+  const { eventProfile, isResolved: isEventProfileResolved } = useEventProfile(eventSlug);
   const [testModeEnabled] = useState(() => syncTestModeFromUrl(location.search));
   const boardSize = eventProfile.boardSize;
   const boardCellCount = boardSize * boardSize;
@@ -140,6 +151,9 @@ const BingoGame = () => {
   const [isInitializingBoard, setIsInitializingBoard] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [lastProcessedIncomingSignature, setLastProcessedIncomingSignature] = useState("");
+  const [hasKnownBoardForEvent, setHasKnownBoardForEvent] = useState(() =>
+    readBoardReadyFlag(eventSlug, getAuthSession()?.userId)
+  );
   const alertTimeoutRef = useRef<number | null>(null);
   const bingoBoardRef = useRef<BingoCell[] | null>(null);
   const lastSeenInteractionIdRef = useRef(0);
@@ -171,6 +185,20 @@ const BingoGame = () => {
 
     return `${name} 님`;
   }, [displayName, participantContact, userId, username]);
+
+  const loadingScreenCopy = useMemo(() => {
+    if (!isEventProfileResolved || !hasKnownBoardForEvent) {
+      return {
+        title: "로딩 중입니다",
+        description: "잠시만 기다려 주세요.",
+      };
+    }
+
+    return {
+      title: "빙고 보드를 불러오고 있습니다",
+      description: "저장된 보드와 교환 기록을 확인하고 있어요.",
+    };
+  }, [hasKnownBoardForEvent, isEventProfileResolved]);
 
   const historySummary = useMemo(() => {
     return buildExchangeHistory(interactionHistory, userId);
@@ -254,6 +282,10 @@ const BingoGame = () => {
   }, [bingoBoard]);
 
   useEffect(() => {
+    setHasKnownBoardForEvent(readBoardReadyFlag(eventSlug, getAuthSession()?.userId));
+  }, [eventSlug]);
+
+  useEffect(() => {
     lastSeenInteractionIdRef.current = getLatestInteractionId(interactionHistory);
   }, [interactionHistory]);
 
@@ -287,8 +319,8 @@ const BingoGame = () => {
 
       try {
         const [boardResult, interactionResponse] = await Promise.all([
-          getBingoBoard(activeUserId),
-          getUserAllInteraction(activeUserId, lastSeenInteractionIdRef.current),
+          getBingoBoard(activeUserId, eventSlug ?? undefined),
+          getUserAllInteraction(activeUserId, eventSlug ?? undefined, lastSeenInteractionIdRef.current),
         ]);
         const latestBoard = boardResult.board;
 
@@ -391,18 +423,52 @@ const BingoGame = () => {
   );
 
   useEffect(() => {
+    if (!isEventProfileResolved) {
+      return;
+    }
+
     const init = async () => {
       const authSession = getAuthSession();
       const storedId = authSession?.userId ?? "";
       const storedName = authSession?.userName ?? "";
-      const storedContact = resolveParticipantEmail(authSession);
+      let storedContact = resolveParticipantEmail(authSession);
 
       if (!storedId) {
         navigate(eventHomePath, { replace: true });
         return;
       }
 
+      if (!storedContact) {
+        const supabase = maybeGetSupabaseClient();
+        if (supabase) {
+          try {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            const sessionEmail = normalizeAuthEmail(session?.user?.email);
+            if (session?.user && authSession?.loginId) {
+              const bridgeResult = await ensureBingoGoogleBridge(
+                session.user,
+                eventSlug ?? undefined
+              );
+              storedContact = resolveParticipantEmail(bridgeResult.authSession);
+            } else if (sessionEmail) {
+              storedContact = sessionEmail;
+              setAuthSession({
+                userId: storedId,
+                userName: authSession?.userName ?? storedName,
+                loginId: authSession?.loginId ?? "",
+                userEmail: sessionEmail,
+              });
+            }
+          } catch (error) {
+            console.warn("Failed to restore participant email from Supabase session.", error);
+          }
+        }
+      }
+
       setUserId(storedId);
+      setHasKnownBoardForEvent(readBoardReadyFlag(eventSlug, storedId));
       if (storedName) {
         setUsername(storedName);
       }
@@ -420,8 +486,8 @@ const BingoGame = () => {
         setIsBootstrapping(true);
 
         const [boardResult, interactionData] = await Promise.all([
-          getBingoBoard(storedId),
-          getUserAllInteraction(storedId),
+          getBingoBoard(storedId, eventSlug ?? undefined),
+          getUserAllInteraction(storedId, eventSlug ?? undefined),
         ]);
         const boardData = boardResult.board;
         const interactionRecords = Array.isArray(interactionData.interactions)
@@ -433,6 +499,10 @@ const BingoGame = () => {
 
         if (boardData && boardData.length > 0) {
           // 기존 보드가 있으면 빙고 화면으로
+          if (typeof window !== "undefined" && eventSlug) {
+            window.sessionStorage.setItem(getBoardReadyStorageKey(eventSlug, storedId), "1");
+            setHasKnownBoardForEvent(true);
+          }
           if (boardResult.displayName) {
             setDisplayName(boardResult.displayName);
             setUsername(boardResult.displayName);
@@ -459,11 +529,19 @@ const BingoGame = () => {
           }
         } else {
           // 보드 없음 → 이름 설정부터 시작
+          if (typeof window !== "undefined" && eventSlug) {
+            window.sessionStorage.removeItem(getBoardReadyStorageKey(eventSlug, storedId));
+          }
+          setHasKnownBoardForEvent(false);
           enterSetupFlow(storedName);
         }
       } catch (error) {
         console.error("Error loading user board:", error);
         // API 실패해도 셋업 플로우로 진입
+        if (typeof window !== "undefined" && eventSlug) {
+          window.sessionStorage.removeItem(getBoardReadyStorageKey(eventSlug, storedId));
+        }
+        setHasKnownBoardForEvent(false);
         enterSetupFlow(storedName);
       } finally {
         setIsBootstrapping(false);
@@ -488,7 +566,16 @@ const BingoGame = () => {
     };
 
     void init();
-  }, [boardCellCount, cellValues, eventHomePath, navigate, showAlert, testModeEnabled, unlockTime]);
+  }, [
+    boardCellCount,
+    cellValues,
+    eventHomePath,
+    isEventProfileResolved,
+    navigate,
+    showAlert,
+    testModeEnabled,
+    unlockTime,
+  ]);
 
   useEffect(() => {
     if (!userId || initialSetupOpen || nameSetupOpen) {
@@ -590,6 +677,10 @@ const BingoGame = () => {
       const result = await createBingoBoard(storedId, boardData, eventSlug ?? undefined, displayName || undefined);
       if (!result.ok) {
         return false;
+      }
+      if (typeof window !== "undefined" && eventSlug) {
+        window.sessionStorage.setItem(getBoardReadyStorageKey(eventSlug, storedId), "1");
+        setHasKnownBoardForEvent(true);
       }
       if (result.displayName) {
         setDisplayName(result.displayName);
@@ -857,7 +948,8 @@ const BingoGame = () => {
       const exchangeResult = await createUserBingoInteraction(
         serializeInteractionKeywords(myKeywords),
         Number(myId),
-        Number(targetId)
+        Number(targetId),
+        eventSlug ?? undefined
       );
 
       if (!exchangeResult.ok) {
@@ -982,8 +1074,14 @@ const BingoGame = () => {
     );
   }
 
-  if (isBootstrapping) {
-    return <BingoLoadingScreen brandTitle={brandTitle} />;
+  if (!isEventProfileResolved || isBootstrapping) {
+    return (
+      <BingoLoadingScreen
+        brandTitle={brandTitle}
+        title={loadingScreenCopy.title}
+        description={loadingScreenCopy.description}
+      />
+    );
   }
 
   if (locked) {
@@ -1000,13 +1098,24 @@ const BingoGame = () => {
       <div className="bingo-game-page__mesh" aria-hidden="true" />
 
       <main className="bingo-game-shell">
-        <button
-          type="button"
-          className="bingo-game-brand bingo-game-brand--link"
-          onClick={() => navigate(eventHomePath, { replace: true })}
-        >
-          {brandTitle}
-        </button>
+        <header className="bingo-game-header">
+          <a
+            className="bingo-game-header__pseudolab"
+            href={PSEUDOLAB_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            PseudoLab
+          </a>
+          <button
+            type="button"
+            className="bingo-game-header__brand"
+            aria-label={`${brandTitle} 홈으로 이동`}
+            onClick={() => navigate(eventHomePath, { replace: true })}
+          >
+            <img src={bingoNetworkingWordmark} alt={brandTitle} />
+          </button>
+        </header>
 
         <section className="bingo-game-top">
           <article className="bingo-card bingo-hero">
@@ -1079,6 +1188,25 @@ const BingoGame = () => {
             >
               <span style={{ width: `${completionRate}%` }} />
             </div>
+            <section className="bingo-stats__selected" aria-label="내가 고른 키워드">
+              <div className="bingo-stats__selected-head">
+                <h3>내가 고른 키워드</h3>
+                <strong>{myKeywords.length}개</strong>
+              </div>
+              <div className="bingo-stats__selected-list">
+                {myKeywords.length > 0 ? (
+                  myKeywords.map((keyword) => (
+                    <span key={keyword} className="bingo-stats__selected-chip">
+                      {keyword}
+                    </span>
+                  ))
+                ) : (
+                  <p className="bingo-stats__selected-empty">
+                    아직 선택한 키워드가 없어요.
+                  </p>
+                )}
+              </div>
+            </section>
             <dl className="bingo-stats__meta">
               <div>
                 <dt>수집한 키워드</dt>

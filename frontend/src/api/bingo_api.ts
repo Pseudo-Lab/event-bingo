@@ -227,7 +227,8 @@ export const resetLocalMockTesterData = () => {
 export const registerBingoUser = async (
   userName: string,
   password: string,
-  eventSlug?: string
+  eventSlug?: string,
+  userEmail?: string
 ) => {
   if (shouldUseMockApi()) {
     return mockRegisterBingoUser(userName, password);
@@ -241,6 +242,7 @@ export const registerBingoUser = async (
         username: userName,
         password,
         event_slug: eventSlug,
+        user_email: userEmail,
       }),
     }
   );
@@ -249,7 +251,8 @@ export const registerBingoUser = async (
 export const loginBingoUser = async (
   loginId: string,
   password: string,
-  eventSlug?: string
+  eventSlug?: string,
+  userEmail?: string
 ) => {
   if (shouldUseMockApi()) {
     return mockLoginBingoUser(loginId, password);
@@ -263,6 +266,7 @@ export const loginBingoUser = async (
         login_id: loginId,
         password,
         event_slug: eventSlug,
+        user_email: userEmail,
       }),
     }
   );
@@ -294,13 +298,15 @@ export const createBingoBoard = async (
   return { ok: data.ok, displayName: data.display_name ?? displayName };
 };
 
-export const getBingoBoard = async (userId: string) => {
+export const getBingoBoard = async (userId: string, eventSlug?: string) => {
   if (shouldUseMockApi()) {
-    return { board: await mockGetBingoBoard(userId), displayName: undefined };
+    return { board: await mockGetBingoBoard(userId, eventSlug), displayName: undefined };
   }
 
   const data = await requestJson<BingoBoardResponse>(
-    `/api/bingo/boards/${userId}`
+    `/api/bingo/boards/${userId}`,
+    { method: "GET" },
+    eventSlug ? { event_slug: eventSlug } : undefined
   );
 
   if (!data.ok) {
@@ -313,17 +319,19 @@ export const getBingoBoard = async (userId: string) => {
 export const createUserBingoInteraction = async (
   word_id_list: string,
   send_user_id: number,
-  receive_user_id: number
+  receive_user_id: number,
+  eventSlug?: string
 ) => {
   const data = shouldUseMockApi()
     ? await mockCreateUserBingoInteraction(
         word_id_list,
         send_user_id,
-        receive_user_id
+        receive_user_id,
+        eventSlug
       )
     : await requestJson<BingoInteractionResponse>("/api/bingo/interactions", {
         method: "POST",
-        body: JSON.stringify({ word_id_list, send_user_id, receive_user_id }),
+        body: JSON.stringify({ word_id_list, send_user_id, receive_user_id, event_slug: eventSlug }),
       });
 
   if (!data.ok) {
@@ -353,12 +361,13 @@ export const createUserBingoInteraction = async (
 
 export const getUserLatestInteraction = async (
   userId: string,
-  limit: number = 0
+  limit: number = 0,
+  eventSlug?: string
 ) => {
   const data = await requestJson<BingoInteractionResponse[] | ApiResponseBase>(
     `/api/bingo/interactions/${userId}`,
     { method: "GET" },
-    { limit }
+    eventSlug ? { limit, event_slug: eventSlug } : { limit }
   );
 
   return Array.isArray(data) ? toInteractionRecords(data) : [];
@@ -366,18 +375,22 @@ export const getUserLatestInteraction = async (
 
 export const getUserAllInteraction = async (
   userId: string,
+  eventSlug?: string,
   afterInteractionId?: number
 ) => {
   const data = shouldUseMockApi()
-    ? await mockGetUserAllInteraction(userId, afterInteractionId)
+    ? await mockGetUserAllInteraction(userId, eventSlug, afterInteractionId)
     : await requestJson<
         ApiResponseBase & { interactions?: BingoInteractionResponse[] | null }
       >(
         `/api/bingo/interactions/${userId}/all`,
         { method: "GET" },
-        typeof afterInteractionId === "number"
-          ? { after_interaction_id: afterInteractionId }
-          : undefined
+        {
+          ...(typeof afterInteractionId === "number"
+            ? { after_interaction_id: afterInteractionId }
+            : {}),
+          ...(eventSlug ? { event_slug: eventSlug } : {}),
+        }
       );
 
   if (!data.ok) {

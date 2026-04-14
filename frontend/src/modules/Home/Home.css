@@ -127,6 +127,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  min-width: 0;
   padding: 1.65rem;
   border-radius: 1.7rem;
   background: rgba(255, 255, 255, 0.96);
@@ -143,15 +144,18 @@
 .login-google-panel {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   gap: 1.1rem;
   min-height: 16rem;
+  min-width: 0;
 }
 
 .login-google-panel__button {
   width: min(100%, 22rem);
-  margin: 0;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0 auto;
 }
 
 .login-consent {
@@ -166,10 +170,15 @@
 .login-consent__checkbox {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
   gap: 0.65rem;
   font-size: 0.95rem;
   color: #7f8a86;
   cursor: pointer;
+  text-align: center;
+  flex-wrap: wrap;
 }
 
 .login-consent__checkbox input {
@@ -177,9 +186,16 @@
   height: 1.1rem;
   accent-color: #30a884;
   cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.login-consent__checkbox span {
+  display: inline-block;
+  text-align: center;
 }
 
 .login-consent__link {
+  align-self: center;
   padding: 0;
   border: 0;
   background: transparent;
@@ -187,6 +203,7 @@
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+  text-align: center;
 }
 
 .login-consent__link:hover {

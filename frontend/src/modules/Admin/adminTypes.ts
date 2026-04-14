@@ -10,10 +10,6 @@ export type AdminMember = {
   role: AdminRole;
 };
 
-export type StoredAdminMember = AdminMember & {
-  password: string;
-};
-
 export type AdminSession = {
   id: number;
   email: string;
@@ -72,12 +68,6 @@ export type AdminEventManagerRequest = {
   createdAt: string;
 };
 
-export type AdminInvitationPreview = {
-  email: string;
-  name: string;
-  expiresAt: string;
-};
-
 export type AdminPolicyTemplate = {
   key: string;
   content: string;
@@ -88,9 +78,7 @@ export type AdminPolicyTemplate = {
 export type AdminEventManagerRequestReviewResult = {
   request: AdminEventManagerRequest;
   invitedAdmin?: AdminMember;
-  inviteLink?: string;
   inviteEmailSent: boolean;
-  inviteExpiresAt?: string;
   message: string;
 };
 

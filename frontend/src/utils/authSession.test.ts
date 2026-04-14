@@ -60,6 +60,21 @@ describe("authSession", () => {
     });
   });
 
+  it("ignores non-email session values and does not restore login codes as emails", () => {
+    setAuthSession({
+      userId: "12",
+      userName: "브리지 사용자",
+      loginId: "SJ6ZRJ",
+      userEmail: "SJ6ZRJ",
+    });
+
+    expect(getAuthSession()).toEqual({
+      userId: "12",
+      userName: "브리지 사용자",
+      loginId: "SJ6ZRJ",
+    });
+  });
+
   it("does not restore legacy auth data from localStorage anymore", () => {
     window.localStorage.setItem("myID", "22");
     window.localStorage.setItem("myUserName", "레거시");

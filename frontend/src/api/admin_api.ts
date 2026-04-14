@@ -5,7 +5,6 @@ import type {
   AdminEventParticipant,
   AdminEventManagerRequest,
   AdminEventManagerRequestReviewResult,
-  AdminInvitationPreview,
   AdminMember,
   AdminPolicyTemplate,
   AdminSession,
@@ -76,23 +75,7 @@ type AdminEventManagerRequestListResponse = ApiResponseBase & {
 type AdminEventManagerRequestResponse = ApiResponseBase & {
   request?: AdminEventManagerRequestPayload | null;
   invited_admin?: AdminMemberPayload | null;
-  invite_link?: string | null;
   invite_email_sent?: boolean | null;
-  invite_expires_at?: string | null;
-};
-
-type AdminInvitationPreviewPayload = {
-  email: string;
-  name: string;
-  expires_at: string;
-};
-
-type AdminInvitationPreviewResponse = ApiResponseBase & {
-  invitation?: AdminInvitationPreviewPayload | null;
-};
-
-type AdminInvitationCompleteResponse = ApiResponseBase & {
-  member?: AdminMemberPayload | null;
 };
 
 type AdminPolicyTemplatePayload = {
@@ -286,20 +269,6 @@ const mapAdminMember = (payload: AdminMemberPayload): AdminMember => {
   };
 };
 
-const mapAdminInvitationPreview = (
-  payload: AdminInvitationPreviewPayload | null | undefined
-): AdminInvitationPreview => {
-  if (!payload) {
-    throw new Error("초대 정보를 받지 못했습니다.");
-  }
-
-  return {
-    email: payload.email,
-    name: payload.name,
-    expiresAt: payload.expires_at,
-  };
-};
-
 const mapAdminPolicyTemplate = (
   payload: AdminPolicyTemplatePayload | null | undefined
 ): AdminPolicyTemplate => {
@@ -403,22 +372,6 @@ const mapAdminEvent = (payload: AdminEventPayload): AdminEvent => {
   };
 };
 
-export const loginAdmin = async (email: string, password: string) => {
-  const payload = await requestJson<AdminLoginResponse>("/api/admin/auth/login", {
-    method: "POST",
-    body: JSON.stringify({
-      email: email.trim().toLowerCase(),
-      password,
-    }),
-  });
-
-  if (!payload.access_token) {
-    throw new Error("관리자 로그인 토큰을 받지 못했습니다.");
-  }
-
-  return mapAdminSession(payload.admin, payload.access_token);
-};
-
 export const getAdminMe = async (accessToken: string) => {
   const payload = await requestJson<AdminLoginResponse>("/api/admin/auth/me", {}, accessToken);
   return mapAdminSession(payload.admin, accessToken);
@@ -433,7 +386,6 @@ export const createAdminMember = async (
   accessToken: string,
   input: {
     email: string;
-    password: string;
     name: string;
     role: AdminRoleLiteral;
   }
@@ -444,7 +396,6 @@ export const createAdminMember = async (
       method: "POST",
       body: JSON.stringify({
         email: input.email.trim().toLowerCase(),
-        password: input.password,
         name: input.name.trim(),
         role: input.role,
       }),
@@ -506,35 +457,7 @@ export const reviewAdminEventManagerRequest = async (
   return {
     request: mapAdminEventManagerRequest(payload.request),
     invitedAdmin: payload.invited_admin ? mapAdminMember(payload.invited_admin) : undefined,
-    inviteLink: payload.invite_link ?? undefined,
     inviteEmailSent: payload.invite_email_sent ?? false,
-    inviteExpiresAt: payload.invite_expires_at ?? undefined,
-    message: payload.message,
-  };
-};
-
-export const getAdminInvitationPreview = async (token: string) => {
-  const payload = await requestJson<AdminInvitationPreviewResponse>(
-    `/api/admin/invitations/${encodeURIComponent(token)}`
-  );
-  return mapAdminInvitationPreview(payload.invitation);
-};
-
-export const completeAdminInvitation = async (token: string, password: string) => {
-  const payload = await requestJson<AdminInvitationCompleteResponse>(
-    `/api/admin/invitations/${encodeURIComponent(token)}/complete`,
-    {
-      method: "POST",
-      body: JSON.stringify({ password }),
-    }
-  );
-
-  if (!payload.member) {
-    throw new Error("초대 완료 결과를 받지 못했습니다.");
-  }
-
-  return {
-    member: mapAdminMember(payload.member),
     message: payload.message,
   };
 };
