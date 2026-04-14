@@ -19,6 +19,7 @@ from models.event import Event, EventStatus
 from models.event_attendee import EventAttendee
 from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 from models.policy_template import PolicyTemplate
+from models.room import Room
 from models.team import Team
 from models.user import BingoUser
 
@@ -346,6 +347,8 @@ async def build_event_summary(
         board_size=event.bingo_size,
         bingo_mission_count=event.success_condition,
         keywords=[str(keyword) for keyword in (event.keywords or [])],
+        game_mode=event.game_mode.value,
+        team_size=event.team_size,
         participant_count=participant_count,
         progress_current=progress_current,
         progress_total=participant_count,
