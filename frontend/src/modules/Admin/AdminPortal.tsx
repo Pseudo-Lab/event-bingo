@@ -3026,14 +3026,9 @@ const AdminConsolePage = ({
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="event-modal-bingo-mission">
-                      성공 조건(완성해야하는 빙고 수)
-                    </Label>
-                    <span className="text-brand-700">
-                      <InfoIcon />
-                    </span>
-                  </div>
+                  <Label htmlFor="event-modal-bingo-mission">
+                    성공 조건(완성해야하는 빙고 수)
+                  </Label>
                   <Input
                     id="event-modal-bingo-mission"
                     type="number"
