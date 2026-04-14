@@ -71,6 +71,7 @@ import type {
 import { getEventDateParts } from "./adminEventDate";
 import {
   buildAutoFilledKeywordList,
+  buildRecommendedEventKeywords,
   clampKeywordList,
   describeKeywordAutofill,
 } from "./adminKeywordUtils";
@@ -773,6 +774,9 @@ const AdminConsolePage = ({
     name: "",
     role: "admin" as AdminRole,
   });
+  const [keywordRecommendationSeed, setKeywordRecommendationSeed] = useState(0);
+  const isKeywordDraftComposingRef = useRef(false);
+  const skipKeywordDraftBlurRef = useRef(false);
   const [eventForm, setEventForm] = useState<EventFormState>(() =>
     createEventFormState(initialSession?.email ?? "")
   );
@@ -1085,6 +1089,7 @@ const AdminConsolePage = ({
 
   const openEventModal = (eventItem?: AdminEvent) => {
     setEventFormError("");
+    setKeywordRecommendationSeed(0);
     setEventForm(createEventFormState(session?.email ?? "", eventItem));
     setShowEventModal(true);
   };
@@ -1126,12 +1131,60 @@ const AdminConsolePage = ({
   };
 
   const handleKeywordDraftKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (isKeywordDraftComposingRef.current || event.nativeEvent.isComposing) {
+      return;
+    }
+
     if (event.key !== "Enter" && event.key !== ",") {
       return;
     }
 
     event.preventDefault();
-    addKeyword(eventForm.keywordDraft);
+    skipKeywordDraftBlurRef.current = true;
+    addKeyword(event.currentTarget.value);
+  };
+
+  const buildEventKeywordRecommendations = (variationSeed: number) => {
+    return buildRecommendedEventKeywords({
+      name: eventForm.name,
+      location: eventForm.location,
+      eventTeam: eventForm.eventTeam,
+      date: eventForm.date,
+      boardSize: eventForm.boardSize,
+      variationSeed,
+    });
+  };
+
+  const applyKeywordRecommendations = (variationSeed: number) => {
+    const recommendedKeywords = buildEventKeywordRecommendations(variationSeed);
+    setKeywordRecommendationSeed(variationSeed);
+    setEventForm((previousValue) => ({
+      ...previousValue,
+      keywords: recommendedKeywords,
+      keywordDraft: "",
+    }));
+  };
+
+  const handleRecommendKeywords = () => {
+    if (eventForm.keywords.length > 0) {
+      const confirmed = window.confirm("현재 입력한 키워드를 추천 키워드로 바꿀까요?");
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    applyKeywordRecommendations(0);
+  };
+
+  const handleRefreshRecommendedKeywords = () => {
+    if (eventForm.keywords.length > 0) {
+      const confirmed = window.confirm("현재 키워드를 새로운 추천 키워드로 다시 만들까요?");
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    applyKeywordRecommendations(keywordRecommendationSeed + 1);
   };
 
   const handleCreateAdmin = async (event: FormEvent<HTMLFormElement>) => {
@@ -2952,6 +3005,9 @@ const AdminConsolePage = ({
                       <p className="mt-1 text-xs text-brand-700">
                         현재 키워드: {keywordAutofillSummary.currentCount}개, 필요 키워드 {keywordAutofillSummary.goalCount}개
                       </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        행사명, 장소, 운영팀을 바탕으로 추천 초안을 만들 수 있습니다.
+                      </p>
                       {keywordAutofillSummary.missingCount > 0 ? (
                         <p className="mt-1 text-xs text-amber-700">
                           저장 시 부족한 {keywordAutofillSummary.missingCount}개는 &quot;
@@ -2964,7 +3020,21 @@ const AdminConsolePage = ({
                       )}
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-7 rounded-md bg-emerald-100 px-3 text-[0.72rem] font-bold text-emerald-800 hover:bg-emerald-200"
+                        onClick={
+                          eventForm.keywords.length > 0
+                            ? handleRefreshRecommendedKeywords
+                            : handleRecommendKeywords
+                        }
+                      >
+                        {eventForm.keywords.length > 0
+                          ? "다시 추천받기"
+                          : "추천 키워드 만들기"}
+                      </Button>
                       <Button
                         variant="secondary"
                         size="sm"
@@ -3026,7 +3096,20 @@ const AdminConsolePage = ({
                             keywordDraft: event.target.value,
                           }))
                         }
-                        onBlur={() => addKeyword(eventForm.keywordDraft)}
+                        onCompositionStart={() => {
+                          isKeywordDraftComposingRef.current = true;
+                        }}
+                        onCompositionEnd={() => {
+                          isKeywordDraftComposingRef.current = false;
+                        }}
+                        onBlur={(event) => {
+                          if (skipKeywordDraftBlurRef.current) {
+                            skipKeywordDraftBlurRef.current = false;
+                            return;
+                          }
+
+                          addKeyword(event.currentTarget.value);
+                        }}
                         onKeyDown={handleKeywordDraftKeyDown}
                         placeholder={eventForm.keywords.length === 0 ? "키워드를 입력하고 Enter를 누르세요." : ""}
                         className="min-w-[10rem] flex-1 border-0 bg-transparent px-2 py-1 text-sm text-slate-700 outline-none"
