@@ -6,7 +6,7 @@ backports.tarfile==1.2.0
 bcrypt==5.0.0
 build==1.2.2.post1
 CacheControl==0.14.2
-certifi==2024.2.2
+certifi==2024.7.4
 cffi==1.16.0
 charset-normalizer==3.4.1
 cleo==2.1.0
