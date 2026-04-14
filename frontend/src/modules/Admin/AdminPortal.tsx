@@ -58,6 +58,8 @@ import {
   setAdminSession,
 } from "../../utils/adminSession";
 import { clearLegacyLocalLoginStorage } from "../../utils/legacyAuthStorage";
+import adminTopIllustration from "../../assets/illustrations/admin_top.svg";
+import adminTitleIllustration from "../../assets/illustrations/title.svg";
 import type {
   AdminEventManagerRequest,
   AdminEvent,
@@ -474,30 +476,15 @@ const navigationItems: Array<{
 
 const AdminBrand = ({ compact = false }: { compact?: boolean }) => {
   return (
-    <div className={cn("relative text-center", compact && "text-left")}>
-      <div
+    <div className={cn("text-center", compact && "text-left")}>
+      <img
+        src={compact ? adminTopIllustration : adminTitleIllustration}
+        alt="Bingo Networking Admin"
         className={cn(
-          "relative inline-flex flex-col items-center px-6 py-4",
-          compact && "origin-top-left scale-90 items-start px-0 py-0"
+          "mx-auto block h-auto w-[19.25rem] max-w-full",
+          compact && "mx-0 w-[12rem] max-w-[100%]"
         )}
-      >
-        <span className="absolute left-0 top-10 h-16 w-16 rounded-[1.6rem] bg-white/25 blur-[1px]" />
-        <span className="absolute right-2 top-3 h-8 w-8 rounded-2xl bg-white/20 blur-[1px]" />
-        <span className="relative text-5xl font-black tracking-[-0.08em] text-[#73e4bd] sm:text-6xl">
-          Bingo
-        </span>
-        <span className="relative -mt-2 text-4xl font-black tracking-[-0.08em] text-white sm:text-5xl">
-          Networking
-        </span>
-      </div>
-      <p
-        className={cn(
-          "mt-1 text-2xl font-semibold text-slate-500",
-          compact && "ml-3 mt-0 text-lg text-brand-900/70"
-        )}
-      >
-        Admin
-      </p>
+      />
     </div>
   );
 };

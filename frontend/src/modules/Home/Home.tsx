@@ -43,6 +43,8 @@ import {
 } from "./homeDisplay";
 import "./Home.css";
 
+const PSEUDOLAB_URL = "https://pseudo-lab.com/";
+
 const normalizeTesterCode = (value: string | undefined | null) => {
   return value?.trim().toUpperCase().replace(/\s/g, "") ?? "";
 };
@@ -522,6 +524,16 @@ const Home = () => {
       <div className="login-page__mesh" aria-hidden="true" />
       <main className="login-shell">
         <header className="login-hero">
+          <div className="login-hero__topbar">
+            <a
+              className="login-hero__brand-link"
+              href={PSEUDOLAB_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              PseudoLab
+            </a>
+          </div>
           <img
             className="login-hero__image"
             src={topIllustration}
