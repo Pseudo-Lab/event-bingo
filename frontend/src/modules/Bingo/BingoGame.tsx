@@ -116,11 +116,13 @@ const BingoGame = () => {
   const [opponentId, setOpponentId] = useState("");
   const [opponentQuery, setOpponentQuery] = useState("");
   const [opponentSearchResults, setOpponentSearchResults] = useState<BingoParticipantItem[]>([]);
+  const [hasCompletedOpponentSearch, setHasCompletedOpponentSearch] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [nameSetupOpen, setNameSetupOpen] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const opponentSearchRequestIdRef = useRef(0);
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
   const [bingoCount, setBingoCount] = useState(0);
   const [alertOpen, setAlertOpen] = useState(false);
@@ -869,35 +871,54 @@ const BingoGame = () => {
 
   const handleOpponentSearch = useCallback(
     (query: string) => {
+      const normalizedEventSlug = eventSlug?.trim() ?? "";
+      const normalizedQuery = query.trim();
       setOpponentQuery(query);
       setOpponentId("");
+      setHasCompletedOpponentSearch(false);
+      opponentSearchRequestIdRef.current += 1;
 
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
 
-      if (query.trim().length === 0) {
+      if (normalizedQuery.length === 0) {
+        setOpponentSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
+
+      if (!normalizedEventSlug) {
         setOpponentSearchResults([]);
         setIsSearching(false);
         return;
       }
 
       setIsSearching(true);
+      const requestId = opponentSearchRequestIdRef.current;
       searchTimeoutRef.current = setTimeout(async () => {
         try {
-          const results = await searchBingoParticipants(query.trim(), eventSlug ?? "");
+          const results = await searchBingoParticipants(normalizedQuery, normalizedEventSlug);
+          if (requestId !== opponentSearchRequestIdRef.current) {
+            return;
+          }
           const myId = getAuthSession()?.userId;
-          setOpponentSearchResults(
-            results.filter((u) => String(u.user_id) !== myId)
-          );
+          const filteredResults = results.filter((u) => String(u.user_id) !== myId);
+          setOpponentSearchResults(filteredResults);
+          setHasCompletedOpponentSearch(true);
         } catch {
+          if (requestId !== opponentSearchRequestIdRef.current) {
+            return;
+          }
           setOpponentSearchResults([]);
         } finally {
-          setIsSearching(false);
+          if (requestId === opponentSearchRequestIdRef.current) {
+            setIsSearching(false);
+          }
         }
       }, 300);
     },
-    []
+    [eventSlug]
   );
 
   const handleSelectOpponent = useCallback(
@@ -905,6 +926,7 @@ const BingoGame = () => {
       setOpponentId(String(user.user_id));
       setOpponentQuery(user.display_name);
       setOpponentSearchResults([]);
+      setHasCompletedOpponentSearch(false);
     },
     []
   );
@@ -1184,6 +1206,14 @@ const BingoGame = () => {
                         검색 중...
                       </div>
                     )}
+                    {!isSearching &&
+                      hasCompletedOpponentSearch &&
+                      opponentQuery.trim().length > 0 &&
+                      opponentSearchResults.length === 0 && (
+                        <div className="bingo-hero__search-status">
+                          검색 결과가 없습니다.
+                        </div>
+                      )}
                   </div>
                   <button type="submit" disabled={isBoardPreviewActive || !opponentId}>
                     보내기

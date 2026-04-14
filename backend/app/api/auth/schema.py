@@ -28,6 +28,8 @@ class BingoLoginRequest(BaseModel):
 
 
 class BingoParticipantItem(BaseSchema):
+    ok: bool = Field(default=True, description="성공유무")
+    message: str = Field(default="", description="성공 실패 메시지")
     user_id: Optional[int] = Field(title="유저 ID", default=None)
     display_name: Optional[str] = Field(title="빙고 표시 이름", default=None)
 

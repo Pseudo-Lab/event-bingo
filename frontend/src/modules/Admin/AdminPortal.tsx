@@ -1916,21 +1916,24 @@ const AdminConsolePage = ({
                             이벤트 홈
                             <ExternalLinkIcon />
                           </a>
-                          <Button
-                            variant="destructive"
-                            className="rounded-full px-5"
-                            disabled={!canEditSelectedEvent || resettingEventId === selectedEvent.id}
-                            onClick={() => void handleResetEventData()}
-                          >
-                            {resettingEventId === selectedEvent.id ? "초기화 중" : "데이터 초기화"}
-                          </Button>
-                          <Button
-                            className="rounded-full px-5"
-                            disabled={!canEditSelectedEvent}
-                            onClick={() => openEventModal(selectedEvent)}
-                          >
-                            행사 수정
-                          </Button>
+                          {canEditSelectedEvent ? (
+                            <>
+                              <Button
+                                variant="destructive"
+                                className="rounded-full px-5"
+                                disabled={resettingEventId === selectedEvent.id}
+                                onClick={() => void handleResetEventData()}
+                              >
+                                {resettingEventId === selectedEvent.id ? "초기화 중" : "데이터 초기화"}
+                              </Button>
+                              <Button
+                                className="rounded-full px-5"
+                                onClick={() => openEventModal(selectedEvent)}
+                              >
+                                행사 수정
+                              </Button>
+                            </>
+                          ) : null}
                         </div>
                       </div>
 
@@ -2362,9 +2365,7 @@ const AdminConsolePage = ({
                                           : "bg-slate-100 text-slate-500"
                                       )}
                                     >
-                                      {eventItem.canEdit
-                                        ? "수정 가능"
-                                        : "읽기 전용"}
+                                      {eventItem.canEdit ? "내 행사" : "읽기 전용"}
                                     </span>
                                   </div>
                                 </div>

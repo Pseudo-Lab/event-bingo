@@ -1,4 +1,6 @@
-from api.auth.routes import auth_router
+import pytest
+
+from api.auth.routes import auth_router, bingo_search_participants, resolve_participant_search_name
 from api.auth.schema import BingoLoginRequest, BingoRegisterRequest
 
 
@@ -36,3 +38,51 @@ def test_bingo_login_request_accepts_optional_google_email():
     )
 
     assert payload.user_email == "tester@example.com"
+
+
+def test_resolve_participant_search_name_prefers_event_board_name():
+    user = type("UserStub", (), {"user_id": 1, "user_name": "구글 닉네임"})()
+    board = type("BoardStub", (), {"display_name": "행사 빙고 이름"})()
+
+    assert resolve_participant_search_name(board, user) == "행사 빙고 이름"
+
+
+def test_resolve_participant_search_name_falls_back_to_user_name():
+    user = type("UserStub", (), {"user_id": 2, "user_name": "기본 이름"})()
+    board = type("BoardStub", (), {"display_name": ""})()
+
+    assert resolve_participant_search_name(board, user) == "기본 이름"
+
+
+@pytest.mark.asyncio
+async def test_bingo_search_participants_uses_event_attendee_search(monkeypatch: pytest.MonkeyPatch):
+    event = type("EventStub", (), {"id": 7})()
+    participant_rows = [
+        (
+            type("AttendeeStub", (), {"user_id": 11})(),
+            type("UserStub", (), {"user_id": 11, "user_name": "김승규"})(),
+            type("BoardStub", (), {"display_name": "김승규B"})(),
+        ),
+        (
+            type("AttendeeStub", (), {"user_id": 12})(),
+            type("UserStub", (), {"user_id": 12, "user_name": "김승규"})(),
+            None,
+        ),
+    ]
+
+    async def fake_get_by_slug(session, slug):
+        assert slug == "sample-event"
+        return event
+
+    async def fake_search_participants(session, event_id, query):
+        assert event_id == 7
+        assert query == "김승규"
+        return participant_rows
+
+    monkeypatch.setattr("api.auth.routes.Event.get_by_slug", fake_get_by_slug)
+    monkeypatch.setattr("api.auth.routes.EventAttendee.search_participants", fake_search_participants)
+
+    response = await bingo_search_participants(q="김승규", event_slug="sample-event", session=None)
+
+    assert response.ok is True
+    assert [participant.display_name for participant in response.participants] == ["김승규B", "김승규"]

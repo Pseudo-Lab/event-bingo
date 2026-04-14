@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from core.db import AsyncSessionDepends
 from models.bingo import BingoBoards
+from models.event_attendee import EventAttendee
 from models.event import Event
 from api.auth.schema import (
     LoginToken,
@@ -20,6 +21,18 @@ from api.auth.services.bingo_login import (
 )
 
 auth_router = APIRouter(prefix="/auth")
+
+
+def resolve_participant_search_name(board: BingoBoards | None, user: BingoUser) -> str:
+    board_display_name = ((board.display_name or "").strip() if board else "")
+    if board_display_name:
+        return board_display_name
+
+    user_name = (user.user_name or "").strip()
+    if user_name:
+        return user_name
+
+    return f"참가자 {user.user_id}"
 
 
 @auth_router.post("/bingo/register", response_model=BingoUser, description="빙고 회원가입 API")
@@ -50,16 +63,18 @@ async def bingo_search_participants(
     if not event:
         return BingoParticipantSearchResult(ok=False, message="이벤트를 찾을 수 없습니다.", participants=[])
 
-    boards = await BingoBoards.search_by_display_name(session, event.id, q)
+    participants = await EventAttendee.search_participants(session, event.id, q)
     return BingoParticipantSearchResult(
         ok=True,
-        message=f"{len(boards)}명의 참가자를 찾았습니다.",
+        message=f"{len(participants)}명의 참가자를 찾았습니다.",
         participants=[
             BingoParticipantItem(
-                user_id=b.user_id,
-                display_name=b.display_name or "",
+                ok=True,
+                message="",
+                user_id=user.user_id,
+                display_name=resolve_participant_search_name(board, user),
             )
-            for b in boards
+            for _, user, board in participants
         ],
     )
 
