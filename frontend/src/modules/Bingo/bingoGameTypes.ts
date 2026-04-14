@@ -41,7 +41,12 @@ export interface InteractionRecord {
 
 export type AlertSeverity = "success" | "warning" | "error" | "info";
 
-export type BoardPreviewPreset = "one-line" | "two-lines" | "three-lines" | "full";
+export type BoardPreviewPreset =
+  | "one-cell"
+  | "one-line"
+  | "two-lines"
+  | "three-lines"
+  | "full";
 
 export type AlertPayload = {
   title?: string;

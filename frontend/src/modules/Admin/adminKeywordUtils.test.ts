@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAutoFilledKeywordList,
+  buildRecommendedEventKeywords,
   clampKeywordList,
   describeKeywordAutofill,
   getKeywordGoalCount,
@@ -54,5 +55,45 @@ describe("adminKeywordUtils", () => {
         "키워드 9",
       ],
     });
+  });
+
+  it("builds full-length event keyword recommendations from event context", () => {
+    const recommendations = buildRecommendedEventKeywords({
+      name: "가짜연구소 2026 Bingo Networking Day",
+      location: "강남역",
+      eventTeam: "PseudoLab",
+      date: "2026-04-14",
+      boardSize: "5",
+    });
+
+    expect(recommendations).toHaveLength(25);
+    expect(recommendations).toContain("강남역 로컬");
+    expect(recommendations.some((keyword) => keyword.includes("PseudoLab"))).toBe(true);
+    expect(recommendations.some((keyword) => keyword.includes("4월"))).toBe(true);
+    expect(recommendations.some((keyword) => keyword.includes("가짜연구소"))).toBe(true);
+    expect(recommendations.every((keyword) => keyword.length <= 14)).toBe(true);
+  });
+
+  it("changes recommendation order when the variation seed changes", () => {
+    const firstBatch = buildRecommendedEventKeywords({
+      name: "AI 데이터 밋업",
+      location: "성수",
+      eventTeam: "PseudoLab",
+      date: "2026-04-14",
+      boardSize: "3",
+      variationSeed: 0,
+    });
+    const secondBatch = buildRecommendedEventKeywords({
+      name: "AI 데이터 밋업",
+      location: "성수",
+      eventTeam: "PseudoLab",
+      date: "2026-04-14",
+      boardSize: "3",
+      variationSeed: 1,
+    });
+
+    expect(firstBatch).toHaveLength(9);
+    expect(secondBatch).toHaveLength(9);
+    expect(firstBatch).not.toEqual(secondBatch);
   });
 });

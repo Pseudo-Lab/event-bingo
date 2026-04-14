@@ -126,6 +126,7 @@ describe("buildPreviewBoard", () => {
   }));
 
   it.each([
+    ["one-cell", 1],
     ["one-line", 5],
     ["two-lines", 9],
     ["three-lines", 13],
@@ -138,4 +139,10 @@ describe("buildPreviewBoard", () => {
       expect(previewBoard.filter((cell) => cell.status === 1)).toHaveLength(expectedCount);
     }
   );
+
+  it("does not mark a completed line for one-cell preview", () => {
+    const previewBoard = buildPreviewBoard(board, "one-cell", 5);
+
+    expect(getCompletedLines(previewBoard, 5)).toEqual([]);
+  });
 });

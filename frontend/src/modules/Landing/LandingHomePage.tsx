@@ -16,6 +16,8 @@ const primaryLinkClassName =
   "inline-flex items-center justify-center rounded-full bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-800";
 const outlineLinkClassName =
   "inline-flex items-center justify-center rounded-full border border-brand-700 bg-white px-5 py-2.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50";
+const eventCardLinkClassName =
+  "inline-flex min-w-[7.75rem] shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-brand-700 bg-white px-6 py-2.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50";
 const ghostLinkClassName =
   "inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50";
 
@@ -144,7 +146,7 @@ const LandingHomePage = () => {
         }
       } catch (error) {
         if (!cancelled) {
-          setEventsError(error instanceof Error ? error.message : "공개 이벤트를 불러오지 못했습니다.");
+          setEventsError(error instanceof Error ? error.message : "이벤트 목록을 불러오지 못했습니다.");
         }
       } finally {
         if (!cancelled) {
@@ -160,7 +162,7 @@ const LandingHomePage = () => {
     };
   }, []);
 
-  const publishedEventCount = events.length;
+  const eventCount = events.length;
   const activeEventCount = useMemo(
     () => events.filter((eventItem) => eventItem.status === "in_progress").length,
     [events]
@@ -268,8 +270,8 @@ const LandingHomePage = () => {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-[0.9fr_0.9fr_1.15fr]">
-              {[
-                { label: "공개 행사", value: `${publishedEventCount}개` },
+                {[
+                { label: "등록 행사", value: `${eventCount}개` },
                 { label: "진행 중 행사", value: `${activeEventCount}개` },
                 { label: "즉시 체험", value: "로그인 없이 가능" },
               ].map((metric) => (
@@ -373,7 +375,7 @@ const LandingHomePage = () => {
 
               {isLoadingEvents ? (
                 <div className="rounded-[1.5rem] bg-[#f6f9f5] px-5 py-8 text-center text-sm font-semibold text-slate-400">
-                  공개 행사 목록을 불러오는 중입니다.
+                  이벤트 목록을 불러오는 중입니다.
                 </div>
               ) : eventsError ? (
                 <div className="rounded-[1.5rem] border border-rose-100 bg-rose-50 px-5 py-5 text-sm font-semibold text-rose-600">
@@ -404,7 +406,7 @@ const LandingHomePage = () => {
                           </p>
                         </div>
 
-                        <Link to={getEventHomePath(eventItem.slug)} className={outlineLinkClassName}>
+                        <Link to={getEventHomePath(eventItem.slug)} className={eventCardLinkClassName}>
                           링크
                         </Link>
                       </div>
@@ -413,7 +415,7 @@ const LandingHomePage = () => {
                 </div>
               ) : (
                 <div className="rounded-[1.5rem] bg-[#f6f9f5] px-5 py-8 text-center text-sm font-semibold text-slate-400">
-                  아직 공개된 행사가 없습니다. 곧 참가할 수 있는 행사가 열리면 여기에서 확인할 수 있습니다.
+                  아직 등록된 행사가 없습니다. 곧 참여할 수 있는 행사가 열리면 여기에서 확인할 수 있습니다.
                 </div>
               )}
             </CardContent>

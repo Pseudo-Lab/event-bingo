@@ -40,7 +40,6 @@ type PublicEventPayload = {
   board_size: 3 | 5;
   bingo_mission_count: number;
   keywords: string[];
-  publish_state: "draft" | "published" | "archived";
 };
 
 type PublicEventResponse = ApiResponseBase & {

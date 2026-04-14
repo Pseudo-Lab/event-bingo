@@ -4,6 +4,16 @@ from zoneinfo import ZoneInfo
 from models.event import Event, EventStatus
 
 
+def test_generated_event_slug_is_stable_and_opaque():
+    generated_slug = Event._build_generated_slug(123)
+
+    assert generated_slug == Event._build_generated_slug(123)
+    assert generated_slug != Event._build_generated_slug(124)
+    assert len(generated_slug) == 8
+    assert generated_slug.islower()
+    assert generated_slug.isalnum()
+
+
 def test_event_status_handles_naive_datetimes():
     now = datetime.now()
     event = Event(

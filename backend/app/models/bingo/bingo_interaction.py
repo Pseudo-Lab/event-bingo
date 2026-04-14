@@ -38,17 +38,29 @@ class BingoInteraction(Base):
         *,
         send_user_id: int,
         receive_user_id: int,
+        event_id: int | None = None,
     ) -> bool:
         stmt = select(cls.interaction_id).where(
             cls.send_user_id == send_user_id,
             cls.receive_user_id == receive_user_id,
-        ).limit(1)
+        )
+        if event_id is not None:
+            stmt = stmt.where(cls.event_id == event_id)
+        stmt = stmt.limit(1)
         res = await session.execute(stmt)
         return res.scalar_one_or_none() is not None
 
     @classmethod
-    async def get_user_latest_interaction(cls, session: AsyncSession, user_id: int, limit: int):
+    async def get_user_latest_interaction(
+        cls,
+        session: AsyncSession,
+        user_id: int,
+        limit: int,
+        event_id: int | None = None,
+    ):
         stmt = select(cls).where(cls.receive_user_id == user_id).order_by(cls.created_at.desc())
+        if event_id is not None:
+            stmt = stmt.where(cls.event_id == event_id)
 
         if limit:
             stmt = stmt.limit(limit)
@@ -62,12 +74,16 @@ class BingoInteraction(Base):
         session: AsyncSession,
         user_id: int,
         after_interaction_id: int | None = None,
+        event_id: int | None = None,
     ):
         stmt = (
             select(cls)
             .where((cls.receive_user_id == user_id) | (cls.send_user_id == user_id))
             .order_by(cls.created_at.desc(), cls.interaction_id.desc())
         )
+
+        if event_id is not None:
+            stmt = stmt.where(cls.event_id == event_id)
 
         if after_interaction_id is not None:
             stmt = stmt.where(cls.interaction_id > after_interaction_id)

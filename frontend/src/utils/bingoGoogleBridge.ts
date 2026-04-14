@@ -2,7 +2,7 @@ import type { User } from "@supabase/supabase-js";
 
 import { loginBingoUser, registerBingoUser } from "../api/bingo_api";
 import { getSupabaseClient } from "../lib/supabaseClient";
-import { setAuthSession, type AuthSession } from "./authSession";
+import { normalizeAuthEmail, setAuthSession, type AuthSession } from "./authSession";
 import { clearLegacyLocalLoginStorage } from "./legacyAuthStorage";
 
 const LOGIN_ID_METADATA_KEY = "event_bingo_login_id";
@@ -22,6 +22,7 @@ type BingoUserResult = {
   login_id?: string | null;
   message: string;
   user_id?: number | null;
+  user_email?: string | null;
   user_name?: string | null;
 };
 
@@ -83,15 +84,23 @@ const createBridgeKey = () => {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 };
 
-const toAuthSession = (result: BingoUserResult, fallbackName: string): AuthSession => {
+const toAuthSession = (
+  result: BingoUserResult,
+  fallbackName: string,
+  fallbackEmail?: string
+): AuthSession => {
   if (!result.ok || result.user_id == null || !result.login_id) {
     throw new Error(result.message || "빙고 계정 정보를 확인하지 못했습니다.");
   }
+
+  const userEmail =
+    normalizeAuthEmail(fallbackEmail) || normalizeAuthEmail(pickString(result.user_email));
 
   return {
     userId: String(result.user_id),
     userName: pickString(result.user_name) || fallbackName,
     loginId: result.login_id,
+    userEmail: userEmail || undefined,
   };
 };
 
@@ -129,30 +138,41 @@ export const ensureBingoGoogleBridge = async (
     const loginResult = (await loginBingoUser(
       bridgeMetadata.loginId,
       bridgeMetadata.bridgeKey,
-      eventSlug
+      eventSlug,
+      googleProfile.email
     )) as BingoUserResult;
-    const authSession = toAuthSession(
-      loginResult,
-      bridgeMetadata.userName || googleProfile.displayName
-    );
 
-    clearLegacyLocalLoginStorage();
-    setAuthSession(authSession);
+    if (loginResult.ok) {
+      const authSession = toAuthSession(
+        loginResult,
+        bridgeMetadata.userName || googleProfile.displayName,
+        googleProfile.email
+      );
 
-    return {
-      authSession,
-      googleProfile,
-      isNewUser: false,
-    };
+      clearLegacyLocalLoginStorage();
+      setAuthSession(authSession);
+
+      return {
+        authSession,
+        googleProfile,
+        isNewUser: false,
+      };
+    }
+    // 로그인 실패 (DB 초기화 등) → 아래에서 재등록 진행
   }
 
-  const bridgeKey = bridgeMetadata.bridgeKey || createBridgeKey();
+  const bridgeKey = createBridgeKey();
   const registerResult = (await registerBingoUser(
     googleProfile.displayName,
     bridgeKey,
-    eventSlug
+    eventSlug,
+    googleProfile.email
   )) as BingoUserResult;
-  const authSession = toAuthSession(registerResult, googleProfile.displayName);
+  const authSession = toAuthSession(
+    registerResult,
+    googleProfile.displayName,
+    googleProfile.email
+  );
 
   clearLegacyLocalLoginStorage();
   setAuthSession(authSession);

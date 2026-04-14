@@ -12,9 +12,9 @@ import {
 describe("eventProfiles", () => {
   it("normalizes event slugs for routing", () => {
     expect(normalizeEventSlug("Spring Networking 2026")).toBe("spring-networking-2026");
-    expect(getEventHomePath("Spring Networking 2026")).toBe("/spring-networking-2026");
+    expect(getEventHomePath("Spring Networking 2026")).toBe("/event/spring-networking-2026");
     expect(getEventBingoPath("Spring Networking 2026")).toBe(
-      "/spring-networking-2026/bingo"
+      "/event/spring-networking-2026/bingo"
     );
     expect(getAdminPath("Spring Networking 2026", "members")).toBe("/admin/members");
     expect(getAdminPath("applications")).toBe("/admin/applications");
@@ -24,6 +24,9 @@ describe("eventProfiles", () => {
     expect(getActiveEventSlugFromLocation("/")).toBe("bingo-networking");
     expect(getActiveEventSlugFromLocation("/bingo")).toBe("bingo-networking");
     expect(getActiveEventSlugFromLocation("/experience")).toBe("bingo-networking");
+    expect(getActiveEventSlugFromLocation("/event/spring-networking-2026")).toBe(
+      "spring-networking-2026"
+    );
     expect(getActiveEventSlugFromLocation("/spring-networking-2026")).toBe(
       "spring-networking-2026"
     );

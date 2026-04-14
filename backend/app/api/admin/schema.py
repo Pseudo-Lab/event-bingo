@@ -7,7 +7,6 @@ from core.base_schema import BaseSchema
 
 
 AdminRoleLiteral = Literal["admin", "event_manager"]
-PublishStateLiteral = Literal["draft", "published", "archived"]
 EventStatusLiteral = Literal["scheduled", "in_progress", "ended"]
 EventManagerRequestStatusLiteral = Literal["pending", "approved", "rejected"]
 
@@ -17,11 +16,6 @@ class AdminSessionInfo(BaseModel):
     email: str
     name: str
     role: AdminRoleLiteral
-
-
-class AdminLoginRequest(BaseModel):
-    email: str = Field(..., min_length=3, max_length=100)
-    password: str = Field(..., min_length=4, max_length=100)
 
 
 class AdminLoginResponse(BaseSchema):
@@ -44,7 +38,6 @@ class AdminMemberListResponse(BaseSchema):
 
 class AdminMemberCreateRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=100)
-    password: str = Field(..., min_length=8, max_length=100)
     name: str = Field(..., min_length=1, max_length=100)
     role: AdminRoleLiteral
 
@@ -87,27 +80,7 @@ class AdminEventManagerRequestUpdateRequest(BaseModel):
 class AdminEventManagerRequestResponse(BaseSchema):
     request: Optional[AdminEventManagerRequestItem] = None
     invited_admin: Optional[AdminMemberItem] = None
-    invite_link: Optional[str] = None
     invite_email_sent: bool = False
-    invite_expires_at: Optional[datetime] = None
-
-
-class AdminInvitationPreviewItem(BaseModel):
-    email: str
-    name: str
-    expires_at: datetime
-
-
-class AdminInvitationPreviewResponse(BaseSchema):
-    invitation: Optional[AdminInvitationPreviewItem] = None
-
-
-class AdminInvitationCompleteRequest(BaseModel):
-    password: str = Field(..., min_length=8, max_length=100)
-
-
-class AdminInvitationCompleteResponse(BaseSchema):
-    member: Optional[AdminMemberItem] = None
 
 
 class AdminPolicyTemplateItem(BaseModel):
@@ -128,7 +101,7 @@ class AdminPolicyTemplateUpdateRequest(BaseModel):
 class AdminEventParticipantItem(BaseModel):
     id: int
     name: str
-    user_code: str
+    email: str
     progress_percent: int
     keywords: list[str] = Field(default_factory=list)
 
@@ -177,7 +150,6 @@ class AdminEventSummary(BaseModel):
     progress_current: int
     progress_total: int
     status: EventStatusLiteral
-    publish_state: PublishStateLiteral
     can_edit: bool
 
 
@@ -199,7 +171,6 @@ GameModeLiteral = Literal["individual", "team"]
 
 
 class AdminEventUpsertRequest(BaseModel):
-    slug: str = Field(..., min_length=3, max_length=50)
     name: str = Field(..., min_length=1, max_length=100)
     location: str = Field(..., min_length=1, max_length=200)
     event_team: str = Field(..., min_length=1, max_length=120)
@@ -209,8 +180,7 @@ class AdminEventUpsertRequest(BaseModel):
     board_size: Literal[3, 5]
     bingo_mission_count: int = Field(..., ge=1, le=5)
     keywords: list[str] = Field(default_factory=list)
-    publish_state: PublishStateLiteral = "draft"
-    game_mode: GameModeLiteral = "individual"
+    game_mode: Literal["individual", "team"] = "individual"
     team_size: int = Field(default=1, ge=1, le=50)
 
 

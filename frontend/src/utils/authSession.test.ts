@@ -49,12 +49,29 @@ describe("authSession", () => {
       userId: "11",
       userName: "테스터",
       loginId: "ABCD12",
+      userEmail: "tester@example.com",
     });
 
     expect(getAuthSession()).toEqual({
       userId: "11",
       userName: "테스터",
       loginId: "ABCD12",
+      userEmail: "tester@example.com",
+    });
+  });
+
+  it("ignores non-email session values and does not restore login codes as emails", () => {
+    setAuthSession({
+      userId: "12",
+      userName: "브리지 사용자",
+      loginId: "SJ6ZRJ",
+      userEmail: "SJ6ZRJ",
+    });
+
+    expect(getAuthSession()).toEqual({
+      userId: "12",
+      userName: "브리지 사용자",
+      loginId: "SJ6ZRJ",
     });
   });
 

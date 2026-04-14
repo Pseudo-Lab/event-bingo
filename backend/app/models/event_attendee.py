@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 from typing import Optional, List
 import random
 
-from sqlalchemy import Integer, String, ForeignKey, JSON, DateTime, UniqueConstraint, select
+from sqlalchemy import Integer, String, ForeignKey, JSON, DateTime, UniqueConstraint, select, and_, or_, case, func
 from sqlalchemy.orm import Mapped, mapped_column
 from core.db import AsyncSession
 from models.base import Base
@@ -96,6 +96,49 @@ class EventAttendee(Base):
             select(cls).where(cls.user_id == user_id)
         )
         return result.scalars().all()
+
+    @classmethod
+    async def search_participants(cls, session: AsyncSession, event_id: int, query: str, limit: int = 20):
+        """이벤트 참가자 이름/이메일 검색. 보드 이름이 있으면 이를 우선 사용한다."""
+        normalized_query = query.strip()
+        if not normalized_query:
+            return []
+
+        from models.bingo import BingoBoards
+        from models.user import BingoUser
+
+        search_pattern = f"%{normalized_query}%"
+        lowered_query = normalized_query.lower()
+        resolved_name = func.coalesce(func.nullif(BingoBoards.display_name, ""), BingoUser.user_name)
+        lowered_resolved_name = func.lower(func.coalesce(resolved_name, ""))
+
+        result = await session.execute(
+            select(cls, BingoUser, BingoBoards)
+            .join(BingoUser, BingoUser.user_id == cls.user_id)
+            .outerjoin(
+                BingoBoards,
+                and_(
+                    BingoBoards.user_id == cls.user_id,
+                    BingoBoards.event_id == cls.event_id,
+                ),
+            )
+            .where(cls.event_id == event_id)
+            .where(
+                or_(
+                    BingoBoards.display_name.ilike(search_pattern),
+                    BingoUser.user_name.ilike(search_pattern),
+                    BingoUser.user_email.ilike(search_pattern),
+                )
+            )
+            .order_by(
+                case((lowered_resolved_name == lowered_query, 0), else_=1),
+                case((lowered_resolved_name.like(f"{lowered_query}%"), 0), else_=1),
+                resolved_name.asc(),
+                cls.id.asc(),
+            )
+            .limit(limit)
+        )
+        return result.all()
 
     @classmethod
     async def assign_team(cls, session: AsyncSession, attendee_id: int, team_id: int):

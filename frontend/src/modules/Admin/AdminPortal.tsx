@@ -20,12 +20,10 @@ import {
   getAdminMe,
   getAdminMembers,
   getAdminPolicyTemplate,
-  loginAdmin,
   resetAdminEventData,
   reviewAdminEventManagerRequest,
   updateAdminPolicyTemplate,
   updateAdminEvent,
-  validateAdminSlugInput,
 } from "../../api/admin_api";
 import {
   formatEventDateLabel,
@@ -57,7 +55,6 @@ import { isGoogleIdentityConfigured } from "../../lib/googleIdentity";
 import {
   clearAdminSession,
   getAdminSession,
-  hasAdminSession,
   setAdminSession,
 } from "../../utils/adminSession";
 import { clearLegacyLocalLoginStorage } from "../../utils/legacyAuthStorage";
@@ -74,24 +71,16 @@ import type {
 import { getEventDateParts } from "./adminEventDate";
 import {
   buildAutoFilledKeywordList,
+  buildRecommendedEventKeywords,
   clampKeywordList,
   describeKeywordAutofill,
 } from "./adminKeywordUtils";
-import {
-  normalizeSlugDraftInput,
-  normalizeSlugForSave,
-  recommendEnglishSlugFromName,
-} from "./adminSlugUtils";
 
 type AdminSection = "dashboard" | "members" | "applications" | "event-settings" | "policies";
 type EventDetailTab = "overview" | "dashboard" | "participants";
 
 type EventFormState = {
   id?: number;
-  slug: string;
-  slugEdited: boolean;
-  isPublished: boolean;
-  wasPublished: boolean;
   name: string;
   location: string;
   eventTeam: string;
@@ -111,8 +100,6 @@ type EventFormState = {
 
 const ITEMS_PER_PAGE = 4;
 const DETAIL_PARTICIPANTS_PER_PAGE = 8;
-const DEFAULT_MEMBER_PASSWORD = "Admin1234!";
-const DEFAULT_SUPERADMIN_EMAIL = "superadmin@laivdata.com";
 const POLICY_PREVIEW_HOST = "샘플 행사 운영팀";
 const EVENT_DETAIL_TABS: Array<{ key: EventDetailTab; label: string }> = [
   { key: "overview", label: "개요" },
@@ -307,10 +294,6 @@ const createEventFormState = (adminEmail: string, eventItem?: AdminEvent): Event
   if (eventItem) {
     return {
       id: eventItem.id,
-      slug: eventItem.slug,
-      slugEdited: false,
-      isPublished: eventItem.isPublished,
-      wasPublished: eventItem.isPublished,
       name: eventItem.name,
       location: eventItem.location,
       eventTeam: eventItem.eventTeam,
@@ -330,15 +313,11 @@ const createEventFormState = (adminEmail: string, eventItem?: AdminEvent): Event
   }
 
   return {
-    slug: "",
-    slugEdited: false,
-    isPublished: false,
-    wasPublished: false,
     name: "",
     location: "",
     eventTeam: "",
     boardSize: "5",
-    bingoMissionCount: "4",
+    bingoMissionCount: "3",
     keywords: [],
     keywordDraft: "",
     date: "",
@@ -414,22 +393,6 @@ const FileIcon = () => (
     <path d="M14 2v6h6" />
     <path d="M8 13h8" />
     <path d="M8 17h6" />
-  </IconBase>
-);
-
-const EyeIcon = () => (
-  <IconBase>
-    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
-    <circle cx="12" cy="12" r="2.8" />
-  </IconBase>
-);
-
-const EyeOffIcon = () => (
-  <IconBase>
-    <path d="M3 3l18 18" />
-    <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
-    <path d="M9.88 5.09A10.94 10.94 0 0 1 12 5c6.5 0 10 7 10 7a18.9 18.9 0 0 1-4.11 4.88" />
-    <path d="M6.61 6.61A18.48 18.48 0 0 0 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.11-1.17" />
   </IconBase>
 );
 
@@ -559,44 +522,6 @@ const SectionHeader = ({
   );
 };
 
-const LoginField = ({
-  id,
-  type,
-  placeholder,
-  value,
-  onChange,
-  trailing,
-}: {
-  id: string;
-  type: string;
-  placeholder: string;
-  value: string;
-  onChange: (value: string) => void;
-  trailing?: ReactNode;
-}) => {
-  return (
-    <div className="relative">
-      <Label htmlFor={id} className="sr-only">
-        {placeholder}
-      </Label>
-      <Input
-        id={id}
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        className={cn(
-          "h-14 rounded-2xl border-slate-300 bg-white px-5 text-base",
-          trailing ? "pr-14" : ""
-        )}
-      />
-      {trailing ? (
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500">{trailing}</div>
-      ) : null}
-    </div>
-  );
-};
-
 const EventStatusBadge = ({ status }: { status: AdminEventStatus }) => {
   const label =
     status === "ended" ? "종료" : status === "in_progress" ? "진행 중" : "예정";
@@ -661,9 +586,6 @@ const EmptyPanelState = ({
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const shouldUseGoogleAdminAuth = canUseGoogleAdminAuth();
@@ -673,9 +595,6 @@ const LoginPage = () => {
 
     const redirectAuthenticatedAdmin = async () => {
       if (!shouldUseGoogleAdminAuth) {
-        if (hasAdminSession()) {
-          navigate(getAdminPath("event-settings"), { replace: true });
-        }
         return;
       }
 
@@ -713,21 +632,6 @@ const LoginPage = () => {
       cancelled = true;
     };
   }, [navigate, shouldUseGoogleAdminAuth]);
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    try {
-      setIsSubmitting(true);
-      const nextSession = await loginAdmin(email, password);
-      setAdminSession(nextSession);
-      navigate(getAdminPath("event-settings"), { replace: true });
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "이메일 또는 비밀번호를 확인해 주세요.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleGoogleLogin = async ({
     credential,
@@ -791,58 +695,28 @@ const LoginPage = () => {
                 </p>
               </div>
 
-              <GoogleSignInButton
-                className="mx-auto max-w-[360px]"
-                context="signin"
-                onError={(message) => setErrorMessage(message)}
-                onSuccess={handleGoogleLogin}
-                text="signin_with"
-              />
+              <div className="flex w-full justify-center">
+                <div className="w-full max-w-[360px]">
+                  <GoogleSignInButton
+                    context="signin"
+                    onError={(message) => setErrorMessage(message)}
+                    onSuccess={handleGoogleLogin}
+                    text="signin_with"
+                  />
+                </div>
+              </div>
             </div>
           ) : (
-            <form className="grid gap-4 md:grid-cols-[minmax(0,1fr)_8rem]" onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <LoginField
-                  id="admin-email"
-                  type="email"
-                  value={email}
-                  placeholder="이메일 주소"
-                  onChange={(nextValue) => {
-                    setEmail(nextValue);
-                    setErrorMessage("");
-                  }}
-                />
-
-                <LoginField
-                  id="admin-password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  placeholder="비밀번호"
-                  onChange={(nextValue) => {
-                    setPassword(nextValue);
-                    setErrorMessage("");
-                  }}
-                  trailing={
-                    <button
-                      type="button"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100"
-                      aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
-                      onClick={() => setShowPassword((previousValue) => !previousValue)}
-                    >
-                      {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                    </button>
-                  }
-                />
+            <div className="space-y-5 rounded-[2rem] border border-amber-100 bg-amber-50/90 p-7 shadow-soft">
+              <div className="space-y-2 text-center">
+                <h2 className="text-2xl font-black tracking-tight text-amber-900">
+                  Google 관리자 로그인이 필요합니다
+                </h2>
+                <p className="text-sm leading-6 text-amber-800/80">
+                  현재 환경에는 관리자용 Google/Supabase 설정이 없어 로그인할 수 없습니다.
+                </p>
               </div>
-
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="h-full min-h-[122px] rounded-2xl bg-gradient-to-b from-[#5fd0a8] to-[#45bc90] text-2xl font-black tracking-tight text-white hover:from-[#55c79f] hover:to-[#39b081] md:min-w-[8rem]"
-              >
-                {isSubmitting ? "확인 중" : "로그인"}
-              </Button>
-            </form>
+            </div>
           )}
 
           {errorMessage ? (
@@ -878,12 +752,8 @@ const AdminConsolePage = ({
   const [eventSearchQuery, setEventSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [addFormError, setAddFormError] = useState("");
   const [eventFormError, setEventFormError] = useState("");
-  const [slugAssistMessage, setSlugAssistMessage] = useState("");
-  const [slugAssistTone, setSlugAssistTone] = useState<"info" | "error">("info");
   const [pageError, setPageError] = useState("");
   const [pageNotice, setPageNotice] = useState("");
   const [inviteReviewResult, setInviteReviewResult] =
@@ -901,11 +771,12 @@ const AdminConsolePage = ({
   const [resettingEventId, setResettingEventId] = useState<number | null>(null);
   const [newAdminForm, setNewAdminForm] = useState({
     email: "",
-    password: "",
-    confirmPassword: "",
     name: "",
     role: "admin" as AdminRole,
   });
+  const [keywordRecommendationSeed, setKeywordRecommendationSeed] = useState(0);
+  const isKeywordDraftComposingRef = useRef(false);
+  const skipKeywordDraftBlurRef = useRef(false);
   const [eventForm, setEventForm] = useState<EventFormState>(() =>
     createEventFormState(initialSession?.email ?? "")
   );
@@ -915,17 +786,17 @@ const AdminConsolePage = ({
 
     const bootstrapSession = async () => {
       try {
-        let accessToken = "";
-
-        if (shouldUseGoogleAdminAuth) {
-          const supabase = getSupabaseClient();
-          const {
-            data: { session: supabaseSession },
-          } = await supabase.auth.getSession();
-          accessToken = supabaseSession?.access_token ?? "";
-        } else {
-          accessToken = getAdminSession()?.accessToken ?? "";
+        if (!shouldUseGoogleAdminAuth) {
+          clearAdminSession();
+          navigate(getAdminPath(), { replace: true });
+          return;
         }
+
+        const supabase = getSupabaseClient();
+        const {
+          data: { session: supabaseSession },
+        } = await supabase.auth.getSession();
+        const accessToken = supabaseSession?.access_token ?? "";
 
         if (!accessToken) {
           navigate(getAdminPath(), { replace: true });
@@ -1218,56 +1089,18 @@ const AdminConsolePage = ({
 
   const openEventModal = (eventItem?: AdminEvent) => {
     setEventFormError("");
-    setSlugAssistMessage("");
-    setSlugAssistTone("info");
+    setKeywordRecommendationSeed(0);
     setEventForm(createEventFormState(session?.email ?? "", eventItem));
     setShowEventModal(true);
   };
 
   const handleEventNameChange = (value: string) => {
-    setSlugAssistMessage("");
-    setSlugAssistTone("info");
     setEventForm((previousValue) => {
-      const nextSlug =
-        previousValue.isPublished || previousValue.slugEdited
-          ? previousValue.slug
-          : recommendEnglishSlugFromName(value) || previousValue.slug;
-
       return {
         ...previousValue,
         name: value,
-        slug: nextSlug,
       };
     });
-  };
-
-  const handleEventSlugChange = (value: string) => {
-    setSlugAssistMessage("");
-    setSlugAssistTone("info");
-    setEventForm((previousValue) => ({
-      ...previousValue,
-      slug: normalizeSlugDraftInput(value),
-      slugEdited: true,
-    }));
-  };
-
-  const handleRegenerateEventSlug = () => {
-    const recommendedSlug = recommendEnglishSlugFromName(eventForm.name);
-    if (!recommendedSlug) {
-      setSlugAssistTone("error");
-      setSlugAssistMessage(
-        "행사명에서 영문 slug 추천을 만들지 못했습니다. slug를 직접 입력해 주세요."
-      );
-      return;
-    }
-
-    setEventForm((previousValue) => ({
-      ...previousValue,
-      slug: recommendedSlug,
-      slugEdited: false,
-    }));
-    setSlugAssistTone("info");
-    setSlugAssistMessage(`행사명 기준 영문 slug 추천을 적용했습니다: /${recommendedSlug}`);
   };
 
   const addKeyword = (keyword: string) => {
@@ -1298,12 +1131,60 @@ const AdminConsolePage = ({
   };
 
   const handleKeywordDraftKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (isKeywordDraftComposingRef.current || event.nativeEvent.isComposing) {
+      return;
+    }
+
     if (event.key !== "Enter" && event.key !== ",") {
       return;
     }
 
     event.preventDefault();
-    addKeyword(eventForm.keywordDraft);
+    skipKeywordDraftBlurRef.current = true;
+    addKeyword(event.currentTarget.value);
+  };
+
+  const buildEventKeywordRecommendations = (variationSeed: number) => {
+    return buildRecommendedEventKeywords({
+      name: eventForm.name,
+      location: eventForm.location,
+      eventTeam: eventForm.eventTeam,
+      date: eventForm.date,
+      boardSize: eventForm.boardSize,
+      variationSeed,
+    });
+  };
+
+  const applyKeywordRecommendations = (variationSeed: number) => {
+    const recommendedKeywords = buildEventKeywordRecommendations(variationSeed);
+    setKeywordRecommendationSeed(variationSeed);
+    setEventForm((previousValue) => ({
+      ...previousValue,
+      keywords: recommendedKeywords,
+      keywordDraft: "",
+    }));
+  };
+
+  const handleRecommendKeywords = () => {
+    if (eventForm.keywords.length > 0) {
+      const confirmed = window.confirm("현재 입력한 키워드를 추천 키워드로 바꿀까요?");
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    applyKeywordRecommendations(0);
+  };
+
+  const handleRefreshRecommendedKeywords = () => {
+    if (eventForm.keywords.length > 0) {
+      const confirmed = window.confirm("현재 키워드를 새로운 추천 키워드로 다시 만들까요?");
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    applyKeywordRecommendations(keywordRecommendationSeed + 1);
   };
 
   const handleCreateAdmin = async (event: FormEvent<HTMLFormElement>) => {
@@ -1319,16 +1200,6 @@ const AdminConsolePage = ({
       return;
     }
 
-    if (newAdminForm.password.length < 8 || !/[A-Z]/.test(newAdminForm.password)) {
-      setAddFormError("비밀번호는 영어 대문자를 포함해 8자 이상이어야 합니다.");
-      return;
-    }
-
-    if (newAdminForm.password !== newAdminForm.confirmPassword) {
-      setAddFormError("비밀번호 확인이 일치하지 않습니다.");
-      return;
-    }
-
     if (!newAdminForm.name.trim()) {
       setAddFormError("이름을 입력해 주세요.");
       return;
@@ -1337,7 +1208,6 @@ const AdminConsolePage = ({
     try {
       const nextMember = await createAdminMember(session.accessToken, {
         email: normalizedEmail,
-        password: newAdminForm.password,
         name: newAdminForm.name,
         role: newAdminForm.role,
       });
@@ -1348,8 +1218,6 @@ const AdminConsolePage = ({
       setAddFormError("");
       setNewAdminForm({
         email: "",
-        password: "",
-        confirmPassword: "",
         name: "",
         role: "admin",
       });
@@ -1365,11 +1233,6 @@ const AdminConsolePage = ({
 
     if (member.id === session.id) {
       setPageError("현재 로그인한 본인 계정은 삭제할 수 없습니다.");
-      return;
-    }
-
-    if (member.email === DEFAULT_SUPERADMIN_EMAIL) {
-      setPageError("기본 최고 관리자 계정은 삭제할 수 없습니다.");
       return;
     }
 
@@ -1439,19 +1302,6 @@ const AdminConsolePage = ({
       setInviteReviewResult(null);
     } finally {
       setReviewingApplicationId(null);
-    }
-  };
-
-  const handleCopyInviteLink = async () => {
-    if (!inviteReviewResult?.inviteLink) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(inviteReviewResult.inviteLink);
-      setPageNotice("초대 링크를 복사했습니다.");
-    } catch {
-      setPageError("초대 링크를 복사하지 못했습니다.");
     }
   };
 
@@ -1554,19 +1404,6 @@ const AdminConsolePage = ({
       return;
     }
 
-    const normalizedSlug = normalizeSlugForSave(eventForm.slug);
-
-    if (!normalizedSlug) {
-      setEventFormError("URL에 사용할 slug를 입력해 주세요.");
-      return;
-    }
-
-    const slugError = validateAdminSlugInput(normalizedSlug);
-    if (slugError) {
-      setEventFormError(slugError);
-      return;
-    }
-
     if (!eventForm.date) {
       setEventFormError("날짜를 입력해 주세요.");
       return;
@@ -1618,7 +1455,6 @@ const AdminConsolePage = ({
     try {
       const savedEvent = eventForm.id
         ? await updateAdminEvent(session.accessToken, eventForm.id, {
-            slug: normalizedSlug,
             name: eventForm.name,
             location: eventForm.location,
             eventTeam: eventForm.eventTeam,
@@ -1628,10 +1464,8 @@ const AdminConsolePage = ({
             boardSize: Number(eventForm.boardSize) === 3 ? 3 : 5,
             bingoMissionCount: Number(eventForm.bingoMissionCount),
             keywords: keywordsForSave,
-            publishState: eventForm.isPublished ? "published" : "draft",
           })
         : await createAdminEvent(session.accessToken, {
-            slug: normalizedSlug,
             name: eventForm.name,
             location: eventForm.location,
             eventTeam: eventForm.eventTeam,
@@ -1641,7 +1475,6 @@ const AdminConsolePage = ({
             boardSize: Number(eventForm.boardSize) === 3 ? 3 : 5,
             bingoMissionCount: Number(eventForm.bingoMissionCount),
             keywords: keywordsForSave,
-            publishState: eventForm.isPublished ? "published" : "draft",
           });
 
       setEvents((previousValue) => upsertAdminEvent(previousValue, savedEvent));
@@ -1666,7 +1499,6 @@ const AdminConsolePage = ({
   const selectedEventTimeRange = selectedEvent
     ? getTimeRangeLabel(selectedEvent.startAt, selectedEvent.endAt)
     : "";
-  const slugPreview = normalizeSlugForSave(eventForm.slug) || normalizeSlugDraftInput(eventForm.slug);
   const keywordAutofillSummary = describeKeywordAutofill(
     eventForm.keywords,
     eventForm.boardSize
@@ -1782,8 +1614,8 @@ const AdminConsolePage = ({
                       value: `${events.length}개`,
                     },
                     {
-                      label: "공개 이벤트 수",
-                      value: `${events.filter((eventItem) => eventItem.isPublished).length}개`,
+                      label: "진행/예정 행사 수",
+                      value: `${events.filter((eventItem) => eventItem.status !== "ended").length}개`,
                     },
                     ...(canManageApplications
                       ? [
@@ -1849,11 +1681,13 @@ const AdminConsolePage = ({
                   <Card className="rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
                     <CardHeader className="space-y-2 p-7 pb-0">
                       <CardTitle>라우팅 안내</CardTitle>
-                      <CardDescription>관리자 URL은 고정되고, 공개 페이지는 이벤트 slug로 분기됩니다.</CardDescription>
+                      <CardDescription>
+                        관리자 URL은 고정되고, 이벤트 페이지는 <code>/event/{"{token}"}</code> 형식을 사용합니다.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4 p-7 pt-6">
                       {[
-                        ["이벤트 홈", featuredEvent ? getEventHomePath(featuredEvent.slug) : "/{eventSlug}"],
+                        ["이벤트 홈", featuredEvent ? getEventHomePath(featuredEvent.slug) : "/event/{token}"],
                         ["관리자 로그인", getAdminPath()],
                         ["이벤트 관리", getAdminPath("event-settings")],
                       ].map(([label, value]) => (
@@ -1913,7 +1747,7 @@ const AdminConsolePage = ({
                               </Badge>
                             </TableCell>
                             <TableCell className="text-left">
-                              {member.id === session.id || member.email === DEFAULT_SUPERADMIN_EMAIL ? (
+                              {member.id === session.id ? (
                                 <span className="text-xs font-semibold text-slate-400">보호됨</span>
                               ) : (
                                 <div className="flex justify-start">
@@ -1966,35 +1800,18 @@ const AdminConsolePage = ({
                 {pageNotice ? (
                   <div className="rounded-2xl border border-brand-100 bg-brand-50 px-4 py-4 text-sm font-semibold text-brand-800">
                     <p>{pageNotice}</p>
-                    {inviteReviewResult?.inviteLink ? (
-                      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-600">
-                            초대 링크
-                          </p>
-                          <code className="block break-all rounded-2xl bg-white px-4 py-3 text-xs font-semibold leading-6 text-brand-700">
-                            {inviteReviewResult.inviteLink}
-                          </code>
-                          <p className="text-xs text-brand-700/80">
-                            {inviteReviewResult.invitedAdmin
-                              ? `생성 계정: ${inviteReviewResult.invitedAdmin.email}`
-                              : "기존 관리자 계정을 사용합니다."}
-                            {inviteReviewResult.inviteExpiresAt
-                              ? ` · 만료 ${formatAdminDate(inviteReviewResult.inviteExpiresAt)}`
-                              : ""}
-                            {inviteReviewResult.inviteEmailSent
-                              ? " · 초대 메일 발송 완료"
-                              : " · 메일 설정이 없거나 발송에 실패해 링크를 직접 전달해 주세요."}
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="rounded-full px-5"
-                          onClick={() => void handleCopyInviteLink()}
-                        >
-                          링크 복사
-                        </Button>
+                    {inviteReviewResult ? (
+                      <div className="mt-3 space-y-2 rounded-2xl bg-white px-4 py-3 text-xs font-semibold leading-6 text-brand-700">
+                        <p>
+                          {inviteReviewResult.invitedAdmin
+                            ? `권한 부여 계정: ${inviteReviewResult.invitedAdmin.email}`
+                            : "기존 관리자 계정 권한을 유지합니다."}
+                        </p>
+                        <p>
+                          {inviteReviewResult.inviteEmailSent
+                            ? "환영 메일 발송 완료 · 승인된 이메일의 Google 계정으로 관리자 로그인할 수 있습니다."
+                            : "메일 발송에 실패했거나 설정이 없어, 승인된 이메일의 Google 계정으로 바로 로그인하면 됩니다."}
+                        </p>
                       </div>
                     ) : null}
                   </div>
@@ -2152,21 +1969,24 @@ const AdminConsolePage = ({
                             이벤트 홈
                             <ExternalLinkIcon />
                           </a>
-                          <Button
-                            variant="destructive"
-                            className="rounded-full px-5"
-                            disabled={!canEditSelectedEvent || resettingEventId === selectedEvent.id}
-                            onClick={() => void handleResetEventData()}
-                          >
-                            {resettingEventId === selectedEvent.id ? "초기화 중" : "데이터 초기화"}
-                          </Button>
-                          <Button
-                            className="rounded-full px-5"
-                            disabled={!canEditSelectedEvent}
-                            onClick={() => openEventModal(selectedEvent)}
-                          >
-                            행사 수정
-                          </Button>
+                          {canEditSelectedEvent ? (
+                            <>
+                              <Button
+                                variant="destructive"
+                                className="rounded-full px-5"
+                                disabled={resettingEventId === selectedEvent.id}
+                                onClick={() => void handleResetEventData()}
+                              >
+                                {resettingEventId === selectedEvent.id ? "초기화 중" : "데이터 초기화"}
+                              </Button>
+                              <Button
+                                className="rounded-full px-5"
+                                onClick={() => openEventModal(selectedEvent)}
+                              >
+                                행사 수정
+                              </Button>
+                            </>
+                          ) : null}
                         </div>
                       </div>
 
@@ -2407,25 +2227,25 @@ const AdminConsolePage = ({
                       <div className="space-y-6">
                         <div className="overflow-hidden rounded-[1.6rem] border border-slate-100 bg-[#fbfcf8]">
                           <div className="overflow-x-auto">
-                            <Table className="min-w-[980px]">
+                            <Table className="min-w-[940px]">
                               <TableHeader className="bg-[#f6f8ef]">
                                 <TableRow className="border-none hover:bg-transparent">
-                                  <TableHead>이름</TableHead>
-                                  <TableHead>유저코드</TableHead>
-                                  <TableHead>상태</TableHead>
+                                  <TableHead className="w-[13rem]">이름</TableHead>
+                                  <TableHead className="w-[16rem]">이메일</TableHead>
+                                  <TableHead className="w-[15rem]">상태</TableHead>
                                   <TableHead>키워드</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {visibleParticipants.map((participant) => (
                                   <TableRow key={participant.id}>
-                                    <TableCell className="text-[1.65rem] font-black tracking-tight text-slate-900">
+                                    <TableCell className="w-[13rem] min-w-[13rem] whitespace-nowrap text-[1.65rem] font-black tracking-tight text-slate-900">
                                       {participant.name}
                                     </TableCell>
-                                    <TableCell className="text-[1.05rem] text-slate-800">
-                                      {participant.userCode}
+                                    <TableCell className="w-[16rem] min-w-[16rem] whitespace-nowrap text-[1.05rem] text-slate-800">
+                                      {participant.email}
                                     </TableCell>
-                                    <TableCell className="min-w-[24rem]">
+                                    <TableCell className="w-[12rem] min-w-[12rem]">
                                       <div className="flex items-center gap-3">
                                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
                                           <div
@@ -2438,7 +2258,7 @@ const AdminConsolePage = ({
                                         </span>
                                       </div>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="min-w-[24rem]">
                                       <div className="flex flex-wrap gap-3">
                                         {participant.keywords.length > 0 ? (
                                           participant.keywords.map((keyword) => (
@@ -2588,7 +2408,7 @@ const AdminConsolePage = ({
                                   <p>{eventItem.name}</p>
                                   <div className="flex flex-wrap items-center gap-2 text-xs">
                                     <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-500">
-                                      /{eventItem.slug}
+                                      {getEventHomePath(eventItem.slug)}
                                     </span>
                                     <span
                                       className={cn(
@@ -2598,9 +2418,7 @@ const AdminConsolePage = ({
                                           : "bg-slate-100 text-slate-500"
                                       )}
                                     >
-                                      {eventItem.canEdit
-                                        ? "수정 가능"
-                                        : "읽기 전용"}
+                                      {eventItem.canEdit ? "내 행사" : "읽기 전용"}
                                     </span>
                                   </div>
                                 </div>
@@ -2893,7 +2711,7 @@ const AdminConsolePage = ({
               <div>
                 <h2 className="text-2xl font-black tracking-tight text-brand-800">관리자 추가</h2>
                 <p className="mt-2 text-sm text-slate-500">
-                  기본 데모 비밀번호는 `{DEFAULT_MEMBER_PASSWORD}` 입니다.
+                  승인된 이메일은 Google 로그인으로 바로 관리자 콘솔에 접근할 수 있습니다.
                 </p>
               </div>
               <Button
@@ -2925,62 +2743,6 @@ const AdminConsolePage = ({
                     }
                     placeholder="abcd@gmail.com"
                   />
-                </div>
-
-                <div className="grid gap-5 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="new-admin-password">비밀번호</Label>
-                    <div className="relative">
-                      <Input
-                        id="new-admin-password"
-                        type={showNewPassword ? "text" : "password"}
-                        value={newAdminForm.password}
-                        onChange={(event) =>
-                          setNewAdminForm((previousValue) => ({
-                            ...previousValue,
-                            password: event.target.value,
-                          }))
-                        }
-                        placeholder="영어 대문자 포함 8자 이상"
-                        className="pr-12"
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
-                        aria-label={showNewPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
-                        onClick={() => setShowNewPassword((previousValue) => !previousValue)}
-                      >
-                        {showNewPassword ? <EyeOffIcon /> : <EyeIcon />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="new-admin-password-confirm">비밀번호 확인</Label>
-                    <div className="relative">
-                      <Input
-                        id="new-admin-password-confirm"
-                        type={showConfirmPassword ? "text" : "password"}
-                        value={newAdminForm.confirmPassword}
-                        onChange={(event) =>
-                          setNewAdminForm((previousValue) => ({
-                            ...previousValue,
-                            confirmPassword: event.target.value,
-                          }))
-                        }
-                        placeholder="영어 대문자 포함 8자 이상"
-                        className="pr-12"
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
-                        aria-label={showConfirmPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
-                        onClick={() => setShowConfirmPassword((previousValue) => !previousValue)}
-                      >
-                        {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -3059,8 +2821,6 @@ const AdminConsolePage = ({
                 onClick={() => {
                   setShowEventModal(false);
                   setEventFormError("");
-                  setSlugAssistMessage("");
-                  setSlugAssistTone("info");
                 }}
               >
                 <CloseIcon />
@@ -3113,95 +2873,15 @@ const AdminConsolePage = ({
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label htmlFor="event-modal-slug">slug</Label>
-                    {eventForm.isPublished ? (
-                      <span className="text-xs font-semibold text-slate-400">
-                        공개 후 잠금
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="text-xs font-semibold text-brand-700"
-                        onClick={handleRegenerateEventSlug}
-                      >
-                        행사명 기준으로 다시 생성
-                      </button>
-                    )}
-                  </div>
-                  <Input
-                    id="event-modal-slug"
-                    value={eventForm.slug}
-                    onChange={(event) => handleEventSlugChange(event.target.value)}
-                    placeholder="festival-networking-2026"
-                    disabled={eventForm.isPublished}
-                    className="h-12 rounded-xl font-mono"
-                  />
-                  <div className="space-y-1 text-xs">
-                    <p className="text-slate-400">
-                      한글, 영문 소문자, 숫자, 하이픈(-)만 사용합니다.
-                    </p>
-                    <p className="text-slate-400">
-                      입력 중 하이픈은 유지되고, 저장 시 앞뒤 하이픈은 자동으로 정리됩니다.
-                    </p>
-                    {slugAssistMessage ? (
-                      <p
-                        className={cn(
-                          "font-semibold",
-                          slugAssistTone === "error" ? "text-rose-500" : "text-brand-700"
-                        )}
-                      >
-                        {slugAssistMessage}
-                      </p>
-                    ) : (
-                      <p className="text-slate-400">
-                        행사명 기준 자동 생성은 가능하면 영문 slug를 추천합니다.
-                      </p>
-                    )}
-                    <p className="font-semibold text-brand-700">
-                      공개 URL: {slugPreview ? getEventHomePath(slugPreview) : "/{slug}"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>공개 상태</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {([
-                      [false, "Draft"],
-                      [true, "Published"],
-                    ] as const).map(([value, label]) => (
-                      <Button
-                        key={label}
-                        disabled={eventForm.wasPublished && !value}
-                        variant={eventForm.isPublished === value ? "outline" : "secondary"}
-                        className={cn(
-                          "h-12 rounded-xl border-brand-600 bg-white text-base font-semibold text-slate-700 hover:bg-brand-50",
-                          eventForm.isPublished !== value &&
-                            "border-slate-200 bg-white text-slate-400 hover:bg-slate-50"
-                        )}
-                        onClick={() =>
-                          setEventForm((previousValue) => ({
-                            ...previousValue,
-                            isPublished: value,
-                          }))
-                        }
-                      >
-                        {label}
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                    <span className="mt-0.5 shrink-0">
-                      <InfoIcon />
-                    </span>
-                    <p className="font-semibold leading-5">
-                      {eventForm.wasPublished
-                        ? "한 번 Published로 저장된 이벤트는 Draft로 되돌릴 수 없고 slug도 변경할 수 없습니다."
-                        : "Published로 저장하면 slug가 즉시 고정되며, 이후에는 Draft로 되돌리거나 slug를 변경할 수 없습니다."}
-                    </p>
-                  </div>
+                <div className="flex items-start gap-2 rounded-xl border border-brand-200 bg-brand-50 px-3 py-3 text-xs text-brand-800">
+                  <span className="mt-0.5 shrink-0">
+                    <InfoIcon />
+                  </span>
+                  <p className="font-semibold leading-5">
+                    이벤트 URL은 저장 후 자동 생성됩니다. 생성된 주소는
+                    <span className="mx-1 font-mono">{"/event/{token}"}</span>
+                    형식으로 발급되며, 상세 화면에서 바로 확인할 수 있습니다.
+                  </p>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-[1.1fr_0.9fr_0.9fr]">
@@ -3313,7 +2993,7 @@ const AdminConsolePage = ({
                         bingoMissionCount: event.target.value,
                       }))
                     }
-                    placeholder="4줄"
+                    placeholder="3줄"
                     className="h-12 rounded-xl"
                   />
                 </div>
@@ -3324,6 +3004,9 @@ const AdminConsolePage = ({
                       <Label>키워드 관리</Label>
                       <p className="mt-1 text-xs text-brand-700">
                         현재 키워드: {keywordAutofillSummary.currentCount}개, 필요 키워드 {keywordAutofillSummary.goalCount}개
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        행사명, 장소, 운영팀을 바탕으로 추천 초안을 만들 수 있습니다.
                       </p>
                       {keywordAutofillSummary.missingCount > 0 ? (
                         <p className="mt-1 text-xs text-amber-700">
@@ -3337,7 +3020,21 @@ const AdminConsolePage = ({
                       )}
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-7 rounded-md bg-emerald-100 px-3 text-[0.72rem] font-bold text-emerald-800 hover:bg-emerald-200"
+                        onClick={
+                          eventForm.keywords.length > 0
+                            ? handleRefreshRecommendedKeywords
+                            : handleRecommendKeywords
+                        }
+                      >
+                        {eventForm.keywords.length > 0
+                          ? "다시 추천받기"
+                          : "추천 키워드 만들기"}
+                      </Button>
                       <Button
                         variant="secondary"
                         size="sm"
@@ -3399,7 +3096,20 @@ const AdminConsolePage = ({
                             keywordDraft: event.target.value,
                           }))
                         }
-                        onBlur={() => addKeyword(eventForm.keywordDraft)}
+                        onCompositionStart={() => {
+                          isKeywordDraftComposingRef.current = true;
+                        }}
+                        onCompositionEnd={() => {
+                          isKeywordDraftComposingRef.current = false;
+                        }}
+                        onBlur={(event) => {
+                          if (skipKeywordDraftBlurRef.current) {
+                            skipKeywordDraftBlurRef.current = false;
+                            return;
+                          }
+
+                          addKeyword(event.currentTarget.value);
+                        }}
                         onKeyDown={handleKeywordDraftKeyDown}
                         placeholder={eventForm.keywords.length === 0 ? "키워드를 입력하고 Enter를 누르세요." : ""}
                         className="min-w-[10rem] flex-1 border-0 bg-transparent px-2 py-1 text-sm text-slate-700 outline-none"

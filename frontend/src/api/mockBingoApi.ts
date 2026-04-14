@@ -53,6 +53,7 @@ type MockUserResponse = {
   message: string;
   user_id?: number | null;
   login_id?: string | null;
+  user_email?: string | null;
   user_name?: string | null;
   privacy_agreed?: boolean | null;
 };
@@ -81,6 +82,7 @@ const STORAGE_KEY = "bingo.mockApiState.v3";
 const MODE_KEY = "bingo.mockApiMode";
 const DEFAULT_PASSWORD = "TEST";
 const TEST_LOGIN_PREFIX = "TEST";
+const MOCK_EMAIL_DOMAIN = "mock.event-bingo.local";
 const DEFAULT_TEST_USERS = [
   { accessCode: "MINT01", userName: "테스트 민트" },
   { accessCode: "LIME02", userName: "테스트 라임" },
@@ -290,6 +292,7 @@ const createMockUserResponse = (
   message,
   user_id: user.user_id,
   login_id: user.login_id,
+  user_email: `tester-${user.user_id}@${MOCK_EMAIL_DOMAIN}`,
   user_name: user.user_name,
   privacy_agreed: user.privacy_agreed,
 });
@@ -416,6 +419,31 @@ export const mockGetOrCreateTesterUsers = async (): Promise<MockTesterUser[]> =>
   return toTesterUsers(state);
 };
 
+export const mockSearchBingoParticipants = async (query: string) => {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const state = readState();
+  ensureDefaultTestUsers(state);
+  writeState(state);
+
+  return Object.values(state.users)
+    .filter((user) => {
+      const mockEmail = `tester-${user.user_id}@${MOCK_EMAIL_DOMAIN}`;
+      return [user.user_name, mockEmail].some((value) =>
+        value.toLowerCase().includes(normalizedQuery)
+      );
+    })
+    .sort((left, right) => left.user_id - right.user_id)
+    .slice(0, 10)
+    .map((user) => ({
+      user_id: user.user_id,
+      display_name: user.user_name,
+    }));
+};
+
 export const mockLoginWithTester = async (
   accessCode: string,
   userName: string
@@ -518,7 +546,7 @@ export const mockCreateBingoBoard = async (
   return true;
 };
 
-export const mockGetBingoBoard = async (userId: string) => {
+export const mockGetBingoBoard = async (userId: string, _eventSlug?: string) => {
   const state = readState();
   return toBoardItems(state.boards[userId]);
 };
@@ -526,7 +554,8 @@ export const mockGetBingoBoard = async (userId: string) => {
 export const mockCreateUserBingoInteraction = async (
   wordIdList: string,
   sendUserId: number,
-  receiveUserId: number
+  receiveUserId: number,
+  _eventSlug?: string
 ): Promise<MockInteractionResponse> => {
   const state = readState();
   const sender = state.users[String(sendUserId)];
@@ -591,6 +620,7 @@ export const mockCreateUserBingoInteraction = async (
 
 export const mockGetUserAllInteraction = async (
   userId: string,
+  _eventSlug?: string,
   afterInteractionId?: number
 ): Promise<MockInteractionListResponse> => {
   const numericUserId = Number(userId);

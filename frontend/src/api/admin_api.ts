@@ -5,10 +5,8 @@ import type {
   AdminEventParticipant,
   AdminEventManagerRequest,
   AdminEventManagerRequestReviewResult,
-  AdminInvitationPreview,
   AdminMember,
   AdminPolicyTemplate,
-  AdminPublishState,
   AdminSession,
 } from "../modules/Admin/adminTypes";
 import { getApiBaseUrl } from "../lib/apiBase";
@@ -77,23 +75,7 @@ type AdminEventManagerRequestListResponse = ApiResponseBase & {
 type AdminEventManagerRequestResponse = ApiResponseBase & {
   request?: AdminEventManagerRequestPayload | null;
   invited_admin?: AdminMemberPayload | null;
-  invite_link?: string | null;
   invite_email_sent?: boolean | null;
-  invite_expires_at?: string | null;
-};
-
-type AdminInvitationPreviewPayload = {
-  email: string;
-  name: string;
-  expires_at: string;
-};
-
-type AdminInvitationPreviewResponse = ApiResponseBase & {
-  invitation?: AdminInvitationPreviewPayload | null;
-};
-
-type AdminInvitationCompleteResponse = ApiResponseBase & {
-  member?: AdminMemberPayload | null;
 };
 
 type AdminPolicyTemplatePayload = {
@@ -110,7 +92,7 @@ type AdminPolicyTemplateResponse = ApiResponseBase & {
 type AdminEventParticipantPayload = {
   id: number;
   name: string;
-  user_code: string;
+  email: string;
   progress_percent: number;
   keywords: string[];
 };
@@ -157,7 +139,6 @@ type AdminEventPayload = {
   progress_current: number;
   progress_total: number;
   status: EventStatusLiteral;
-  publish_state: AdminPublishState;
   can_edit: boolean;
   public_path?: string;
   participants?: AdminEventParticipantPayload[];
@@ -184,7 +165,6 @@ type AdminEventResetResponse = ApiResponseBase & {
 };
 
 export type AdminEventUpsertInput = {
-  slug: string;
   name: string;
   location: string;
   eventTeam: string;
@@ -194,7 +174,6 @@ export type AdminEventUpsertInput = {
   boardSize: 3 | 5;
   bingoMissionCount: number;
   keywords: string[];
-  publishState: AdminPublishState;
 };
 
 export type AdminEventManagerRequestReviewInput = {
@@ -290,20 +269,6 @@ const mapAdminMember = (payload: AdminMemberPayload): AdminMember => {
   };
 };
 
-const mapAdminInvitationPreview = (
-  payload: AdminInvitationPreviewPayload | null | undefined
-): AdminInvitationPreview => {
-  if (!payload) {
-    throw new Error("초대 정보를 받지 못했습니다.");
-  }
-
-  return {
-    email: payload.email,
-    name: payload.name,
-    expiresAt: payload.expires_at,
-  };
-};
-
 const mapAdminPolicyTemplate = (
   payload: AdminPolicyTemplatePayload | null | undefined
 ): AdminPolicyTemplate => {
@@ -346,7 +311,7 @@ const mapParticipants = (
   return (payloads ?? []).map((participant) => ({
     id: participant.id,
     name: participant.name,
-    userCode: participant.user_code,
+    email: participant.email,
     progressPercent: participant.progress_percent,
     keywords: participant.keywords,
   }));
@@ -400,43 +365,11 @@ const mapAdminEvent = (payload: AdminEventPayload): AdminEvent => {
     progressCurrent: payload.progress_current,
     progressTotal: payload.progress_total,
     status: payload.status,
-    publishState: payload.publish_state,
-    isPublished: payload.publish_state === "published",
     canEdit: payload.can_edit,
     publicPath: payload.public_path,
     participants: mapParticipants(payload.participants),
     analytics: mapAnalytics(payload.analytics),
   };
-};
-
-export const validateAdminSlugInput = (value: string) => {
-  const normalizedValue = value.trim().toLowerCase();
-  if (!/^[a-z0-9가-힣-]+$/.test(normalizedValue)) {
-    return "slug는 한글, 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.";
-  }
-  if (normalizedValue.length < 3 || normalizedValue.length > 50) {
-    return "slug는 3자 이상 50자 이하로 입력해 주세요.";
-  }
-  if (["admin", "login", "bingo", "api", "assets"].includes(normalizedValue)) {
-    return "예약된 slug는 사용할 수 없습니다.";
-  }
-  return "";
-};
-
-export const loginAdmin = async (email: string, password: string) => {
-  const payload = await requestJson<AdminLoginResponse>("/api/admin/auth/login", {
-    method: "POST",
-    body: JSON.stringify({
-      email: email.trim().toLowerCase(),
-      password,
-    }),
-  });
-
-  if (!payload.access_token) {
-    throw new Error("관리자 로그인 토큰을 받지 못했습니다.");
-  }
-
-  return mapAdminSession(payload.admin, payload.access_token);
 };
 
 export const getAdminMe = async (accessToken: string) => {
@@ -453,7 +386,6 @@ export const createAdminMember = async (
   accessToken: string,
   input: {
     email: string;
-    password: string;
     name: string;
     role: AdminRoleLiteral;
   }
@@ -464,7 +396,6 @@ export const createAdminMember = async (
       method: "POST",
       body: JSON.stringify({
         email: input.email.trim().toLowerCase(),
-        password: input.password,
         name: input.name.trim(),
         role: input.role,
       }),
@@ -526,35 +457,7 @@ export const reviewAdminEventManagerRequest = async (
   return {
     request: mapAdminEventManagerRequest(payload.request),
     invitedAdmin: payload.invited_admin ? mapAdminMember(payload.invited_admin) : undefined,
-    inviteLink: payload.invite_link ?? undefined,
     inviteEmailSent: payload.invite_email_sent ?? false,
-    inviteExpiresAt: payload.invite_expires_at ?? undefined,
-    message: payload.message,
-  };
-};
-
-export const getAdminInvitationPreview = async (token: string) => {
-  const payload = await requestJson<AdminInvitationPreviewResponse>(
-    `/api/admin/invitations/${encodeURIComponent(token)}`
-  );
-  return mapAdminInvitationPreview(payload.invitation);
-};
-
-export const completeAdminInvitation = async (token: string, password: string) => {
-  const payload = await requestJson<AdminInvitationCompleteResponse>(
-    `/api/admin/invitations/${encodeURIComponent(token)}/complete`,
-    {
-      method: "POST",
-      body: JSON.stringify({ password }),
-    }
-  );
-
-  if (!payload.member) {
-    throw new Error("초대 완료 결과를 받지 못했습니다.");
-  }
-
-  return {
-    member: mapAdminMember(payload.member),
     message: payload.message,
   };
 };
@@ -614,7 +517,6 @@ export const createAdminEvent = async (accessToken: string, input: AdminEventUps
     {
       method: "POST",
       body: JSON.stringify({
-        slug: input.slug,
         name: input.name,
         location: input.location,
         event_team: input.eventTeam,
@@ -624,7 +526,6 @@ export const createAdminEvent = async (accessToken: string, input: AdminEventUps
         board_size: input.boardSize,
         bingo_mission_count: input.bingoMissionCount,
         keywords: input.keywords,
-        publish_state: input.publishState,
       }),
     },
     accessToken
@@ -647,7 +548,6 @@ export const updateAdminEvent = async (
     {
       method: "PUT",
       body: JSON.stringify({
-        slug: input.slug,
         name: input.name,
         location: input.location,
         event_team: input.eventTeam,
@@ -657,7 +557,6 @@ export const updateAdminEvent = async (
         board_size: input.boardSize,
         bingo_mission_count: input.bingoMissionCount,
         keywords: input.keywords,
-        publish_state: input.publishState,
       }),
     },
     accessToken

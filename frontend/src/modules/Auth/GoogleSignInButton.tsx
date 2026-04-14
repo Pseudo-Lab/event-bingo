@@ -26,16 +26,43 @@ const GoogleSignInButton = ({
   onSuccess,
   text = "signin_with",
 }: GoogleSignInButtonProps) => {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [buttonWidth, setButtonWidth] = useState(0);
+
+  useEffect(() => {
+    const wrapperElement = wrapperRef.current;
+    if (!wrapperElement) {
+      return;
+    }
+
+    const updateWidth = () => {
+      const nextWidth = Math.floor(wrapperElement.getBoundingClientRect().width);
+      setButtonWidth((currentWidth) => (currentWidth === nextWidth ? currentWidth : nextWidth));
+    };
+
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateWidth);
+      return () => window.removeEventListener("resize", updateWidth);
+    }
+
+    const observer = new ResizeObserver(() => {
+      updateWidth();
+    });
+    observer.observe(wrapperElement);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     const containerElement = containerRef.current;
 
-    if (disabled || !containerElement) {
-      if (containerElement) {
-        containerElement.innerHTML = "";
-      }
+    if (!containerElement || buttonWidth <= 0) {
       return;
     }
 
@@ -55,10 +82,14 @@ const GoogleSignInButton = ({
         }
 
         const { rawNonce, hashedNonce } = await createGoogleNoncePair();
-        const containerWidth = Math.max(containerElement.offsetWidth || 0, 280);
+        const containerWidth = Math.max(Math.floor(buttonWidth), 1);
 
         googleIdentityApi.initialize({
           callback: async ({ credential }) => {
+            if (disabled) {
+              return;
+            }
+
             if (!credential) {
               onError?.("Google 인증 정보를 받지 못했습니다.");
               return;
@@ -111,23 +142,26 @@ const GoogleSignInButton = ({
       cancelled = true;
       containerElement.innerHTML = "";
     };
-  }, [context, disabled, onError, onSuccess, text]);
+  }, [buttonWidth, context, disabled, onError, onSuccess, text]);
 
   return (
-    <div className={cn("space-y-3", className)}>
-      {disabled ? (
-        <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-white/80 px-4 py-4 text-center text-sm font-medium text-slate-500">
-          개인정보 처리 동의 후 Google 로그인 버튼이 활성화됩니다.
-        </div>
-      ) : (
+    <div ref={wrapperRef} className={cn("w-full max-w-full min-w-0 space-y-3", className)}>
+      <div className={cn("relative w-full max-w-full min-w-0 overflow-hidden", disabled && "opacity-60")}>
         <div
           ref={containerRef}
           className={cn(
-            "min-h-[44px]",
-            isSubmitting && "pointer-events-none opacity-70"
+            "min-h-[44px] w-full max-w-full min-w-0 overflow-hidden",
+            (disabled || isSubmitting) && "pointer-events-none opacity-70"
           )}
+          aria-disabled={disabled}
         />
-      )}
+        {disabled ? (
+          <div
+            className="absolute inset-0 z-10 cursor-not-allowed rounded-[999px]"
+            aria-hidden="true"
+          />
+        ) : null}
+      </div>
 
       {isSubmitting ? (
         <p className="text-center text-sm font-medium text-slate-500">

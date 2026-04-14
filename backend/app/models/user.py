@@ -6,7 +6,7 @@ import secrets
 import bcrypt
 from core.db import AsyncSession
 from core.log import logger
-from sqlalchemy import Boolean, DateTime, Integer, Sequence, String, JSON, select
+from sqlalchemy import Boolean, DateTime, Integer, JSON, String, select
 from sqlalchemy.orm import mapped_column
 
 from models.base import Base
@@ -55,13 +55,25 @@ class BingoUser(Base):
         return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
 
     @classmethod
-    async def create(cls, session: AsyncSession, user_name: str, password: str):
+    def normalize_user_email(cls, user_email: str | None) -> str | None:
+        normalized_email = (user_email or "").strip().lower()
+        return normalized_email if "@" in normalized_email else None
+
+    @classmethod
+    async def create(
+        cls,
+        session: AsyncSession,
+        user_name: str,
+        password: str,
+        user_email: str | None = None,
+    ):
         login_id = await cls._generate_login_id(session)
         password_hash = cls.hash_password(password)
+        normalized_user_email = cls.normalize_user_email(user_email)
 
         new_user = BingoUser(
             user_name=user_name, 
-            user_email=login_id,
+            user_email=normalized_user_email or login_id,
             login_id=login_id,
             password_hash=password_hash,
             privacy_agreed=True,
@@ -118,6 +130,18 @@ class BingoUser(Base):
         user = await cls.get_user_by_id(session, user_id)
         user.privacy_agreed = True
         user.agreement_at = datetime.now(ZoneInfo("Asia/Seoul"))
+        await session.commit()
+        await session.refresh(user)
+        return user
+
+    @classmethod
+    async def sync_user_email(cls, session: AsyncSession, user_id: int, user_email: str | None):
+        normalized_user_email = cls.normalize_user_email(user_email)
+        user = await cls.get_user_by_id(session, user_id)
+        if not normalized_user_email or user.user_email == normalized_user_email:
+            return user
+
+        user.user_email = normalized_user_email
         await session.commit()
         await session.refresh(user)
         return user

@@ -1,23 +1,21 @@
 from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from email.message import EmailMessage
 from email.utils import formataddr
-import hashlib
 import os
-import re
 import secrets
 import smtplib
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import and_, delete, func, select
 
 from core.db import AsyncSession
 from models.admin import Admin, AdminRole
 from models.bingo.bingo_boards import BingoBoards
 from models.bingo.bingo_interaction import BingoInteraction
-from models.event import Event, EventPublishState, EventStatus
+from models.event import Event, EventStatus
 from models.event_attendee import EventAttendee
 from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 from models.policy_template import PolicyTemplate
@@ -43,13 +41,7 @@ from .schema import (
 
 DEFAULT_ADMIN_PHONE = "010-0000-0000"
 KST = ZoneInfo("Asia/Seoul")
-RESERVED_EVENT_SLUGS = {"admin", "login", "bingo", "api", "assets"}
-SLUG_PATTERN = re.compile(r"^[a-z0-9-]{3,50}$")
-DEFAULT_ADMIN_PASSWORD = "Admin1234!"
-DEFAULT_BOOTSTRAP_ADMIN_EMAIL = "superadmin@laivdata.com"
-DEFAULT_BOOTSTRAP_ADMIN_NAME = "어드민의 아버지"
-ADMIN_INVITE_TOKEN_EXPIRE_HOURS = int(os.getenv("ADMIN_INVITE_TOKEN_EXPIRE_HOURS", "72"))
-ADMIN_INVITE_URL_BASE = os.getenv("ADMIN_INVITE_URL_BASE", "http://localhost:5173/admin/invite")
+ADMIN_CONSOLE_URL_BASE = os.getenv("ADMIN_CONSOLE_URL_BASE", "http://localhost:5173/admin").strip()
 ADMIN_SMTP_HOST = os.getenv("ADMIN_SMTP_HOST", "").strip()
 ADMIN_SMTP_PORT = int(os.getenv("ADMIN_SMTP_PORT", "587"))
 ADMIN_SMTP_USERNAME = os.getenv("ADMIN_SMTP_USERNAME", "").strip()
@@ -75,8 +67,6 @@ LEGACY_SEED_EVENT_SLUGS = {
 @dataclass
 class AdminInvitationResult:
     admin: Admin
-    invite_link: str | None
-    invite_expires_at: datetime | None
     invite_email_sent: bool
     created_admin: bool
 
@@ -161,69 +151,45 @@ def validate_event_manager_request_transition(
         raise ValueError("같은 상태로는 다시 변경할 수 없습니다.")
 
 
-def validate_admin_password(password: str) -> None:
-    if len(password) < 8 or not any(character.isupper() for character in password):
-        raise ValueError("비밀번호는 영어 대문자를 포함해 8자 이상이어야 합니다.")
+def build_admin_console_link() -> str:
+    if ADMIN_CONSOLE_URL_BASE:
+        return ADMIN_CONSOLE_URL_BASE
+
+    parsed_url = urlsplit("http://localhost:5173/admin")
+    return urlunsplit((parsed_url.scheme, parsed_url.netloc, parsed_url.path, "", ""))
 
 
-def to_kst_datetime(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=KST)
-    return value.astimezone(KST)
-
-
-def hash_admin_invite_token(token: str) -> str:
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
-
-
-def build_admin_invite_link(token: str) -> str:
-    parsed_url = urlsplit(ADMIN_INVITE_URL_BASE)
-    query_items = dict(parse_qsl(parsed_url.query, keep_blank_values=True))
-    query_items["token"] = token
-    return urlunsplit(
-        (
-            parsed_url.scheme,
-            parsed_url.netloc,
-            parsed_url.path,
-            urlencode(query_items),
-            parsed_url.fragment,
-        )
-    )
-
-
-def _build_invitation_email(name: str, invite_link: str, expires_at: datetime) -> EmailMessage:
+def _build_access_granted_email(name: str, console_url: str) -> EmailMessage:
     message = EmailMessage()
-    message["Subject"] = "[Bingo Networking] 이벤트 관리자 초대"
+    message["Subject"] = "[Bingo Networking] 관리자 권한이 부여되었습니다"
     message["From"] = formataddr((ADMIN_SMTP_FROM_NAME, ADMIN_SMTP_FROM_EMAIL or "no-reply@example.com"))
-    expires_text = to_kst_datetime(expires_at).strftime("%Y-%m-%d %H:%M")
     message.set_content(
         "\n".join(
             [
                 f"{name}님, 안녕하세요.",
                 "",
                 "이벤트 관리자 권한 신청이 승인되었습니다.",
-                "아래 링크에서 비밀번호를 설정하면 관리자 콘솔에 로그인할 수 있습니다.",
+                "이제 승인된 이메일의 Google 계정으로 관리자 콘솔에 로그인할 수 있습니다.",
                 "",
-                invite_link,
+                console_url,
                 "",
-                f"링크 유효 시간: {expires_text} (KST)",
+                "환영합니다.",
             ]
         )
     )
     return message
 
 
-def send_admin_invitation_email(
+def send_admin_access_granted_email(
     *,
     recipient_email: str,
     recipient_name: str,
-    invite_link: str,
-    expires_at: datetime,
+    console_url: str,
 ) -> bool:
     if not ADMIN_SMTP_HOST or not ADMIN_SMTP_FROM_EMAIL:
         return False
 
-    message = _build_invitation_email(recipient_name, invite_link, expires_at)
+    message = _build_access_granted_email(recipient_name, console_url)
     message["To"] = recipient_email
 
     try:
@@ -236,7 +202,7 @@ def send_admin_invitation_email(
             server.send_message(message)
         return True
     except Exception as error:  # pragma: no cover - external integration
-        print(f"Failed to send admin invitation email: {error}")
+        print(f"Failed to send admin access granted email: {error}")
         return False
 
 
@@ -280,43 +246,11 @@ def validate_admin_member_deletion(
     if actor.id == target.id:
         raise ValueError("본인 계정은 삭제할 수 없습니다.")
 
-    if target.email == DEFAULT_BOOTSTRAP_ADMIN_EMAIL:
-        raise ValueError("기본 최고 관리자 계정은 삭제할 수 없습니다.")
-
     if owned_event_count > 0:
         raise ValueError("생성한 이벤트가 있는 관리자는 삭제할 수 없습니다.")
 
     if target.role == AdminRole.ADMIN and total_admin_count <= 1:
         raise ValueError("최소 한 명의 Admin 계정은 남아 있어야 합니다.")
-
-
-def validate_event_slug(slug: str) -> str:
-    normalized_slug = slug.strip().lower()
-
-    if not SLUG_PATTERN.fullmatch(normalized_slug):
-        raise ValueError("slug는 한글, 영문 소문자, 숫자, 하이픈(-)만 사용해 3자 이상 50자 이하로 입력해 주세요.")
-
-    if normalized_slug in RESERVED_EVENT_SLUGS:
-        raise ValueError("예약된 slug는 사용할 수 없습니다.")
-
-    return normalized_slug
-
-
-def validate_publish_transition(
-    current_state: EventPublishState | None,
-    next_state: EventPublishState,
-) -> None:
-    if current_state is None:
-        return
-
-    allowed_transitions = {
-        EventPublishState.DRAFT: {EventPublishState.DRAFT, EventPublishState.PUBLISHED, EventPublishState.ARCHIVED},
-        EventPublishState.PUBLISHED: {EventPublishState.PUBLISHED, EventPublishState.ARCHIVED},
-        EventPublishState.ARCHIVED: {EventPublishState.ARCHIVED},
-    }
-
-    if next_state not in allowed_transitions[current_state]:
-        raise ValueError("현재 공개 상태에서는 요청한 상태로 변경할 수 없습니다.")
 
 
 def resolve_event_status(event: Event) -> str:
@@ -332,6 +266,23 @@ def resolve_progress_percent(bingo_count: int, success_condition: int) -> int:
         return 0
 
     return min(100, round((bingo_count / success_condition) * 100))
+
+
+def resolve_participant_email(user: BingoUser) -> str:
+    user_email = (user.user_email or "").strip()
+    return user_email if "@" in user_email else "-"
+
+
+def resolve_participant_name(user: BingoUser, board: BingoBoards | None) -> str:
+    board_display_name = ((board.display_name or "").strip() if board else "")
+    if board_display_name:
+        return board_display_name
+
+    user_name = (user.user_name or "").strip()
+    if user_name:
+        return user_name
+
+    return f"참가자 {user.user_id}"
 
 
 def resolve_operating_minutes(event: Event) -> int:
@@ -367,7 +318,13 @@ async def build_event_summary(
 
     completed_result = await session.execute(
         select(func.count(EventAttendee.id))
-        .join(BingoBoards, BingoBoards.user_id == EventAttendee.user_id)
+        .join(
+            BingoBoards,
+            and_(
+                BingoBoards.user_id == EventAttendee.user_id,
+                BingoBoards.event_id == EventAttendee.event_id,
+            ),
+        )
         .where(
             EventAttendee.event_id == event.id,
             BingoBoards.bingo_count >= event.success_condition,
@@ -396,7 +353,6 @@ async def build_event_summary(
         progress_current=progress_current,
         progress_total=participant_count,
         status=resolve_event_status(event),
-        publish_state=event.publish_state.value,
         can_edit=can_edit_event(actor, event),
     )
 
@@ -409,7 +365,13 @@ async def build_event_detail(
     attendee_rows = await session.execute(
         select(EventAttendee, BingoUser, BingoBoards)
         .join(BingoUser, BingoUser.user_id == EventAttendee.user_id)
-        .outerjoin(BingoBoards, BingoBoards.user_id == EventAttendee.user_id)
+        .outerjoin(
+            BingoBoards,
+            and_(
+                BingoBoards.user_id == EventAttendee.user_id,
+                BingoBoards.event_id == EventAttendee.event_id,
+            ),
+        )
         .where(EventAttendee.event_id == event.id)
         .order_by(EventAttendee.id.asc())
     )
@@ -429,8 +391,8 @@ async def build_event_detail(
         participants.append(
             AdminEventParticipantItem(
                 id=user.user_id,
-                name=user.user_name,
-                user_code=user.login_id,
+                name=resolve_participant_name(user, board),
+                email=resolve_participant_email(user),
                 progress_percent=progress_percent,
                 keywords=keywords,
             )
@@ -474,7 +436,7 @@ async def build_event_detail(
     summary = await build_event_summary(session, event, actor)
     return AdminEventDetail(
         **summary.model_dump(),
-        public_path=f"/{event.slug}",
+        public_path=f"/event/{event.slug}",
         participants=participants,
         analytics=AdminEventAnalytics(
             review_participants=review_participants,
@@ -486,19 +448,6 @@ async def build_event_detail(
             keyword_rows=keyword_rows,
         ),
     )
-
-
-async def ensure_unique_event_slug(
-    session: AsyncSession,
-    slug: str,
-    current_event_id: int | None = None,
-) -> str:
-    normalized_slug = validate_event_slug(slug)
-    existing_event = await Event.get_by_slug(session, normalized_slug)
-    if existing_event and existing_event.id != current_event_id:
-        raise ValueError("이미 사용 중인 slug입니다.")
-
-    return normalized_slug
 
 
 async def reset_event_runtime_data(
@@ -563,19 +512,6 @@ async def reset_event_runtime_data(
         "deleted_interactions": deleted_interactions,
         "skipped_shared_users": len(shared_user_id_set),
     }
-
-
-def resolve_first_published_at(
-    current_state: EventPublishState | None,
-    next_state: EventPublishState,
-    existing_first_published_at: datetime | None,
-) -> datetime | None:
-    if current_state != EventPublishState.PUBLISHED and next_state == EventPublishState.PUBLISHED:
-        return existing_first_published_at or datetime.now(timezone.utc)
-
-    return existing_first_published_at
-
-
 async def approve_event_manager_request(
     session: AsyncSession,
     request: EventManagerRequest,
@@ -589,15 +525,9 @@ async def approve_event_manager_request(
     ):
         return AdminInvitationResult(
             admin=existing_admin,
-            invite_link=None,
-            invite_expires_at=None,
             invite_email_sent=False,
             created_admin=False,
         )
-
-    raw_invite_token = secrets.token_urlsafe(32)
-    invite_token_hash = hash_admin_invite_token(raw_invite_token)
-    invite_expires_at = datetime.now(KST) + timedelta(hours=ADMIN_INVITE_TOKEN_EXPIRE_HOURS)
 
     if existing_admin is None:
         provisioned_admin = await Admin.create(
@@ -606,26 +536,28 @@ async def approve_event_manager_request(
             password=secrets.token_urlsafe(32) + "A1",
             name=request.name.strip(),
             role=AdminRole.EVENT_MANAGER,
-            password_setup_required=True,
-            invite_token_hash=invite_token_hash,
-            invite_token_expires_at=invite_expires_at,
+            password_setup_required=False,
+            invite_token_hash=None,
+            invite_token_expires_at=None,
         )
         created_admin = True
     else:
-        provisioned_admin = await Admin.store_invitation(
+        provisioned_admin = await Admin.update(
             session,
             existing_admin.id,
-            invite_token_hash=invite_token_hash,
-            invite_token_expires_at=invite_expires_at,
+            name=request.name.strip() or existing_admin.name,
+            role=existing_admin.role,
+            password_setup_required=False,
+            invite_token_hash=None,
+            invite_token_expires_at=None,
+            invitation_sent_at=None,
         )
         created_admin = False
 
-    invite_link = build_admin_invite_link(raw_invite_token)
-    invite_email_sent = send_admin_invitation_email(
+    invite_email_sent = send_admin_access_granted_email(
         recipient_email=normalized_email,
         recipient_name=provisioned_admin.name,
-        invite_link=invite_link,
-        expires_at=invite_expires_at,
+        console_url=build_admin_console_link(),
     )
     if invite_email_sent:
         provisioned_admin = await Admin.mark_invitation_sent(
@@ -636,39 +568,8 @@ async def approve_event_manager_request(
 
     return AdminInvitationResult(
         admin=provisioned_admin,
-        invite_link=invite_link,
-        invite_expires_at=invite_expires_at,
         invite_email_sent=invite_email_sent,
         created_admin=created_admin,
-    )
-
-
-async def get_invited_admin_by_token(
-    session: AsyncSession,
-    invite_token: str,
-) -> Admin:
-    token_hash = hash_admin_invite_token(invite_token.strip())
-    admin = await Admin.get_by_invite_token_hash(session, token_hash)
-    if not admin or not admin.invite_token_expires_at:
-        raise ValueError("유효한 초대 링크를 찾을 수 없습니다.")
-
-    if to_kst_datetime(admin.invite_token_expires_at) < datetime.now(KST):
-        raise ValueError("초대 링크가 만료되었습니다. 관리자에게 재발송을 요청해 주세요.")
-
-    return admin
-
-
-async def complete_admin_invitation(
-    session: AsyncSession,
-    invite_token: str,
-    password: str,
-) -> Admin:
-    validate_admin_password(password)
-    invited_admin = await get_invited_admin_by_token(session, invite_token)
-    return await Admin.complete_password_setup(
-        session,
-        invited_admin.id,
-        password=password,
     )
 
 
@@ -694,15 +595,6 @@ async def ensure_admin_console_seed_data(session: AsyncSession) -> None:
         await session.execute(delete(Admin).where(Admin.id.in_(legacy_admin_ids)))
         await session.commit()
 
-    existing_admin = await Admin.get_by_email(session, DEFAULT_BOOTSTRAP_ADMIN_EMAIL)
-    if not existing_admin:
-        await Admin.create(
-            session,
-            email=DEFAULT_BOOTSTRAP_ADMIN_EMAIL,
-            password=DEFAULT_ADMIN_PASSWORD,
-            name=DEFAULT_BOOTSTRAP_ADMIN_NAME,
-            role=AdminRole.ADMIN,
-        )
 
 
 async def build_event_rooms(

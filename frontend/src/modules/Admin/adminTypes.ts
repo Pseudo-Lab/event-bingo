@@ -1,5 +1,4 @@
 export type AdminRole = "admin" | "event_manager";
-export type AdminPublishState = "draft" | "published" | "archived";
 export type AdminApplicationStatus = "pending" | "approved" | "rejected";
 
 export type AdminMember = {
@@ -9,10 +8,6 @@ export type AdminMember = {
   phone: string;
   createdAt: string;
   role: AdminRole;
-};
-
-export type StoredAdminMember = AdminMember & {
-  password: string;
 };
 
 export type AdminSession = {
@@ -28,7 +23,7 @@ export type AdminEventStatus = "ended" | "in_progress" | "scheduled";
 export type AdminEventParticipant = {
   id: number;
   name: string;
-  userCode: string;
+  email: string;
   progressPercent: number;
   keywords: string[];
 };
@@ -73,12 +68,6 @@ export type AdminEventManagerRequest = {
   createdAt: string;
 };
 
-export type AdminInvitationPreview = {
-  email: string;
-  name: string;
-  expiresAt: string;
-};
-
 export type AdminPolicyTemplate = {
   key: string;
   content: string;
@@ -89,9 +78,7 @@ export type AdminPolicyTemplate = {
 export type AdminEventManagerRequestReviewResult = {
   request: AdminEventManagerRequest;
   invitedAdmin?: AdminMember;
-  inviteLink?: string;
   inviteEmailSent: boolean;
-  inviteExpiresAt?: string;
   message: string;
 };
 
@@ -115,8 +102,6 @@ export type AdminEvent = {
   progressCurrent: number;
   progressTotal: number;
   status: AdminEventStatus;
-  publishState: AdminPublishState;
-  isPublished: boolean;
   canEdit: boolean;
   publicPath?: string;
   participants?: AdminEventParticipant[];

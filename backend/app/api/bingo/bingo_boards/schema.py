@@ -9,6 +9,8 @@ from models.bingo.schema import BingoEventUserInfo
 class BingoBoardRequest(BaseModel):
     user_id: int = Field(..., title="유저 ID")
     board_data: dict = Field(..., title="빙고판 데이터")
+    event_slug: str | None = Field(None, title="이벤트 슬러그")
+    display_name: str | None = Field(None, title="빙고 표시 이름")
 
     class Config:
         json_schema_extra = {
@@ -47,6 +49,7 @@ class BingoBoardRequest(BaseModel):
 
 class BingoBoardResponse(BaseSchema):
     user_id: Optional[int] = Field(title="유저 ID", default=None)
+    display_name: Optional[str] = Field(title="빙고 표시 이름", default=None)
     board_data: Optional[dict] = Field(title="빙고판 데이터", default=None)
     bingo_count: Optional[int] = Field(title="빙고 갯수", default=None)
     user_interaction_count: Optional[int] = Field(title="유저 상호작용 갯수", default=None)

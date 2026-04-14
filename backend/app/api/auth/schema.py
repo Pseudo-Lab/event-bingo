@@ -17,12 +17,31 @@ class BingoRegisterRequest(BaseModel):
     username: str = Field(..., min_length=1, max_length=100, description="표시 이름")
     password: str = Field(..., min_length=4, max_length=100, description="로그인 비밀번호")
     event_slug: Optional[str] = Field(default=None, min_length=1, max_length=100, description="이벤트 slug")
+    user_email: Optional[str] = Field(default=None, min_length=3, max_length=100, description="Google 계정 이메일")
 
 
 class BingoLoginRequest(BaseModel):
     login_id: str = Field(..., min_length=1, max_length=32, description="로그인 코드")
     password: str = Field(..., min_length=4, max_length=100, description="로그인 비밀번호")
     event_slug: Optional[str] = Field(default=None, min_length=1, max_length=100, description="이벤트 slug")
+    user_email: Optional[str] = Field(default=None, min_length=3, max_length=100, description="Google 계정 이메일")
+
+
+class BingoParticipantItem(BaseSchema):
+    ok: bool = Field(default=True, description="성공유무")
+    message: str = Field(default="", description="성공 실패 메시지")
+    user_id: Optional[int] = Field(title="유저 ID", default=None)
+    display_name: Optional[str] = Field(title="빙고 표시 이름", default=None)
+
+
+class BingoParticipantSearchResult(BaseSchema):
+    participants: list[BingoParticipantItem] = Field(default_factory=list, title="검색 결과 참가자 목록")
+
+
+class BingoUpdateDisplayNameRequest(BaseModel):
+    user_id: int = Field(..., description="유저 ID")
+    event_slug: str = Field(..., min_length=1, max_length=100, description="이벤트 slug")
+    display_name: str = Field(..., min_length=1, max_length=100, description="변경할 빙고 표시 이름")
 
 
 class LoginState(IntEnum):

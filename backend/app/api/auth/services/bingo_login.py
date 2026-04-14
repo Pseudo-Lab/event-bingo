@@ -27,7 +27,13 @@ class BaseBingoUser:
 
 
 class RegisterBingoUser(BaseBingoUser):
-    async def execute(self, username: str, password: str, event_slug: str | None = None) -> BingoUser:
+    async def execute(
+        self,
+        username: str,
+        password: str,
+        event_slug: str | None = None,
+        user_email: str | None = None,
+    ) -> BingoUser:
         try:
             normalized_username = username.strip()
             normalized_password = password.strip()
@@ -42,6 +48,7 @@ class RegisterBingoUser(BaseBingoUser):
                 self.async_session,
                 user_name=normalized_username,
                 password=normalized_password,
+                user_email=user_email,
             )
             await self.ensure_event_attendee(user.user_id, event_slug)
             logger.debug(f"Bingo user registered: {user}")
@@ -57,7 +64,13 @@ class RegisterBingoUser(BaseBingoUser):
 
 
 class LoginBingoUser(BaseBingoUser):
-    async def execute(self, login_id: str, password: str, event_slug: str | None = None) -> BingoUser:
+    async def execute(
+        self,
+        login_id: str,
+        password: str,
+        event_slug: str | None = None,
+        user_email: str | None = None,
+    ) -> BingoUser:
         try:
             normalized_login_id = login_id.strip().upper()
             normalized_password = password.strip()
@@ -82,6 +95,11 @@ class LoginBingoUser(BaseBingoUser):
             user = await BingoUser.update_privacy_agreement(
                 self.async_session,
                 user.user_id,
+            )
+            user = await BingoUser.sync_user_email(
+                self.async_session,
+                user.user_id,
+                user_email,
             )
             await self.ensure_event_attendee(user.user_id, event_slug)
             return BingoUserResponse(

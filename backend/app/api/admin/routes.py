@@ -1,4 +1,5 @@
 import io
+import secrets
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,7 +9,7 @@ from starlette.responses import StreamingResponse
 from core.db import AsyncSessionDepends
 from core.dependencies import authenticate_user
 from models.admin import Admin, AdminRole
-from models.event import Event, EventPublishState, GameMode
+from models.event import Event, GameMode
 from models.event_attendee import EventAttendee
 from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 from models.room import Room
@@ -18,7 +19,6 @@ from models.policy_template import PolicyTemplate
 
 from .auth import (
     authenticate_admin_session,
-    create_admin_access_token,
     require_admin_role,
 )
 from .console_services import (
@@ -27,31 +27,21 @@ from .console_services import (
     build_event_rooms,
     build_event_summary,
     can_edit_event,
-    complete_admin_invitation,
     ensure_admin_console_seed_data,
-    ensure_unique_event_slug,
-    get_invited_admin_by_token,
     kick_event_attendee,
     normalize_event_keywords,
     reset_event_runtime_data,
     serialize_event_manager_request,
-    resolve_first_published_at,
     serialize_admin_member,
     serialize_policy_template,
     serialize_admin_session,
-    validate_admin_password,
     validate_admin_member_deletion,
     validate_event_manager_request_transition,
     validate_event_schedule,
-    validate_publish_transition,
 )
 from .schema import (
     AdminEventDetailResponse,
     AdminEventListResponse,
-    AdminInvitationCompleteRequest,
-    AdminInvitationCompleteResponse,
-    AdminInvitationPreviewItem,
-    AdminInvitationPreviewResponse,
     AdminEventManagerRequestListResponse,
     AdminEventManagerRequestResponse,
     AdminEventManagerRequestUpdateRequest,
@@ -59,7 +49,6 @@ from .schema import (
     AdminEventResponse,
     AdminEventUpsertRequest,
     AdminKickResponse,
-    AdminLoginRequest,
     AdminLoginResponse,
     AdminMemberCreateRequest,
     AdminMemberDeleteResponse,
@@ -76,14 +65,9 @@ from .services import get_all_bingo_boards, get_all_users, set_test_bingo_board
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-def to_publish_state(value: str) -> EventPublishState:
-    try:
-        return EventPublishState(value)
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="지원하지 않는 공개 상태입니다.",
-        ) from error
+def resolve_export_email(user) -> str:
+    user_email = (getattr(user, "user_email", "") or "").strip()
+    return user_email if "@" in user_email else "-"
 
 
 def to_event_manager_request_status(value: str) -> EventManagerRequestStatus:
@@ -94,33 +78,6 @@ def to_event_manager_request_status(value: str) -> EventManagerRequestStatus:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="지원하지 않는 신청 상태입니다.",
         ) from error
-
-
-@admin_router.post("/auth/login", response_model=AdminLoginResponse, summary="관리자 로그인")
-async def admin_login(
-    payload: AdminLoginRequest,
-    db: AsyncSessionDepends,
-):
-    await ensure_admin_console_seed_data(db)
-
-    admin = await Admin.get_by_email(db, payload.email.strip().lower())
-    if not admin or not admin.verify_password(payload.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="이메일 또는 비밀번호를 확인해 주세요.",
-        )
-    if admin.password_setup_required:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="초대 링크에서 비밀번호 설정을 먼저 완료해 주세요.",
-        )
-
-    return AdminLoginResponse(
-        ok=True,
-        message="관리자 로그인에 성공했습니다.",
-        access_token=create_admin_access_token(admin),
-        admin=serialize_admin_session(admin),
-    )
 
 
 @admin_router.get("/auth/me", response_model=AdminLoginResponse, summary="현재 관리자 세션 조회")
@@ -211,18 +168,13 @@ async def create_admin_member(
 ):
     require_admin_role(actor)
 
-    try:
-        validate_admin_password(payload.password)
-    except ValueError as error:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
-
     role = AdminRole.ADMIN if payload.role == "admin" else AdminRole.EVENT_MANAGER
 
     try:
         member = await Admin.create(
             db,
             email=payload.email.strip().lower(),
-            password=payload.password,
+            password=secrets.token_urlsafe(32) + "A1",
             name=payload.name.strip(),
             role=role,
         )
@@ -231,7 +183,7 @@ async def create_admin_member(
 
     return AdminMemberResponse(
         ok=True,
-        message="관리자 계정을 생성했습니다.",
+        message="관리자 권한 계정을 생성했습니다.",
         member=serialize_admin_member(member),
     )
 
@@ -371,64 +323,17 @@ async def update_event_manager_request(
     return AdminEventManagerRequestResponse(
         ok=True,
         message=(
-            "신청을 승인하고 관리자 초대 링크를 준비했습니다."
-            if payload.status == "approved" and invite_result and invite_result.invite_link
+            "신청을 승인했고 관리자 권한 안내 메일을 발송했습니다."
+            if payload.status == "approved" and invite_result and invite_result.invite_email_sent
+            else "신청을 승인했습니다. 승인된 이메일의 Google 계정으로 관리자 로그인할 수 있습니다."
+            if payload.status == "approved" and invite_result
             else "이미 관리자 계정이 있어 신청 상태만 업데이트했습니다."
             if payload.status == "approved"
             else "신청 상태를 업데이트했습니다."
         ),
         request=await serialize_event_manager_request(db, updated_request),
         invited_admin=serialize_admin_member(invite_result.admin) if invite_result else None,
-        invite_link=invite_result.invite_link if invite_result else None,
         invite_email_sent=invite_result.invite_email_sent if invite_result else False,
-        invite_expires_at=invite_result.invite_expires_at if invite_result else None,
-    )
-
-
-@admin_router.get(
-    "/invitations/{invite_token}",
-    response_model=AdminInvitationPreviewResponse,
-    summary="관리자 초대 정보 조회",
-)
-async def get_admin_invitation(
-    invite_token: str,
-    db: AsyncSessionDepends,
-):
-    try:
-        invited_admin = await get_invited_admin_by_token(db, invite_token)
-    except ValueError as error:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
-
-    return AdminInvitationPreviewResponse(
-        ok=True,
-        message="관리자 초대 정보를 불러왔습니다.",
-        invitation=AdminInvitationPreviewItem(
-            email=invited_admin.email,
-            name=invited_admin.name,
-            expires_at=invited_admin.invite_token_expires_at,
-        ),
-    )
-
-
-@admin_router.post(
-    "/invitations/{invite_token}/complete",
-    response_model=AdminInvitationCompleteResponse,
-    summary="관리자 초대 수락 및 비밀번호 설정",
-)
-async def complete_admin_invitation_route(
-    invite_token: str,
-    payload: AdminInvitationCompleteRequest,
-    db: AsyncSessionDepends,
-):
-    try:
-        completed_admin = await complete_admin_invitation(db, invite_token, payload.password)
-    except ValueError as error:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
-
-    return AdminInvitationCompleteResponse(
-        ok=True,
-        message="비밀번호 설정이 완료되었습니다. 이제 관리자 콘솔에 로그인할 수 있습니다.",
-        member=serialize_admin_member(completed_admin),
     )
 
 
@@ -545,16 +450,13 @@ async def create_admin_event(
     actor: Admin = Depends(authenticate_admin_session),
 ):
     try:
-        publish_state = to_publish_state(payload.publish_state)
-        validate_publish_transition(None, publish_state)
-        slug = await ensure_unique_event_slug(db, payload.slug)
         start_time = payload.start_at
         end_time = payload.end_at
         validate_event_schedule(start_time, end_time)
         event = await Event.create(
             db,
             name=payload.name.strip(),
-            slug=slug,
+            slug=None,
             location=payload.location.strip(),
             event_team=payload.event_team.strip(),
             start_time=start_time,
@@ -564,8 +466,6 @@ async def create_admin_event(
             bingo_size=payload.board_size,
             success_condition=payload.bingo_mission_count,
             keywords=normalize_event_keywords(payload.keywords, payload.board_size),
-            publish_state=publish_state,
-            first_published_at=resolve_first_published_at(None, publish_state, None),
             game_mode=GameMode(payload.game_mode),
             team_size=payload.team_size,
         )
@@ -598,18 +498,11 @@ async def update_admin_event(
         )
 
     try:
-        publish_state = to_publish_state(payload.publish_state)
-        validate_publish_transition(event.publish_state, publish_state)
-        slug = await ensure_unique_event_slug(db, payload.slug, current_event_id=event.id)
         validate_event_schedule(payload.start_at, payload.end_at)
-        if event.publish_state == EventPublishState.PUBLISHED and event.slug != slug:
-            raise ValueError("공개된 이후에는 slug를 변경할 수 없습니다.")
-
         updated_event = await Event.update(
             db,
             event_id=event.id,
             name=payload.name.strip(),
-            slug=slug,
             location=payload.location.strip(),
             event_team=payload.event_team.strip(),
             start_time=payload.start_at,
@@ -618,12 +511,6 @@ async def update_admin_event(
             bingo_size=payload.board_size,
             success_condition=payload.bingo_mission_count,
             keywords=normalize_event_keywords(payload.keywords, payload.board_size),
-            publish_state=publish_state,
-            first_published_at=resolve_first_published_at(
-                event.publish_state,
-                publish_state,
-                event.first_published_at,
-            ),
             game_mode=GameMode(payload.game_mode),
             team_size=payload.team_size,
         )
@@ -764,7 +651,7 @@ async def download_attendance_data(
         {
             "ID": user.user_id,
             "Name": user.user_name,
-            "LoginID": user.login_id,
+            "Email": resolve_export_email(user),
             "Rating": user.rating,
             "Review": user.review,
             "AgreedAt": user.agreement_at.strftime('%Y-%m-%d %H:%M:%S') if user.agreement_at else None,
@@ -809,7 +696,7 @@ async def download_bingo_participation_data(
             participation_data.append({
                 "ID": user.user_id,
                 "Name": user.user_name,
-                "LoginID": user.login_id,
+                "Email": resolve_export_email(user),
                 "BingoCount": board.bingo_count,
                 "InteractionCount": board.user_interaction_count,
                 "SelectedWords": ", ".join(selected_words) if selected_words else "",

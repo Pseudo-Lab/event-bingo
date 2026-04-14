@@ -55,5 +55,3 @@ export const clearAdminSession = () => {
 
   window.sessionStorage.removeItem(STORAGE_KEY);
 };
-
-export const hasAdminSession = () => getAdminSession() !== null;

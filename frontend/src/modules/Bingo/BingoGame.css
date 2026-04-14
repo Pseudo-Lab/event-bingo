@@ -528,28 +528,35 @@
   padding: 1.05rem 1rem 2.75rem;
 }
 
-.bingo-game-brand {
-  margin: 0;
-  color: #f5fff9;
-  text-align: center;
-  font-size: clamp(1.35rem, 2vw, 2rem);
-  font-weight: 900;
-  letter-spacing: -0.05em;
-  text-shadow:
-    0 2px 0 rgba(15, 88, 69, 0.2),
-    0 16px 28px rgba(15, 88, 69, 0.14);
+.bingo-game-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
-.bingo-game-brand--link {
-  display: block;
-  width: 100%;
+.bingo-game-header__pseudolab {
+  display: none;
+}
+
+.bingo-game-header__brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   padding: 0;
   background: transparent;
   cursor: pointer;
 }
 
-.bingo-game-brand--link:focus-visible {
+.bingo-game-header__brand img {
+  display: block;
+  width: min(100%, 12.6rem);
+  height: auto;
+}
+
+.bingo-game-header__brand:focus-visible,
+.bingo-game-header__pseudolab:focus-visible {
   outline: 3px solid rgba(255, 255, 255, 0.4);
   outline-offset: 4px;
 }
@@ -562,6 +569,7 @@
 }
 
 .bingo-card {
+  position: relative;
   min-width: 0;
   border-radius: 1.9rem;
   background: rgba(255, 255, 255, 0.96);
@@ -570,7 +578,10 @@
 }
 
 .bingo-hero {
-  padding: 1.7rem 1.9rem 1.8rem;
+  position: relative;
+  z-index: 4;
+  overflow: visible;
+  padding: 1.5rem 1.72rem 0.82rem 1.8rem;
 }
 
 .bingo-hero__identity {
@@ -582,14 +593,14 @@
 }
 
 .bingo-hero__content {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(9rem, 12.5rem);
-  align-items: end;
-  gap: 1rem;
-  margin-top: 1rem;
+  position: relative;
+  min-height: 11.5rem;
+  margin-top: 0.78rem;
 }
 
 .bingo-hero__copy {
+  position: relative;
+  z-index: 2;
   min-width: 0;
 }
 
@@ -602,22 +613,25 @@
   font-weight: 900;
 }
 
-.bingo-hero__hint {
-  margin: 0.75rem 0 0;
-  color: rgba(12, 114, 87, 0.72);
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
 .bingo-hero__form {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 1.45rem;
+  position: relative;
+  z-index: 3;
+  width: min(100%, 31rem);
+  margin-top: 0.95rem;
   padding: 0.35rem;
   border: 2px solid #0f7f62;
   border-radius: 999px;
   background: #ffffff;
+}
+
+.bingo-hero__form-field {
+  position: relative;
+  z-index: 10;
+  flex: 1 1 0%;
+  min-width: 0;
 }
 
 .bingo-hero__form input {
@@ -640,8 +654,67 @@
   outline: none;
 }
 
+.bingo-hero__search-results,
+.bingo-hero__search-status {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  margin: 0;
+  border: 1px solid rgba(176, 197, 188, 0.9);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 16px 30px rgba(36, 95, 74, 0.14);
+}
+
+.bingo-hero__search-results {
+  max-height: 12rem;
+  padding: 0.3rem;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.bingo-hero__search-result-item + .bingo-hero__search-result-item {
+  margin-top: 0.16rem;
+}
+
+.bingo-hero__search-result-button {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 0.82rem;
+  border: 0;
+  border-radius: 0.72rem;
+  background: transparent;
+  color: #0d6f55;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  box-shadow: none;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.bingo-hero__search-result-button:hover,
+.bingo-hero__search-result-button:focus-visible {
+  background: rgba(91, 204, 171, 0.16);
+  color: #0b5f49;
+  outline: none;
+  transform: none;
+}
+
+.bingo-hero__search-status {
+  padding: 0.78rem 0.9rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
 .bingo-hero__form button {
   flex: 0 0 auto;
+  max-width: 100%;
   border: 0;
   border-radius: 999px;
   background: linear-gradient(180deg, #64d1b4 0%, #43b991 100%);
@@ -681,12 +754,85 @@
 }
 
 .bingo-hero__illustration {
-  width: 100%;
+  display: block;
+  position: absolute;
+  right: -1.82rem;
+  bottom: -2.5rem;
+  width: min(46%, 14.5rem);
+  max-width: none;
   height: auto;
-  align-self: end;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@media (min-width: 961px) {
+  .bingo-game-header {
+    justify-content: space-between;
+  }
+
+  .bingo-game-header__pseudolab {
+    display: inline-flex;
+    align-items: center;
+    color: #f5fff9;
+    font-size: 1.2rem;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    text-decoration: none;
+    text-shadow:
+      0 2px 0 rgba(15, 88, 69, 0.2),
+      0 16px 28px rgba(15, 88, 69, 0.14);
+  }
+
+  .bingo-game-header__brand {
+    margin-left: auto;
+  }
+
+  .bingo-game-header__brand img {
+    width: 12.8rem;
+  }
+
+  .bingo-game-top {
+    grid-template-columns: minmax(0, 1.38fr) minmax(19.25rem, 1.18fr);
+  }
+
+  .bingo-hero {
+    padding-bottom: 0.12rem;
+  }
+
+  .bingo-hero__content {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .bingo-hero__copy {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 11.5rem;
+  }
+
+  .bingo-hero__copy h1 {
+    letter-spacing: -0.04em;
+    transform: translateY(3.85rem);
+    transform-origin: left top;
+  }
+
+  .bingo-hero__form {
+    margin-top: 0;
+    transform: translateY(5.7rem);
+    transform-origin: left bottom;
+  }
+
+  .bingo-hero__illustration {
+    right: -1.8rem;
+    bottom: -2.2rem;
+  }
 }
 
 .bingo-stats {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -740,6 +886,65 @@
 
 .bingo-stats__progress.is-animating span {
   transition-duration: 900ms;
+}
+
+.bingo-stats__selected {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0;
+}
+
+.bingo-stats__selected-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.bingo-stats__selected-head h3,
+.bingo-stats__selected-head strong {
+  margin: 0;
+  color: #0d7257;
+  font-size: 1rem;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.bingo-stats__selected-head h3 {
+  font-weight: 900;
+}
+
+.bingo-stats__selected-head strong {
+  color: #0a7d5d;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.bingo-stats__selected-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.bingo-stats__selected-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.32rem 0.72rem;
+  border-radius: 999px;
+  background: rgba(11, 140, 102, 0.12);
+  color: #0b6b52;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.bingo-stats__selected-empty {
+  margin: 0;
+  color: rgba(12, 114, 87, 0.72);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  font-weight: 700;
 }
 
 .bingo-stats__meta {
@@ -903,6 +1108,15 @@
 }
 
 .bingo-board-cell {
+  --cell-bg-start: #58cfae;
+  --cell-bg-end: #44b58f;
+  --cell-label-color: #085843;
+  --cell-art-opacity: 1;
+  --cell-fill-opacity: 1;
+  --cell-outline-opacity: 1;
+  --cell-gap-scale: 0.9;
+  --cell-fill-scale: 0.82;
+  --cell-outline-scale: 1.06;
   position: relative;
   z-index: 1;
   display: grid;
@@ -911,8 +1125,12 @@
   overflow: hidden;
   isolation: isolate;
   border-radius: 1.05rem;
-  padding: 0.6rem;
-  color: #0f6b53;
+  padding: 0.58rem;
+  background: linear-gradient(180deg, var(--cell-bg-start) 0%, var(--cell-bg-end) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 12px 22px rgba(24, 114, 88, 0.16);
+  color: var(--cell-label-color);
   text-align: center;
   transition:
     transform 180ms ease,
@@ -932,60 +1150,129 @@
   inset: 0;
   border-radius: inherit;
   z-index: 0;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0) 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 46%);
 }
 
 .bingo-board-cell::after {
-  inset: 0;
+  inset: 0.12rem;
+  border-radius: calc(1.05rem - 0.12rem);
   z-index: 0;
-  opacity: 0;
+  opacity: 1;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 -0.4rem 0.7rem rgba(9, 84, 65, 0.06);
 }
 
-.bingo-board-cell__label,
-.bingo-board-cell__brand span {
+.bingo-board-cell__inner {
   position: relative;
   z-index: 1;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: clamp(0.76rem, 1vw, 1.28rem);
-  line-height: 1.15;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.bingo-board-cell__art {
+  position: absolute;
+  inset: 1%;
+  display: grid;
+  place-items: center;
+  opacity: var(--cell-art-opacity);
+  pointer-events: none;
+  transform: rotate(-8deg);
+}
+
+.bingo-board-cell__star {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.bingo-board-cell__star-gap {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, var(--cell-bg-start) 0%, var(--cell-bg-end) 100%);
+  transform: scale(var(--cell-gap-scale));
+  -webkit-mask-image: var(--cell-gap-mask);
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-image: var(--cell-gap-mask);
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+.bingo-board-cell__star--fill {
+  opacity: var(--cell-fill-opacity);
+  transform: scale(var(--cell-fill-scale));
+  filter:
+    drop-shadow(0 0 0.18rem rgba(224, 255, 99, 0.26))
+    drop-shadow(0 0 0.9rem rgba(224, 255, 99, 0.16));
+}
+
+.bingo-board-cell__star--outline {
+  opacity: var(--cell-outline-opacity);
+  transform: scale(var(--cell-outline-scale));
+  filter: drop-shadow(0 0 0.58rem rgba(215, 255, 117, 0.18));
+}
+
+.bingo-board-cell__label {
+  position: relative;
+  z-index: 2;
+  display: block;
+  max-width: 88%;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  font-size: clamp(0.68rem, 0.98vw, 1.12rem);
+  line-height: 1.08;
   font-weight: 900;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
 }
 
 .bingo-board-cell.is-placeholder {
-  background: linear-gradient(180deg, #bdf0c7 0%, #a5e4b4 100%);
+  --cell-bg-start: #c5efc8;
+  --cell-bg-end: #afe5ba;
+  --cell-label-color: rgba(67, 187, 157, 0.96);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.52),
+    0 0 0.95rem rgba(180, 238, 190, 0.38),
     0 8px 18px rgba(78, 181, 143, 0.12);
-  color: #51bda4;
 }
 
 .bingo-board-cell.is-placeholder::before {
-  background:
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 58%),
-    linear-gradient(180deg, rgba(122, 215, 178, 0.18) 0%, rgba(122, 215, 178, 0) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 54%);
 }
 
 .bingo-board-cell.is-received,
 .bingo-board-cell.is-complete {
-  background: linear-gradient(180deg, #57cba8 0%, #3cb68f 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 12px 22px rgba(24, 114, 88, 0.16);
-  color: #075945;
+  --cell-bg-start: #57cda9;
+  --cell-bg-end: #41b38d;
+  --cell-label-color: #065742;
 }
 
 .bingo-board-cell.is-received::before,
 .bingo-board-cell.is-complete::before {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 46%);
+  background:
+    radial-gradient(circle at 50% 14%, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0) 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 42%);
 }
 
 .bingo-board-cell.is-complete {
+  --cell-bg-start: #61d4b1;
+  --cell-bg-end: #45bb95;
+  --cell-gap-scale: 0.92;
+  --cell-fill-scale: 0.86;
+  --cell-outline-scale: 1.08;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 16px 28px rgba(24, 114, 88, 0.22);
+    0 16px 28px rgba(24, 114, 88, 0.22),
+    0 0 1rem rgba(221, 255, 87, 0.14);
 }
 
 .bingo-board-cell.is-latest {
@@ -998,72 +1285,26 @@
 }
 
 .bingo-board-cell__label {
-  color: #0b5f4a;
+  color: var(--cell-label-color);
+}
+
+.bingo-board-cell.is-placeholder .bingo-board-cell__label {
+  max-width: 92%;
+  font-size: clamp(0.74rem, 1.02vw, 1.2rem);
 }
 
 .bingo-board-cell.is-complete .bingo-board-cell__label {
-  color: #0a5f49;
-}
-
-.bingo-board-cell__complete-badge {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-}
-
-.bingo-board-cell__complete-badge::before {
-  content: "";
-  position: absolute;
-  inset: 0.16rem;
-  border-radius: 47% 53% 50% 50% / 46% 50% 50% 54%;
-  border: 0.34rem solid #efff96;
-  transform: rotate(-8deg);
-  box-shadow:
-    0 0 0 0.14rem rgba(239, 255, 150, 0.28),
-    0 0 1rem rgba(239, 255, 150, 0.22);
-}
-
-.bingo-board-cell__complete-badge::after {
-  content: "";
-  position: absolute;
-  inset: 0.52rem;
-  border-radius: 53% 47% 51% 49% / 47% 54% 46% 53%;
-  background: #dcff75;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.48),
-    0 0.08rem 0 rgba(189, 228, 88, 0.9);
-}
-
-.bingo-board-cell__complete-badge .bingo-board-cell__label {
-  position: relative;
-  z-index: 2;
-  max-width: 72%;
-  color: #0a5f49;
-  font-size: clamp(0.9rem, 1.35vw, 1.9rem);
+  max-width: 76%;
+  color: #065742;
+  font-size: clamp(0.82rem, 1.08vw, 1.42rem);
   line-height: 1.08;
   letter-spacing: -0.07em;
 }
 
-.bingo-board-cell__brand {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  padding: 0.2rem;
-  border-radius: 0.8rem;
-}
-
-.bingo-board-cell__brand span {
-  color: rgba(76, 186, 162, 0.96);
-}
-
 .bingo-board-cell.is-latest.is-complete::after {
   box-shadow:
-    0 0 0 2px rgba(234, 255, 146, 0.9),
-    0 0 0 4px rgba(234, 255, 146, 0.48),
+    inset 0 0 0 2px rgba(234, 255, 146, 0.86),
+    0 0 0 4px rgba(234, 255, 146, 0.34),
     0 0 16px rgba(232, 255, 127, 0.56);
 }
 
@@ -1376,6 +1617,18 @@
   .bingo-stats__score strong {
     font-size: 3.8rem;
   }
+
+  .bingo-stats__selected {
+    padding: 0;
+  }
+
+  .bingo-hero__copy h1 {
+    letter-spacing: -0.03em;
+  }
+
+  .bingo-hero__illustration {
+    bottom: -1.35rem;
+  }
 }
 
 @media (max-width: 720px) {
@@ -1418,7 +1671,7 @@
     padding: 0.95rem 0.48rem 2.2rem;
   }
 
-  .bingo-game-brand,
+  .bingo-game-header,
   .bingo-game-top,
   .bingo-board-shell,
   .bingo-history-grid,
@@ -1427,10 +1680,12 @@
     margin-inline: auto;
   }
 
-  .bingo-game-brand {
-    text-align: left;
-    font-size: 1.18rem;
-    padding-left: 0.2rem;
+  .bingo-game-header {
+    justify-content: center;
+  }
+
+  .bingo-game-header__brand img {
+    width: min(100%, 12rem);
   }
 
   .bingo-game-top {
@@ -1451,6 +1706,7 @@
 
   .bingo-hero__content {
     grid-template-columns: 1fr;
+    min-height: 0;
   }
 
   .bingo-hero__illustration {
@@ -1459,6 +1715,7 @@
 
   .bingo-hero__copy h1 {
     font-size: 2.48rem;
+    letter-spacing: -0.02em;
   }
 
   .bingo-hero__form input {
@@ -1472,12 +1729,26 @@
     font-size: 1rem;
   }
 
+  .bingo-hero__search-result-button {
+    font-size: 0.88rem;
+  }
+
   .bingo-stats {
     padding: 1.35rem 1.25rem 1.4rem;
   }
 
   .bingo-stats__score strong {
     font-size: 3.2rem;
+  }
+
+  .bingo-stats__selected-head h3,
+  .bingo-stats__selected-head strong {
+    font-size: 0.95rem;
+  }
+
+  .bingo-stats__selected-chip {
+    min-height: 1.9rem;
+    font-size: 0.82rem;
   }
 
   .bingo-board-shell {
@@ -1533,22 +1804,16 @@
     padding: 0.24rem;
   }
 
-  .bingo-board-cell__complete-badge::before {
-    inset: 0.1rem;
-    border-width: 0.22rem;
+  .bingo-board-cell__art {
+    inset: 1%;
   }
 
-  .bingo-board-cell__complete-badge::after {
-    inset: 0.35rem;
+  .bingo-board-cell.is-complete .bingo-board-cell__label {
+    max-width: 76%;
+    font-size: 0.82rem;
   }
 
-  .bingo-board-cell__complete-badge .bingo-board-cell__label {
-    max-width: 78%;
-    font-size: 0.9rem;
-  }
-
-  .bingo-board-cell__label,
-  .bingo-board-cell__brand span {
+  .bingo-board-cell__label {
     font-size: 0.68rem;
   }
 
@@ -1578,9 +1843,8 @@
     padding: 0.8rem 0.34rem 2rem;
   }
 
-  .bingo-game-brand {
-    font-size: 1.05rem;
-    padding-left: 0;
+  .bingo-game-header__brand img {
+    width: min(100%, 11rem);
   }
 
   .bingo-hero,
@@ -1594,6 +1858,7 @@
 
   .bingo-hero__copy h1 {
     font-size: 2.05rem;
+    letter-spacing: -0.01em;
   }
 
   .bingo-hero__hint {
@@ -1614,6 +1879,26 @@
 
   .bingo-stats__score strong {
     font-size: 2.6rem;
+  }
+
+  .bingo-stats__selected {
+    padding: 0;
+    gap: 0.6rem;
+  }
+
+  .bingo-stats__selected-head {
+    gap: 0.65rem;
+  }
+
+  .bingo-stats__selected-head h3,
+  .bingo-stats__selected-head strong {
+    font-size: 0.9rem;
+  }
+
+  .bingo-stats__selected-chip {
+    min-height: 1.85rem;
+    padding: 0.28rem 0.64rem;
+    font-size: 0.78rem;
   }
 
   .bingo-stats__meta dt,
@@ -1641,8 +1926,7 @@
     gap: 0.22rem;
   }
 
-  .bingo-board-cell__label,
-  .bingo-board-cell__brand span {
+  .bingo-board-cell__label {
     font-size: 0.62rem;
   }
 }

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from core.db import AsyncSessionDepends
-from models.event import Event, EventPublishState, EventStatus
+from models.event import Event, EventStatus
 from models.event_manager_request import EventManagerRequest
 from models.policy_template import PolicyTemplate
 
@@ -38,7 +38,7 @@ async def list_public_events(
     db: AsyncSessionDepends,
 ):
     events = await Event.get_all(db)
-    published_events = [
+    event_items = [
         PublicEventSummaryItem(
             id=event.id,
             slug=event.slug,
@@ -49,13 +49,12 @@ async def list_public_events(
             status=resolve_public_event_status(event),
         )
         for event in events
-        if event.publish_state == EventPublishState.PUBLISHED
     ]
 
     return PublicEventListResponse(
         ok=True,
-        message="공개 이벤트 목록을 불러왔습니다.",
-        events=published_events,
+        message="이벤트 목록을 불러왔습니다.",
+        events=event_items,
     )
 
 
@@ -141,6 +140,5 @@ async def get_public_event_profile(
             board_size=event.bingo_size,
             bingo_mission_count=event.success_condition,
             keywords=[str(keyword) for keyword in (event.keywords or [])],
-            publish_state=event.publish_state.value,
         ),
     )

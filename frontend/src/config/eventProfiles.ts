@@ -239,7 +239,7 @@ export const formatEventDateLabel = (startAt: string) => {
 };
 
 export const getEventHomePath = (eventSlug?: string | null) => {
-  return `/${normalizeEventSlug(eventSlug)}`;
+  return `/event/${normalizeEventSlug(eventSlug)}`;
 };
 
 export const getEventBingoPath = (eventSlug?: string | null) => {
@@ -297,7 +297,11 @@ export const getActiveEventSlugFromLocation = (pathname?: string | null) => {
     return DEFAULT_EVENT_PROFILE.slug;
   }
 
-  const [firstSegment] = segments;
+  const [firstSegment, secondSegment] = segments;
+  if (firstSegment === "event") {
+    return secondSegment ? normalizeEventSlug(secondSegment) : DEFAULT_EVENT_PROFILE.slug;
+  }
+
   if (firstSegment === "bingo" || firstSegment === "experience" || firstSegment === "admin") {
     return DEFAULT_EVENT_PROFILE.slug;
   }

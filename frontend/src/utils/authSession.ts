@@ -2,12 +2,14 @@ export type AuthSession = {
   userId: string;
   userName: string;
   loginId: string;
+  userEmail?: string;
 };
 
 const AUTH_STORAGE_KEYS = {
   userId: "myID",
   userName: "myUserName",
   loginId: "myLoginId",
+  userEmail: "myUserEmail",
 } as const;
 
 const LEGACY_STORAGE_KEYS = {
@@ -16,6 +18,11 @@ const LEGACY_STORAGE_KEYS = {
 } as const;
 
 const hasWindow = () => typeof window !== "undefined";
+
+export const normalizeAuthEmail = (value?: string | null) => {
+  const trimmedValue = value?.trim() ?? "";
+  return trimmedValue.includes("@") ? trimmedValue : "";
+};
 
 const readAuthSessionFromStorage = (storage: Storage | null): AuthSession | null => {
   if (!storage) {
@@ -32,12 +39,22 @@ const readAuthSessionFromStorage = (storage: Storage | null): AuthSession | null
     storage.getItem(LEGACY_STORAGE_KEYS.loginKey) ??
     storage.getItem(LEGACY_STORAGE_KEYS.userEmail) ??
     "";
+  const userEmail =
+    normalizeAuthEmail(storage.getItem(AUTH_STORAGE_KEYS.userEmail)) ||
+    normalizeAuthEmail(storage.getItem(LEGACY_STORAGE_KEYS.userEmail)) ||
+    normalizeAuthEmail(loginId);
 
-  return {
+  const nextSession: AuthSession = {
     userId,
     userName: storage.getItem(AUTH_STORAGE_KEYS.userName) ?? "",
     loginId,
   };
+
+  if (userEmail) {
+    nextSession.userEmail = userEmail;
+  }
+
+  return nextSession;
 };
 
 const removeAuthSessionFromStorage = (storage: Storage | null) => {
@@ -59,9 +76,16 @@ export const setAuthSession = (session: AuthSession) => {
     return;
   }
 
+  const userEmail = normalizeAuthEmail(session.userEmail) || normalizeAuthEmail(session.loginId);
+
   window.sessionStorage.setItem(AUTH_STORAGE_KEYS.userId, session.userId);
   window.sessionStorage.setItem(AUTH_STORAGE_KEYS.userName, session.userName);
   window.sessionStorage.setItem(AUTH_STORAGE_KEYS.loginId, session.loginId);
+  if (userEmail) {
+    window.sessionStorage.setItem(AUTH_STORAGE_KEYS.userEmail, userEmail);
+  } else {
+    window.sessionStorage.removeItem(AUTH_STORAGE_KEYS.userEmail);
+  }
   window.sessionStorage.removeItem(LEGACY_STORAGE_KEYS.userEmail);
   window.sessionStorage.removeItem(LEGACY_STORAGE_KEYS.loginKey);
 };
