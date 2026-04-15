@@ -42,6 +42,14 @@ const DEFAULT_EVENT_PROFILE: EventProfile = {
 
 const hasWindow = () => typeof window !== "undefined";
 
+const slugifyEventValue = (value: string) => {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9가-힣]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+};
+
 const trimText = (value: unknown, fallback: string) => {
   if (typeof value !== "string") {
     return fallback;
@@ -97,13 +105,14 @@ const writeOverrides = (overrides: Record<string, EventProfileOverrides>) => {
 export const getDefaultEventSlug = () => DEFAULT_EVENT_PROFILE.slug;
 
 export const normalizeEventSlug = (value?: string | null) => {
-  const normalizedValue = (value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9가-힣]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  const normalizedValue = slugifyEventValue(value ?? "");
 
   return normalizedValue || DEFAULT_EVENT_PROFILE.slug;
+};
+
+export const normalizeRequestedEventSlug = (value?: string | null) => {
+  const normalizedValue = (value ?? "").trim().toLowerCase();
+  return normalizedValue.length > 0 ? normalizedValue : null;
 };
 
 export const humanizeEventSlug = (value?: string | null) => {
@@ -134,7 +143,12 @@ const buildFallbackEventProfile = (eventSlug: string): EventProfile => {
 };
 
 export const resolvePublicEventFallbackProfile = (eventSlug?: string | null): EventProfile => {
-  const normalizedSlug = normalizeEventSlug(eventSlug);
+  const requestedSlug = normalizeRequestedEventSlug(eventSlug);
+  const normalizedSlug =
+    requestedSlug === null
+      ? DEFAULT_EVENT_PROFILE.slug
+      : slugifyEventValue(requestedSlug) || "unknown-event";
+
   return buildFallbackEventProfile(normalizedSlug);
 };
 

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { getPublicEventProfile } from "../api/public_event_api";
+import { getPublicEventProfile, isNotFoundApiError } from "../api/public_event_api";
 import {
   resolveEventProfile,
   resolvePublicEventFallbackProfile,
   type EventProfile,
 } from "../config/eventProfiles";
+
+export type EventProfileLoadState = "loading" | "ready" | "not_found" | "error";
 
 export const useEventProfile = (eventSlug?: string | null) => {
   const fallbackProfile = useMemo(() => {
@@ -16,11 +18,13 @@ export const useEventProfile = (eventSlug?: string | null) => {
     return resolveEventProfile(eventSlug);
   }, [eventSlug]);
   const [eventProfile, setEventProfile] = useState<EventProfile>(fallbackProfile);
-  const [isResolved, setIsResolved] = useState(false);
+  const [loadState, setLoadState] = useState<EventProfileLoadState>("loading");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setEventProfile(fallbackProfile);
-    setIsResolved(false);
+    setLoadState("loading");
+    setErrorMessage(null);
   }, [fallbackProfile]);
 
   useEffect(() => {
@@ -31,12 +35,24 @@ export const useEventProfile = (eventSlug?: string | null) => {
         const publicEventProfile = await getPublicEventProfile(eventSlug);
         if (!cancelled) {
           setEventProfile(publicEventProfile);
-          setIsResolved(true);
+          setLoadState("ready");
+          setErrorMessage(null);
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
           setEventProfile(fallbackProfile);
-          setIsResolved(true);
+          if (isNotFoundApiError(error)) {
+            setLoadState("not_found");
+            setErrorMessage(
+              error instanceof Error ? error.message : "행사 정보를 찾을 수 없습니다."
+            );
+            return;
+          }
+
+          setLoadState("ready");
+          setErrorMessage(
+            error instanceof Error ? error.message : "행사 정보를 불러오지 못했습니다."
+          );
         }
       }
     };
@@ -48,5 +64,12 @@ export const useEventProfile = (eventSlug?: string | null) => {
     };
   }, [eventSlug, fallbackProfile]);
 
-  return { eventProfile, isResolved };
+  return {
+    eventProfile,
+    loadState,
+    errorMessage,
+    isResolved: loadState !== "loading",
+    isAvailable: loadState === "ready",
+    isNotFound: loadState === "not_found",
+  };
 };

@@ -31,6 +31,7 @@ import {
   KeywordSetupScreen,
   NetworkingIllustration,
 } from "./BingoView";
+import PublicEventStatePage from "../../components/PublicEventStatePage";
 import type {
   AlertPayload,
   AlertSeverity,
@@ -93,7 +94,13 @@ const BingoGame = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { eventSlug } = useParams();
-  const { eventProfile, isResolved: isEventProfileResolved } = useEventProfile(eventSlug);
+  const {
+    eventProfile,
+    loadState: eventProfileLoadState,
+    errorMessage: eventProfileErrorMessage,
+    isResolved: isEventProfileResolved,
+    isAvailable: isEventProfileAvailable,
+  } = useEventProfile(eventSlug);
   const [testModeEnabled] = useState(() => syncTestModeFromUrl(location.search));
   const boardSize = eventProfile.boardSize;
   const boardCellCount = boardSize * boardSize;
@@ -424,7 +431,7 @@ const BingoGame = () => {
   );
 
   useEffect(() => {
-    if (!isEventProfileResolved) {
+    if (!isEventProfileAvailable) {
       return;
     }
 
@@ -572,7 +579,7 @@ const BingoGame = () => {
     cellValues,
     eventHomePath,
     eventSlug,
-    isEventProfileResolved,
+    isEventProfileAvailable,
     navigate,
     showAlert,
     syncSessionDisplayName,
@@ -1096,6 +1103,31 @@ const BingoGame = () => {
         onToggleKeyword={toggleInitialKeyword}
         onSubmit={handleInitialSetup}
         alertToast={alertToast}
+      />
+    );
+  }
+
+  if (eventProfileLoadState === "not_found") {
+    return (
+      <PublicEventStatePage
+        eyebrow="Bingo Access"
+        title="행사를 찾을 수 없습니다"
+        description="이 행사 링크로는 빙고 화면에 들어갈 수 없습니다. 주최자가 공유한 최신 행사 URL을 다시 확인해 주세요."
+      />
+    );
+  }
+
+  if (eventProfileLoadState === "error") {
+    return (
+      <PublicEventStatePage
+        eyebrow="Bingo Access"
+        title="빙고 행사 정보를 확인할 수 없습니다"
+        description={
+          eventProfileErrorMessage ??
+          "빙고 화면에 필요한 행사 정보를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+        }
+        secondaryActionLabel="새로고침"
+        onSecondaryAction={() => window.location.reload()}
       />
     );
   }

@@ -32,6 +32,7 @@ import { isTestModeEnabled, syncTestModeFromUrl } from "../../utils/testMode";
 import bingoLoginCharacterIllustration from "../../assets/illustrations/bingo-login-character.svg";
 import topIllustration from "../../assets/illustrations/top.svg";
 import { Dialog } from "../../components/ui/dialog";
+import PublicEventStatePage from "../../components/PublicEventStatePage";
 import ConsentDialog from "./ConsentDialog";
 import {
   HOME_EVENT_DISPLAY_FALLBACKS,
@@ -126,7 +127,13 @@ const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { eventSlug } = useParams();
-  const { eventProfile, isResolved: isEventProfileResolved } = useEventProfile(eventSlug);
+  const {
+    eventProfile,
+    loadState: eventProfileLoadState,
+    errorMessage: eventProfileErrorMessage,
+    isResolved: isEventProfileResolved,
+    isAvailable: isEventProfileAvailable,
+  } = useEventProfile(eventSlug);
   const eventHomePath = useMemo(
     () => withSearch(getEventHomePath(eventProfile.slug), location.search),
     [eventProfile.slug, location.search]
@@ -287,7 +294,7 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
-    if (!shouldUseGoogleAuth || googleAccountEmail) {
+    if (!shouldUseGoogleAuth || googleAccountEmail || !isEventProfileAvailable) {
       return;
     }
 
@@ -332,7 +339,14 @@ const Home = () => {
     return () => {
       cancelled = true;
     };
-  }, [applyGoogleBridgeState, eventProfile.slug, googleAccountEmail, openAlert, shouldUseGoogleAuth]);
+  }, [
+    applyGoogleBridgeState,
+    eventProfile.slug,
+    googleAccountEmail,
+    isEventProfileAvailable,
+    openAlert,
+    shouldUseGoogleAuth,
+  ]);
 
   const handleGoogleBingoLogin = async ({
     credential,
@@ -341,8 +355,8 @@ const Home = () => {
     credential: string;
     nonce: string;
   }) => {
-    if (!isAgreed) {
-      openAlert("개인정보 처리 동의가 필요합니다.");
+    if (!isEventProfileAvailable) {
+      openAlert("행사 정보를 확인한 뒤 다시 시도해 주세요.");
       return;
     }
 
@@ -380,6 +394,11 @@ const Home = () => {
   };
 
   const handleTesterLogin = useCallback(async (tester: MockTesterUser) => {
+    if (!isEventProfileAvailable) {
+      openAlert("유효한 행사 주소에서만 테스트 로그인을 진행할 수 있습니다.");
+      return;
+    }
+
     try {
       setActiveTesterCode(tester.accessCode);
 
@@ -409,7 +428,7 @@ const Home = () => {
     } finally {
       setActiveTesterCode(null);
     }
-  }, [applyLoginSession, eventBingoPath, navigate, openAlert]);
+  }, [applyLoginSession, eventBingoPath, isEventProfileAvailable, navigate, openAlert]);
 
   const handleResetMockTesterData = useCallback(async () => {
     const shouldReset = window.confirm(
@@ -446,7 +465,12 @@ const Home = () => {
   }, [loadMockTesterUsers, testModeEnabled]);
 
   useEffect(() => {
-    if (!testModeEnabled || !testCodeFromQuery || handledTestCode === testCodeFromQuery) {
+    if (
+      !isEventProfileAvailable ||
+      !testModeEnabled ||
+      !testCodeFromQuery ||
+      handledTestCode === testCodeFromQuery
+    ) {
       return;
     }
 
@@ -467,7 +491,33 @@ const Home = () => {
     mockTesterUsers,
     testCodeFromQuery,
     testModeEnabled,
+    isEventProfileAvailable,
   ]);
+
+  if (eventProfileLoadState === "not_found") {
+    return (
+      <PublicEventStatePage
+        eyebrow="Public Event"
+        title="행사를 찾을 수 없습니다"
+        description="입력한 행사 주소로는 공개 행사 페이지를 열 수 없습니다. 주최자에게 최신 링크를 다시 확인하거나 메인 화면에서 행사 목록을 확인해 주세요."
+      />
+    );
+  }
+
+  if (eventProfileLoadState === "error") {
+    return (
+      <PublicEventStatePage
+        eyebrow="Public Event"
+        title="행사 정보를 확인할 수 없습니다"
+        description={
+          eventProfileErrorMessage ??
+          "행사 정보를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+        }
+        secondaryActionLabel="새로고침"
+        onSecondaryAction={() => window.location.reload()}
+      />
+    );
+  }
 
   const handleLogout = () => {
     clearCurrentSessionState();

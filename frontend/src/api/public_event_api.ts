@@ -1,5 +1,8 @@
 import type { EventProfile } from "../config/eventProfiles";
-import { normalizeEventSlug, resolveEventProfile } from "../config/eventProfiles";
+import {
+  normalizeRequestedEventSlug,
+  resolveEventProfile,
+} from "../config/eventProfiles";
 import { buildBoardKeywordPool } from "../config/bingoConfig";
 import { getApiBaseUrl } from "../lib/apiBase";
 
@@ -75,6 +78,25 @@ type EventManagerApplicationResponse = ApiResponseBase & {
 
 const API_URL = getApiBaseUrl();
 
+export class ApiRequestError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+export const isApiRequestError = (error: unknown): error is ApiRequestError => {
+  return error instanceof ApiRequestError;
+};
+
+export const isNotFoundApiError = (error: unknown) => {
+  return isApiRequestError(error) && error.status === 404;
+};
+
 const createApiUrl = (path: string) => {
   const baseUrl =
     API_URL || (typeof window !== "undefined" ? window.location.origin : "http://localhost");
@@ -97,10 +119,14 @@ const readErrorMessage = async (response: Response) => {
   return `API request failed (${response.status})`;
 };
 
+const toApiRequestError = async (response: Response) => {
+  return new ApiRequestError(await readErrorMessage(response), response.status);
+};
+
 const requestJson = async <T>(path: string): Promise<T> => {
   const response = await fetch(createApiUrl(path));
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    throw await toApiRequestError(response);
   }
 
   return response.json() as Promise<T>;
@@ -118,7 +144,7 @@ const requestJsonWithInit = async <T>(path: string, init: RequestInit): Promise<
   });
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    throw await toApiRequestError(response);
   }
 
   return response.json() as Promise<T>;
@@ -146,9 +172,15 @@ const mergeEventProfile = (
 };
 
 export const getPublicEventProfile = async (eventSlug?: string | null): Promise<EventProfile> => {
-  const normalizedSlug = normalizeEventSlug(eventSlug);
+  const normalizedSlug = normalizeRequestedEventSlug(eventSlug);
+  if (!normalizedSlug) {
+    throw new ApiRequestError("이벤트를 찾을 수 없습니다.", 404);
+  }
+
   const fallbackProfile = resolveEventProfile(normalizedSlug);
-  const payload = await requestJson<PublicEventResponse>(`/api/events/${normalizedSlug}`);
+  const payload = await requestJson<PublicEventResponse>(
+    `/api/events/${encodeURIComponent(normalizedSlug)}`
+  );
 
   if (!payload.event) {
     throw new Error("공개 이벤트 설정을 받지 못했습니다.");
