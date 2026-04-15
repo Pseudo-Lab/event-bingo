@@ -6,18 +6,19 @@ authors = ["4roring <4roring@naver.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
+alembic = "^1.13.1"
+asyncpg = "^0.31.0"
+bcrypt = "^5.0.0"
 fastapi = "^0.109.0"
-uvicorn = "^0.27.0"
-gunicorn = "^22.0.0"
-sqlalchemy = {extras = ["asyncio"], version = "^2.0.29"}
-aiomysql = "^0.3.0"
-python-dotenv = "^1.0.1"
 httpx = "^0.27.0"
 cryptography = "^46.0.7"
-alembic = "^1.13.1"
-tzdata = "^2024.1"
-pyjwt = "^2.12.0"
+pandas = "^2.2.3"
 prometheus-fastapi-instrumentator = "^6.1.0"
+python-dotenv = "^1.0.1"
+python-jose = {extras = ["cryptography"], version = "^3.4.0"}
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.29"}
+tzdata = "^2024.1"
+uvicorn = "^0.27.0"
 
 
 [tool.poetry.group.dev.dependencies]
