@@ -5,6 +5,7 @@ import type {
   InteractionRecord,
 } from "./bingoGameTypes";
 import {
+  buildIncomingKeywordAlert,
   buildPreviewBoard,
   buildExchangeHistory,
   getCompletedLines,
@@ -97,6 +98,39 @@ describe("buildExchangeHistory", () => {
       sendPerson: "나",
       receivePerson: "상대 A",
       given: ["AI", "ML"],
+    });
+  });
+});
+
+describe("buildIncomingKeywordAlert", () => {
+  const incomingBatch = {
+    senderId: "12",
+    senderName: "민지",
+    createdAt: "2026-03-19T10:00:01.000Z",
+    keywords: ["AI", "ML"],
+    signature: "12:2026-03-19T10:00:01.000Z:AI|ML",
+  };
+
+  it("returns an info alert when the receiver already has every keyword", () => {
+    expect(buildIncomingKeywordAlert(incomingBatch, [])).toEqual({
+      message: "\"민지\"님이 보낸 키워드는 이미 모두 가지고 있어요.",
+      severity: "info",
+      payload: {
+        title: "이미 키워드가 다 있어요",
+        label: "KEYWORD EXCHANGE",
+      },
+    });
+  });
+
+  it("returns a success alert when every incoming keyword is newly applied", () => {
+    expect(buildIncomingKeywordAlert(incomingBatch, ["AI", "ML"])).toEqual({
+      message: "\"민지\"님이 키워드를 보내줬어요.",
+      severity: "success",
+      payload: {
+        title: "새 키워드를 받았어요",
+        keywords: ["AI", "ML"],
+        label: "KEYWORD EXCHANGE",
+      },
     });
   });
 });

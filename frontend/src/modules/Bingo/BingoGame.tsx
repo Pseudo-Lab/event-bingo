@@ -39,6 +39,7 @@ import type {
   InteractionRecord,
 } from "./bingoGameTypes";
 import {
+  buildIncomingKeywordAlert,
   buildExchangeHistory,
   buildPreviewBoard,
   BOARD_PREVIEW_OPTIONS,
@@ -350,6 +351,12 @@ const BingoGame = () => {
           appendInteractionHistory(interactionDelta);
         }
 
+        const latestIncomingBatch = getLatestIncomingBatch(
+          interactionDelta.filter(
+            (interaction) => interaction.receive_user_id === Number(activeUserId)
+          )
+        );
+
         if (!latestBoard || latestBoard.length === 0) {
           return;
         }
@@ -371,61 +378,34 @@ const BingoGame = () => {
           .filter((cell, index) => previousBoard[index]?.status === 0 && cell.status === 1)
           .map((cell) => cell.value);
 
-        if (newlyUpdatedValues.length === 0) {
-          return;
+        if (newlyUpdatedValues.length > 0) {
+          setBingoBoard(latestBoard);
+          bingoBoardRef.current = latestBoard;
+          setLatestReceivedKeywords(newlyUpdatedValues);
         }
-
-        setBingoBoard(latestBoard);
-        bingoBoardRef.current = latestBoard;
-        setLatestReceivedKeywords(newlyUpdatedValues);
-
-        const latestIncomingBatch = getLatestIncomingBatch(
-          interactionDelta.filter(
-            (interaction) => interaction.receive_user_id === Number(activeUserId)
-          )
-        );
 
         if (
           latestIncomingBatch &&
           latestIncomingBatch.signature !== lastProcessedIncomingSignatureRef.current
         ) {
-          const displaySenderName =
-            latestIncomingBatch.senderName ||
-            `참가자 ${latestIncomingBatch.senderId}`;
-
           setLastProcessedIncomingSignature(latestIncomingBatch.signature);
           lastProcessedIncomingSignatureRef.current = latestIncomingBatch.signature;
 
-          if (newlyUpdatedValues.length === latestIncomingBatch.keywords.length) {
-            showAlert(`"${displaySenderName}"님이 키워드를 보내줬어요.`, "success", {
-              title: "새 키워드를 받았어요",
-              keywords: newlyUpdatedValues,
-              label: "KEYWORD EXCHANGE",
-            });
-            return;
-          }
-
-          if (newlyUpdatedValues.length > 0) {
+          const incomingAlert = buildIncomingKeywordAlert(
+            latestIncomingBatch,
+            newlyUpdatedValues
+          );
+          if (incomingAlert) {
             showAlert(
-              `"${displaySenderName}"님이 보낸 키워드 중 새로운 항목만 반영했어요.`,
-              "success",
-              {
-                title: "새 키워드만 반영했어요",
-                keywords: newlyUpdatedValues,
-                label: "KEYWORD EXCHANGE",
-              }
+              incomingAlert.message,
+              incomingAlert.severity,
+              incomingAlert.payload
             );
             return;
           }
+        }
 
-          showAlert(
-            `"${displaySenderName}"님이 보낸 키워드는 이미 모두 가지고 있어요.`,
-            "info",
-            {
-              title: "이미 키워드가 다 있어요",
-              label: "KEYWORD EXCHANGE",
-            }
-          );
+        if (newlyUpdatedValues.length === 0) {
           return;
         }
 
@@ -900,12 +880,16 @@ const BingoGame = () => {
       const requestId = opponentSearchRequestIdRef.current;
       searchTimeoutRef.current = setTimeout(async () => {
         try {
-          const results = await searchBingoParticipants(normalizedQuery, normalizedEventSlug);
+          const activeUserId = userId || getAuthSession()?.userId || "";
+          const results = await searchBingoParticipants(
+            normalizedQuery,
+            normalizedEventSlug,
+            activeUserId || undefined
+          );
           if (requestId !== opponentSearchRequestIdRef.current) {
             return;
           }
-          const myId = getAuthSession()?.userId;
-          const filteredResults = results.filter((u) => String(u.user_id) !== myId);
+          const filteredResults = results.filter((u) => String(u.user_id) !== activeUserId);
           setOpponentSearchResults(filteredResults);
           setHasCompletedOpponentSearch(true);
         } catch {
@@ -920,7 +904,7 @@ const BingoGame = () => {
         }
       }, 300);
     },
-    [eventSlug]
+    [eventSlug, userId]
   );
 
   const handleSelectOpponent = useCallback(

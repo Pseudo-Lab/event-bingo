@@ -57,13 +57,19 @@ async def bingo_login(
 async def bingo_search_participants(
     q: str = Query(..., min_length=1, max_length=100, description="검색할 이름"),
     event_slug: str = Query(..., min_length=1, max_length=100, description="이벤트 slug"),
+    exclude_user_id: int | None = Query(None, ge=1, description="검색 결과에서 제외할 유저 ID"),
     session: AsyncSessionDepends = None,
 ):
     event = await Event.get_by_slug(session, event_slug)
     if not event:
         return BingoParticipantSearchResult(ok=False, message="이벤트를 찾을 수 없습니다.", participants=[])
 
-    participants = await EventAttendee.search_participants(session, event.id, q)
+    participants = await EventAttendee.search_participants(
+        session,
+        event.id,
+        q,
+        exclude_user_id=exclude_user_id,
+    )
     return BingoParticipantSearchResult(
         ok=True,
         message=f"{len(participants)}명의 참가자를 찾았습니다.",
@@ -75,6 +81,7 @@ async def bingo_search_participants(
                 display_name=resolve_participant_search_name(board, user),
             )
             for _, user, board in participants
+            if board is not None
         ],
     )
 

@@ -13,6 +13,11 @@ type MockBoardCell = {
 
 type MockBoardData = Record<string, MockBoardCell>;
 
+type MockBoard = {
+  boardData: MockBoardData;
+  displayName?: string;
+};
+
 type MockUser = {
   user_id: number;
   user_name: string;
@@ -35,7 +40,7 @@ type MockState = {
   nextLoginOrdinal: number;
   users: Record<string, MockUser>;
   loginIdToUserId: Record<string, string>;
-  boards: Record<string, MockBoardData>;
+  boards: Record<string, MockBoard>;
   interactions: MockInteraction[];
 };
 
@@ -126,6 +131,43 @@ const getRuntimeConfig = () => {
   };
 };
 
+const normalizeDisplayName = (value?: string | null) => {
+  const trimmedValue = value?.trim() ?? "";
+  return trimmedValue || undefined;
+};
+
+const isMockBoard = (value: unknown): value is MockBoard => {
+  return typeof value === "object" &&
+    value !== null &&
+    "boardData" in value;
+};
+
+const hydrateBoards = (
+  parsedBoards?: Record<string, MockBoard | MockBoardData>
+): Record<string, MockBoard> => {
+  if (!parsedBoards) {
+    return {};
+  }
+
+  return Object.entries(parsedBoards).reduce<Record<string, MockBoard>>(
+    (boards, [userId, board]) => {
+      if (isMockBoard(board)) {
+        boards[userId] = {
+          boardData: board.boardData ?? {},
+          displayName: normalizeDisplayName(board.displayName),
+        };
+        return boards;
+      }
+
+      boards[userId] = {
+        boardData: board,
+      };
+      return boards;
+    },
+    {}
+  );
+};
+
 const hydrateState = (parsedState?: Partial<MockState>): MockState => {
   return {
     nextUserId: parsedState?.nextUserId ?? 1,
@@ -133,7 +175,7 @@ const hydrateState = (parsedState?: Partial<MockState>): MockState => {
     nextLoginOrdinal: parsedState?.nextLoginOrdinal ?? 1,
     users: parsedState?.users ?? {},
     loginIdToUserId: parsedState?.loginIdToUserId ?? {},
-    boards: parsedState?.boards ?? {},
+    boards: hydrateBoards(parsedState?.boards as Record<string, MockBoard | MockBoardData> | undefined),
     interactions: parsedState?.interactions ?? [],
   };
 };
@@ -245,6 +287,16 @@ const toBoardItems = (boardData?: MockBoardData | null) => {
     }));
 };
 
+const getMockBoard = (state: MockState, userId: string) => {
+  return state.boards[userId];
+};
+
+const getMockDisplayName = (state: MockState, userId: string) => {
+  return normalizeDisplayName(getMockBoard(state, userId)?.displayName) ??
+    normalizeDisplayName(state.users[userId]?.user_name) ??
+    null;
+};
+
 const getUniqueKeywords = (keywords: string[]) => [
   ...new Set(keywords.map((keyword) => keyword.trim()).filter(Boolean)),
 ];
@@ -301,9 +353,6 @@ const createInteractionResponse = (
   interaction: MockInteraction,
   state: MockState
 ): MockInteractionResponse => {
-  const sender = state.users[String(interaction.send_user_id)];
-  const receiver = state.users[String(interaction.receive_user_id)];
-
   return {
     ok: true,
     message: "ok",
@@ -311,8 +360,8 @@ const createInteractionResponse = (
     word_id_list: interaction.word_id_list,
     send_user_id: interaction.send_user_id,
     receive_user_id: interaction.receive_user_id,
-    send_user_name: sender?.user_name ?? null,
-    receive_user_name: receiver?.user_name ?? null,
+    send_user_name: getMockDisplayName(state, String(interaction.send_user_id)),
+    receive_user_name: getMockDisplayName(state, String(interaction.receive_user_id)),
     created_at: interaction.created_at,
   };
 };
@@ -338,7 +387,10 @@ const ensureUserBoard = (state: MockState, userId: string, seedIndex?: number) =
 
   const numericUserId = Number(userId);
   const resolvedSeedIndex = seedIndex ?? Math.max(0, numericUserId - 1);
-  state.boards[userId] = buildSeedBoard(resolvedSeedIndex);
+  state.boards[userId] = {
+    boardData: buildSeedBoard(resolvedSeedIndex),
+    displayName: normalizeDisplayName(state.users[userId]?.user_name),
+  };
 };
 
 const ensureDefaultTestUsers = (state: MockState) => {
@@ -419,20 +471,25 @@ export const mockGetOrCreateTesterUsers = async (): Promise<MockTesterUser[]> =>
   return toTesterUsers(state);
 };
 
-export const mockSearchBingoParticipants = async (query: string) => {
+export const mockSearchBingoParticipants = async (query: string, excludeUserId?: string | number) => {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) {
     return [];
   }
+
+  const excludedUserId = excludeUserId == null ? "" : String(excludeUserId);
 
   const state = readState();
   ensureDefaultTestUsers(state);
   writeState(state);
 
   return Object.values(state.users)
+    .filter((user) => Boolean(getMockBoard(state, String(user.user_id))))
+    .filter((user) => String(user.user_id) !== excludedUserId)
     .filter((user) => {
       const mockEmail = `tester-${user.user_id}@${MOCK_EMAIL_DOMAIN}`;
-      return [user.user_name, mockEmail].some((value) =>
+      const displayName = getMockDisplayName(state, String(user.user_id)) ?? "";
+      return [displayName, user.user_name, mockEmail].some((value) =>
         value.toLowerCase().includes(normalizedQuery)
       );
     })
@@ -440,7 +497,7 @@ export const mockSearchBingoParticipants = async (query: string) => {
     .slice(0, 10)
     .map((user) => ({
       user_id: user.user_id,
-      display_name: user.user_name,
+      display_name: getMockDisplayName(state, String(user.user_id)) ?? user.user_name,
     }));
 };
 
@@ -538,10 +595,15 @@ export const mockLoginBingoUser = async (
 
 export const mockCreateBingoBoard = async (
   userId: string,
-  boardData: MockBoardData
+  boardData: MockBoardData,
+  displayName?: string
 ) => {
   const state = readState();
-  state.boards[userId] = boardData;
+  state.boards[userId] = {
+    boardData,
+    displayName: normalizeDisplayName(displayName) ??
+      getMockBoard(state, userId)?.displayName,
+  };
   writeState(state);
   return true;
 };
@@ -549,7 +611,32 @@ export const mockCreateBingoBoard = async (
 export const mockGetBingoBoard = async (userId: string, eventSlug?: string) => {
   void eventSlug;
   const state = readState();
-  return toBoardItems(state.boards[userId]);
+  const board = getMockBoard(state, userId);
+  return {
+    board: toBoardItems(board?.boardData),
+    displayName: normalizeDisplayName(board?.displayName),
+  };
+};
+
+export const mockUpdateBingoDisplayName = async (userId: string, displayName: string) => {
+  const state = readState();
+  const board = getMockBoard(state, userId);
+
+  if (!board) {
+    return {
+      ok: false,
+      message: "보드를 찾을 수 없습니다.",
+    };
+  }
+
+  board.displayName = normalizeDisplayName(displayName);
+  writeState(state);
+
+  return {
+    ok: true,
+    message: "이름이 변경되었습니다.",
+    display_name: board.displayName,
+  };
 };
 
 export const mockCreateUserBingoInteraction = async (
@@ -588,9 +675,9 @@ export const mockCreateUserBingoInteraction = async (
   const senderKeywords = new Set(parseInteractionKeywords(wordIdList));
   const updatedWords: string[] = [];
 
-  Object.entries(receiverBoard).forEach(([cellId, cell]) => {
+  Object.entries(receiverBoard.boardData).forEach(([cellId, cell]) => {
     if (cell.status === 0 && senderKeywords.has(cell.value)) {
-      receiverBoard[cellId] = {
+      receiverBoard.boardData[cellId] = {
         ...cell,
         status: 1,
       };
@@ -616,7 +703,7 @@ export const mockCreateUserBingoInteraction = async (
     ...createInteractionResponse(interaction, state),
     message: "키워드를 전송했습니다.",
     updated_words: getUniqueKeywords(updatedWords),
-    bingo_count: getCompletedLineCount(receiverBoard),
+    bingo_count: getCompletedLineCount(receiverBoard.boardData),
   };
 };
 

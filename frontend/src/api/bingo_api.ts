@@ -11,6 +11,7 @@ import {
   mockRegisterBingoUser,
   mockResetState,
   mockSearchBingoParticipants,
+  mockUpdateBingoDisplayName,
 } from "./mockBingoApi";
 import type { MockTesterUser } from "./mockBingoApi";
 import { getApiBaseUrl } from "../lib/apiBase";
@@ -281,7 +282,7 @@ export const createBingoBoard = async (
   displayName?: string
 ) => {
   if (shouldUseMockApi()) {
-    const ok = await mockCreateBingoBoard(userId, boardData);
+    const ok = await mockCreateBingoBoard(userId, boardData, displayName);
     return { ok, displayName };
   }
 
@@ -300,7 +301,7 @@ export const createBingoBoard = async (
 
 export const getBingoBoard = async (userId: string, eventSlug?: string) => {
   if (shouldUseMockApi()) {
-    return { board: await mockGetBingoBoard(userId, eventSlug), displayName: undefined };
+    return mockGetBingoBoard(userId, eventSlug);
   }
 
   const data = await requestJson<BingoBoardResponse>(
@@ -411,21 +412,34 @@ export type BingoParticipantItem = {
   display_name: string;
 };
 
-export const searchBingoParticipants = async (query: string, eventSlug: string) => {
+export const searchBingoParticipants = async (
+  query: string,
+  eventSlug: string,
+  excludeUserId?: string
+) => {
   if (shouldUseMockApi()) {
-    return mockSearchBingoParticipants(query);
+    return mockSearchBingoParticipants(query, excludeUserId);
   }
 
   const data = await requestJson<
     ApiResponseBase & { participants?: BingoParticipantItem[] }
-  >("/api/auth/bingo/search", { method: "GET" }, { q: query, event_slug: eventSlug });
+  >(
+    "/api/auth/bingo/search",
+    { method: "GET" },
+    {
+      q: query,
+      event_slug: eventSlug,
+      ...(excludeUserId ? { exclude_user_id: excludeUserId } : {}),
+    }
+  );
 
   return data.participants ?? [];
 };
 
 export const updateBingoDisplayName = async (userId: string, eventSlug: string, displayName: string) => {
   if (shouldUseMockApi()) {
-    return { ok: true, message: "", display_name: displayName };
+    void eventSlug;
+    return mockUpdateBingoDisplayName(userId, displayName);
   }
 
   return requestJson<ApiResponseBase & { display_name?: string }>(

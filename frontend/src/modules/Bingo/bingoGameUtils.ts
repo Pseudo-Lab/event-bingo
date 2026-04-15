@@ -1,5 +1,6 @@
 import type {
   AlertSeverity,
+  AlertPayload,
   BingoCell,
   BoardPreviewPreset,
   BoardLineCoordinates,
@@ -96,6 +97,51 @@ export const getLatestIncomingBatch = (interactions: InteractionRecord[]) => {
     createdAt: latestInteraction.created_at,
     keywords,
     signature: `${latestInteraction.send_user_id}:${latestInteraction.created_at}:${keywords.join("|")}`,
+  };
+};
+
+export const buildIncomingKeywordAlert = (
+  latestIncomingBatch: ReturnType<typeof getLatestIncomingBatch>,
+  newlyUpdatedValues: string[]
+): { message: string; severity: AlertSeverity; payload: AlertPayload } | null => {
+  if (!latestIncomingBatch) {
+    return null;
+  }
+
+  const displaySenderName =
+    latestIncomingBatch.senderName || `참가자 ${latestIncomingBatch.senderId}`;
+
+  if (newlyUpdatedValues.length === 0) {
+    return {
+      message: `"${displaySenderName}"님이 보낸 키워드는 이미 모두 가지고 있어요.`,
+      severity: "info",
+      payload: {
+        title: "이미 키워드가 다 있어요",
+        label: "KEYWORD EXCHANGE",
+      },
+    };
+  }
+
+  if (newlyUpdatedValues.length === latestIncomingBatch.keywords.length) {
+    return {
+      message: `"${displaySenderName}"님이 키워드를 보내줬어요.`,
+      severity: "success",
+      payload: {
+        title: "새 키워드를 받았어요",
+        keywords: newlyUpdatedValues,
+        label: "KEYWORD EXCHANGE",
+      },
+    };
+  }
+
+  return {
+    message: `"${displaySenderName}"님이 보낸 키워드 중 새로운 항목만 반영했어요.`,
+    severity: "success",
+    payload: {
+      title: "새 키워드만 반영했어요",
+      keywords: newlyUpdatedValues,
+      label: "KEYWORD EXCHANGE",
+    },
   };
 };
 

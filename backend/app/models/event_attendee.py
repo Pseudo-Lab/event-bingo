@@ -98,7 +98,14 @@ class EventAttendee(Base):
         return result.scalars().all()
 
     @classmethod
-    async def search_participants(cls, session: AsyncSession, event_id: int, query: str, limit: int = 20):
+    async def search_participants(
+        cls,
+        session: AsyncSession,
+        event_id: int,
+        query: str,
+        limit: int = 20,
+        exclude_user_id: int | None = None,
+    ):
         """이벤트 참가자 이름/이메일 검색. 보드 이름이 있으면 이를 우선 사용한다."""
         normalized_query = query.strip()
         if not normalized_query:
@@ -112,10 +119,10 @@ class EventAttendee(Base):
         resolved_name = func.coalesce(func.nullif(BingoBoards.display_name, ""), BingoUser.user_name)
         lowered_resolved_name = func.lower(func.coalesce(resolved_name, ""))
 
-        result = await session.execute(
+        query_stmt = (
             select(cls, BingoUser, BingoBoards)
             .join(BingoUser, BingoUser.user_id == cls.user_id)
-            .outerjoin(
+            .join(
                 BingoBoards,
                 and_(
                     BingoBoards.user_id == cls.user_id,
@@ -125,18 +132,22 @@ class EventAttendee(Base):
             .where(cls.event_id == event_id)
             .where(
                 or_(
-                    BingoBoards.display_name.ilike(search_pattern),
-                    BingoUser.user_name.ilike(search_pattern),
+                    resolved_name.ilike(search_pattern),
                     BingoUser.user_email.ilike(search_pattern),
                 )
             )
-            .order_by(
+        )
+
+        if exclude_user_id is not None:
+            query_stmt = query_stmt.where(cls.user_id != exclude_user_id)
+
+        result = await session.execute(
+            query_stmt.order_by(
                 case((lowered_resolved_name == lowered_query, 0), else_=1),
                 case((lowered_resolved_name.like(f"{lowered_query}%"), 0), else_=1),
                 resolved_name.asc(),
                 cls.id.asc(),
-            )
-            .limit(limit)
+            ).limit(limit)
         )
         return result.all()
 

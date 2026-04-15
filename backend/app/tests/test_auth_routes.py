@@ -59,14 +59,19 @@ async def test_bingo_search_participants_uses_event_attendee_search(monkeypatch:
     event = type("EventStub", (), {"id": 7})()
     participant_rows = [
         (
-            type("AttendeeStub", (), {"user_id": 11})(),
-            type("UserStub", (), {"user_id": 11, "user_name": "김승규"})(),
-            type("BoardStub", (), {"display_name": "김승규B"})(),
-        ),
-        (
             type("AttendeeStub", (), {"user_id": 12})(),
             type("UserStub", (), {"user_id": 12, "user_name": "김승규"})(),
+            type("BoardStub", (), {"display_name": "김승규"})(),
+        ),
+        (
+            type("AttendeeStub", (), {"user_id": 13})(),
+            type("UserStub", (), {"user_id": 13, "user_name": "김승규"})(),
             None,
+        ),
+        (
+            type("AttendeeStub", (), {"user_id": 14})(),
+            type("UserStub", (), {"user_id": 14, "user_name": "김승규"})(),
+            type("BoardStub", (), {"display_name": "김승규B"})(),
         ),
     ]
 
@@ -74,15 +79,22 @@ async def test_bingo_search_participants_uses_event_attendee_search(monkeypatch:
         assert slug == "sample-event"
         return event
 
-    async def fake_search_participants(session, event_id, query):
+    async def fake_search_participants(session, event_id, query, limit=20, exclude_user_id=None):
         assert event_id == 7
         assert query == "김승규"
+        assert limit == 20
+        assert exclude_user_id == 11
         return participant_rows
 
     monkeypatch.setattr("api.auth.routes.Event.get_by_slug", fake_get_by_slug)
     monkeypatch.setattr("api.auth.routes.EventAttendee.search_participants", fake_search_participants)
 
-    response = await bingo_search_participants(q="김승규", event_slug="sample-event", session=None)
+    response = await bingo_search_participants(
+        q="김승규",
+        event_slug="sample-event",
+        exclude_user_id=11,
+        session=None,
+    )
 
     assert response.ok is True
-    assert [participant.display_name for participant in response.participants] == ["김승규B", "김승규"]
+    assert [participant.display_name for participant in response.participants] == ["김승규", "김승규B"]
