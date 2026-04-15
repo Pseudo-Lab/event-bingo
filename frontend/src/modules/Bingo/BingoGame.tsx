@@ -203,7 +203,7 @@ const BingoGame = () => {
     }
 
     return `${name} 님`;
-  }, [displayName, participantContact, userId, username]);
+  }, [displayName, participantContact, username]);
 
   const loadingScreenCopy = useMemo(() => {
     if (!isEventProfileResolved || !hasKnownBoardForEvent) {
@@ -440,7 +440,7 @@ const BingoGame = () => {
         isPollingRef.current = false;
       }
     },
-    [appendInteractionHistory, showAlert, syncSessionDisplayName]
+    [appendInteractionHistory, eventSlug, showAlert, syncSessionDisplayName]
   );
 
   useEffect(() => {
@@ -591,9 +591,11 @@ const BingoGame = () => {
     boardCellCount,
     cellValues,
     eventHomePath,
+    eventSlug,
     isEventProfileResolved,
     navigate,
     showAlert,
+    syncSessionDisplayName,
     testModeEnabled,
     unlockTime,
   ]);

@@ -1,8 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
-import { Dialog } from "@mui/material";
 import characterIllustration from "../../assets/illustrations/character.svg";
 import bingoCellStarFill from "../../assets/illustrations/Star 1.svg";
 import bingoCellStarOutline from "../../assets/illustrations/Star 2.svg";
+import { Dialog } from "../../components/ui/dialog";
 import type {
   AlertSeverity,
   BingoCell,
@@ -453,7 +453,11 @@ export function BingoCelebrationDialog({
   onClose,
 }: BingoCelebrationDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} PaperProps={{ className: "bingo-celebration-dialog" }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      className="bingo-celebration-dialog w-[min(92vw,32rem)]"
+    >
       <div className="bingo-celebration">
         <p className="bingo-celebration__eyebrow">MISSION CLEAR</p>
         <h2>빙고를 완성했어요</h2>

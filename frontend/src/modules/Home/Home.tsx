@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import Alert from "@mui/material/Alert";
-import Dialog from "@mui/material/Dialog";
-import Snackbar from "@mui/material/Snackbar";
-import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
-import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import {
   clearLocalMockMode,
   getLocalMockTesterUsers,
@@ -36,6 +31,7 @@ import { clearLegacyLocalLoginStorage } from "../../utils/legacyAuthStorage";
 import { isTestModeEnabled, syncTestModeFromUrl } from "../../utils/testMode";
 import bingoLoginCharacterIllustration from "../../assets/illustrations/bingo-login-character.svg";
 import topIllustration from "../../assets/illustrations/top.svg";
+import { Dialog } from "../../components/ui/dialog";
 import ConsentDialog from "./ConsentDialog";
 import {
   HOME_EVENT_DISPLAY_FALLBACKS,
@@ -47,6 +43,83 @@ const PSEUDOLAB_URL = "https://pseudo-lab.com/";
 
 const normalizeTesterCode = (value: string | undefined | null) => {
   return value?.trim().toUpperCase().replace(/\s/g, "") ?? "";
+};
+
+const CalendarIcon = () => {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="login-event-card__icon"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M16 3v4" />
+      <path d="M8 3v4" />
+      <path d="M3 10h18" />
+    </svg>
+  );
+};
+
+const PlaceIcon = () => {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="login-event-card__icon"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  );
+};
+
+type HomeStatusToastProps = {
+  message: string;
+  severity: "error" | "success";
+  onClose: () => void;
+};
+
+const HomeStatusToast = ({ message, severity, onClose }: HomeStatusToastProps) => {
+  const toneClassName =
+    severity === "success"
+      ? "border-emerald-200 bg-white/95 text-emerald-950 shadow-[0_18px_40px_rgba(16,84,64,0.18)]"
+      : "border-rose-200 bg-white/95 text-rose-950 shadow-[0_18px_40px_rgba(127,29,29,0.14)]";
+  const badgeClassName =
+    severity === "success"
+      ? "bg-emerald-100 text-emerald-700"
+      : "bg-rose-100 text-rose-700";
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
+      <div
+        className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-3xl border px-4 py-3 backdrop-blur ${toneClassName}`}
+        role="status"
+        aria-live="polite"
+      >
+        <span className={`rounded-full px-2.5 py-1 text-xs font-extrabold ${badgeClassName}`}>
+          {severity === "success" ? "완료" : "오류"}
+        </span>
+        <p className="min-w-0 flex-1 text-sm font-semibold leading-6">{message}</p>
+        <button
+          type="button"
+          className="rounded-full px-2 py-1 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          onClick={onClose}
+        >
+          닫기
+        </button>
+      </div>
+    </div>
+  );
 };
 
 const Home = () => {
@@ -90,6 +163,20 @@ const Home = () => {
   useEffect(() => {
     setTestModeEnabledState(syncTestModeFromUrl(location.search));
   }, [location.search]);
+
+  useEffect(() => {
+    if (!alertOpen) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setAlertOpen(false);
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [alertMessage, alertOpen]);
 
   useEffect(() => {
     const storedSession = getAuthSession();
@@ -554,11 +641,11 @@ const Home = () => {
                 <p className="login-event-card__team">{eventSummary.eventTeam}</p>
                 <div className="login-event-card__meta">
                   <span>
-                    <CalendarMonthOutlinedIcon fontSize="inherit" />
+                    <CalendarIcon />
                     {eventSummary.date}
                   </span>
                   <span>
-                    <PlaceOutlinedIcon fontSize="inherit" />
+                    <PlaceIcon />
                     {eventSummary.place}
                   </span>
                 </div>
@@ -633,9 +720,7 @@ const Home = () => {
       <Dialog
         open={agreeOpen}
         onClose={() => setAgreeOpen(false)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{ className: "login-consent-dialog" }}
+        className="login-consent-dialog w-[min(92vw,48rem)]"
       >
         {agreeOpen ? (
           <ConsentDialog
@@ -649,20 +734,13 @@ const Home = () => {
         ) : null}
       </Dialog>
 
-      <Snackbar
-        open={alertOpen}
-        autoHideDuration={5000}
-        onClose={() => setAlertOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert
-          onClose={() => setAlertOpen(false)}
+      {alertOpen ? (
+        <HomeStatusToast
+          message={alertMessage}
           severity={alertSeverity}
-          sx={{ width: "100%", textAlign: "left" }}
-        >
-          {alertMessage}
-        </Alert>
-      </Snackbar>
+          onClose={() => setAlertOpen(false)}
+        />
+      ) : null}
     </div>
   );
 };

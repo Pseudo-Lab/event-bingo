@@ -310,6 +310,20 @@ def resolve_selected_keywords(attendee: EventAttendee, board: BingoBoards | None
     return selected_keywords
 
 
+def build_admin_event_bingo_progress_query(event_ids: list[int]):
+    return (
+        select(EventAttendee.event_id, BingoBoards.bingo_count)
+        .join(
+            BingoBoards,
+            and_(
+                BingoBoards.user_id == EventAttendee.user_id,
+                BingoBoards.event_id == EventAttendee.event_id,
+            ),
+        )
+        .where(EventAttendee.event_id.in_(event_ids))
+    )
+
+
 async def build_event_summary(
     session: AsyncSession,
     event: Event,

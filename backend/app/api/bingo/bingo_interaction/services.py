@@ -22,36 +22,83 @@ class BaseBingoInteraction:
 
         return event.id
 
-    async def _build_user_name_map(self, interactions: list[BingoInteraction]) -> dict[int, str]:
+    async def _build_name_maps(
+        self,
+        interactions: list[BingoInteraction],
+    ) -> tuple[dict[int, str], dict[tuple[int, int], str]]:
         user_ids = {
             interaction.send_user_id for interaction in interactions
         } | {
             interaction.receive_user_id for interaction in interactions
         }
+        event_ids = {
+            interaction.event_id
+            for interaction in interactions
+            if getattr(interaction, "event_id", None) is not None
+        }
 
         if not user_ids:
-            return {}
+            return {}, {}
+
+        board_display_name_map: dict[tuple[int, int], str] = {}
+        if event_ids:
+            boards_result = await self.async_session.execute(
+                select(BingoBoards).where(
+                    BingoBoards.user_id.in_(user_ids),
+                    BingoBoards.event_id.in_(event_ids),
+                )
+            )
+            board_display_name_map = {
+                (board.user_id, board.event_id): board.display_name.strip()
+                for board in boards_result.scalars().all()
+                if (board.display_name or "").strip()
+            }
 
         res = await self.async_session.execute(
             select(BingoUser).where(BingoUser.user_id.in_(user_ids))
         )
-        return {
+        user_name_map = {
             user.user_id: user.user_name
             for user in res.scalars().all()
         }
+        return user_name_map, board_display_name_map
+
+    @staticmethod
+    def _resolve_user_name(
+        user_id: int,
+        event_id: int | None,
+        user_name_map: dict[int, str],
+        board_display_name_map: dict[tuple[int, int], str],
+    ) -> str | None:
+        if event_id is not None:
+            board_display_name = board_display_name_map.get((user_id, event_id))
+            if board_display_name:
+                return board_display_name
+
+        return user_name_map.get(user_id)
 
     async def _serialize_interactions(
         self,
         interactions: list[BingoInteraction],
         success_message: str,
     ) -> list[BingoInteractionResponse]:
-        user_name_map = await self._build_user_name_map(interactions)
+        user_name_map, board_display_name_map = await self._build_name_maps(interactions)
 
         return [
             BingoInteractionResponse(
                 **interaction.__dict__,
-                send_user_name=user_name_map.get(interaction.send_user_id),
-                receive_user_name=user_name_map.get(interaction.receive_user_id),
+                send_user_name=self._resolve_user_name(
+                    interaction.send_user_id,
+                    interaction.event_id,
+                    user_name_map,
+                    board_display_name_map,
+                ),
+                receive_user_name=self._resolve_user_name(
+                    interaction.receive_user_id,
+                    interaction.event_id,
+                    user_name_map,
+                    board_display_name_map,
+                ),
                 ok=True,
                 message=success_message,
             )
@@ -149,8 +196,10 @@ class CreateBingoInteraction(BaseBingoInteraction):
                 **interaction.__dict__,
                 updated_words=updated_words,
                 bingo_count=board.bingo_count,
-                send_user_name=send_user.user_name,
-                receive_user_name=receive_user.user_name,
+                send_user_name=((sender_board.display_name or "").strip() if sender_board else "")
+                or send_user.user_name,
+                receive_user_name=((board.display_name or "").strip() if board else "")
+                or receive_user.user_name,
                 ok=True,
                 message="빙고 키워드 전송에 성공하였습니다.",
             )

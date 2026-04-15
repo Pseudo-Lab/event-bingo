@@ -15,10 +15,6 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@emotion/react": "^11.11.3",
-    "@emotion/styled": "^11.11.0",
-    "@mui/icons-material": "^5.15.4",
-    "@mui/material": "^5.15.4",
     "@supabase/supabase-js": "^2.101.0",
     "prettier": "^3.3.0",
     "react": "^18.2.0",

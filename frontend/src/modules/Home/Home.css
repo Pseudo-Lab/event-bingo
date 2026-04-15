@@ -197,6 +197,12 @@
   font-size: 1rem;
 }
 
+.login-event-card__icon {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
 @keyframes login-event-card-skeleton {
   to {
     transform: translateX(100%);

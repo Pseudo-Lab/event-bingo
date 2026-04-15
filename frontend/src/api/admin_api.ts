@@ -16,6 +16,16 @@ type ApiResponseBase = {
   message: string;
 };
 
+export class AdminApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "AdminApiError";
+    this.status = status;
+  }
+}
+
 type AdminRoleLiteral = "admin" | "event_manager";
 type EventStatusLiteral = "scheduled" | "in_progress" | "ended";
 
@@ -236,7 +246,7 @@ const requestJson = async <T>(
   }
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    throw new AdminApiError(await readErrorMessage(response), response.status);
   }
   return response.json() as Promise<T>;
 };

@@ -2,6 +2,7 @@ import api.admin.console_services as console_services
 import pytest
 
 from api.admin.console_services import (
+    build_admin_event_bingo_progress_query,
     build_admin_console_link,
     normalize_event_keywords,
     resolve_participant_email,
@@ -22,6 +23,13 @@ def test_validate_event_schedule_blocks_invalid_range():
 
     with pytest.raises(ValueError, match="종료 시각"):
         validate_event_schedule(start_at, end_at)
+
+
+def test_build_admin_event_bingo_progress_query_matches_event_and_user():
+    statement = str(build_admin_event_bingo_progress_query([1, 2]))
+
+    assert "bingo_boards.user_id = event_attendees.user_id" in statement
+    assert "bingo_boards.event_id = event_attendees.event_id" in statement
 
 
 def test_normalize_event_keywords_autofills_remaining_slots():

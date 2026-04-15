@@ -24,9 +24,9 @@ from .auth import (
 )
 from .console_services import (
     approve_event_manager_request,
+    build_admin_event_bingo_progress_query,
     build_event_detail,
     build_event_rooms,
-    build_event_summary,
     can_edit_event,
     ensure_admin_console_seed_data,
     kick_event_attendee,
@@ -347,7 +347,6 @@ async def list_admin_events(
     from .console_services import (
         can_edit_event,
         resolve_event_status,
-        resolve_operating_minutes,
     )
     from .schema import AdminEventSummary
 
@@ -373,11 +372,7 @@ async def list_admin_events(
     participant_map: dict[int, int] = {row.event_id: row.cnt for row in count_rows}
 
     # 배치 3: 이벤트별 빙고 달성 인원 (event별 success_condition이 달라 Python에서 집계)
-    bingo_rows = await db.execute(
-        select(EventAttendee.event_id, BingoBoards.bingo_count)
-        .join(BingoBoards, BingoBoards.user_id == EventAttendee.user_id)
-        .where(EventAttendee.event_id.in_(event_ids))
-    )
+    bingo_rows = await db.execute(build_admin_event_bingo_progress_query(event_ids))
     bingo_by_event: dict[int, list[int]] = defaultdict(list)
     for row in bingo_rows:
         bingo_by_event[row.event_id].append(row.bingo_count)

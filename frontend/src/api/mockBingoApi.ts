@@ -546,7 +546,8 @@ export const mockCreateBingoBoard = async (
   return true;
 };
 
-export const mockGetBingoBoard = async (userId: string, _eventSlug?: string) => {
+export const mockGetBingoBoard = async (userId: string, eventSlug?: string) => {
+  void eventSlug;
   const state = readState();
   return toBoardItems(state.boards[userId]);
 };
@@ -555,8 +556,9 @@ export const mockCreateUserBingoInteraction = async (
   wordIdList: string,
   sendUserId: number,
   receiveUserId: number,
-  _eventSlug?: string
+  eventSlug?: string
 ): Promise<MockInteractionResponse> => {
+  void eventSlug;
   const state = readState();
   const sender = state.users[String(sendUserId)];
   const receiver = state.users[String(receiveUserId)];

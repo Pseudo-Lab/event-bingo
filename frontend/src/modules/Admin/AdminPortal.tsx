@@ -11,6 +11,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  AdminApiError,
   createAdminEvent,
   createAdminMember,
   deleteAdminMember,
@@ -70,6 +71,13 @@ import type {
   AdminRole,
   AdminSession,
 } from "./adminTypes";
+import {
+  normalizeAdminEventId,
+  shouldLoadAdminApplications,
+  shouldLoadAdminEvents,
+  shouldLoadAdminMembers,
+  type AdminConsoleSection,
+} from "./adminConsoleLoaders";
 import { getEventDateParts } from "./adminEventDate";
 import {
   buildAutoFilledKeywordList,
@@ -80,7 +88,7 @@ import {
   type EventKeywordPresetId,
 } from "./adminKeywordUtils";
 
-type AdminSection = "dashboard" | "members" | "applications" | "event-settings" | "policies";
+type AdminSection = AdminConsoleSection;
 type EventDetailTab = "overview" | "dashboard" | "participants";
 
 type EventFormState = {
@@ -577,7 +585,7 @@ const EmptyPanelState = ({
 const LoginPage = () => {
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [, setIsSubmitting] = useState(false);
   const shouldUseGoogleAdminAuth = canUseGoogleAdminAuth();
 
   useEffect(() => {
@@ -585,6 +593,11 @@ const LoginPage = () => {
 
     const redirectAuthenticatedAdmin = async () => {
       if (!shouldUseGoogleAdminAuth) {
+        return;
+      }
+
+      if (getAdminSession()) {
+        navigate(getAdminPath("event-settings"), { replace: true });
         return;
       }
 
@@ -728,6 +741,7 @@ const AdminConsolePage = ({
   const navigate = useNavigate();
   const { adminEventId } = useParams();
   const initialSession = getAdminSession();
+  const normalizedAdminEventId = normalizeAdminEventId(adminEventId);
   const shouldUseGoogleAdminAuth = canUseGoogleAdminAuth();
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -752,6 +766,7 @@ const AdminConsolePage = ({
   const [policyDraft, setPolicyDraft] = useState("");
   const [policyNotice, setPolicyNotice] = useState("");
   const [policyError, setPolicyError] = useState("");
+  const [isSessionBootstrapped, setIsSessionBootstrapped] = useState(false);
   const [isConsoleLoading, setIsConsoleLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isPolicyLoading, setIsPolicyLoading] = useState(false);
@@ -784,6 +799,7 @@ const AdminConsolePage = ({
       try {
         if (!shouldUseGoogleAdminAuth) {
           clearAdminSession();
+          setSession(null);
           navigate(getAdminPath(), { replace: true });
           return;
         }
@@ -795,7 +811,23 @@ const AdminConsolePage = ({
         const accessToken = supabaseSession?.access_token ?? "";
 
         if (!accessToken) {
+          clearAdminSession();
+          setSession(null);
           navigate(getAdminPath(), { replace: true });
+          return;
+        }
+
+        if (session) {
+          clearLegacyLocalLoginStorage();
+          if (session.accessToken !== accessToken) {
+            const nextSession = { ...session, accessToken };
+            if (cancelled) {
+              return;
+            }
+
+            setAdminSession(nextSession);
+            setSession(nextSession);
+          }
           return;
         }
 
@@ -810,11 +842,16 @@ const AdminConsolePage = ({
         setEventForm(createEventFormState(verifiedSession.email));
       } catch (error) {
         clearAdminSession();
+        setSession(null);
         if (shouldUseGoogleAdminAuth) {
           await maybeGetSupabaseClient()?.auth.signOut();
         }
         if (!cancelled) {
           navigate(getAdminPath(), { replace: true });
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSessionBootstrapped(true);
         }
       }
     };
@@ -824,10 +861,20 @@ const AdminConsolePage = ({
     return () => {
       cancelled = true;
     };
-  }, [navigate, shouldUseGoogleAdminAuth]);
+  }, [navigate, session, shouldUseGoogleAdminAuth]);
 
   useEffect(() => {
-    if (!session) {
+    if (!session || !isSessionBootstrapped) {
+      return;
+    }
+
+    const needsEvents = shouldLoadAdminEvents(section) && events.length === 0;
+    const needsMembers = shouldLoadAdminMembers(section, session.role) && members.length === 0;
+    const needsApplications =
+      shouldLoadAdminApplications(section, session.role) && applications.length === 0;
+
+    if (!needsEvents && !needsMembers && !needsApplications) {
+      setIsConsoleLoading(false);
       return;
     }
 
@@ -839,22 +886,37 @@ const AdminConsolePage = ({
         setPageError("");
 
         const [eventItems, memberItems, applicationPayload] = await Promise.all([
-          getAdminEvents(session.accessToken),
-          session.role === "admin" ? getAdminMembers(session.accessToken) : Promise.resolve([]),
-          session.role === "admin"
+          needsEvents ? getAdminEvents(session.accessToken) : Promise.resolve(null),
+          needsMembers ? getAdminMembers(session.accessToken) : Promise.resolve(null),
+          needsApplications
             ? getAdminEventManagerRequests(session.accessToken)
-            : Promise.resolve({ requests: [], pendingCount: 0 }),
+            : Promise.resolve(null),
         ]);
 
         if (cancelled) {
           return;
         }
 
-        setEvents(sortAdminEvents(eventItems));
-        setMembers(memberItems);
-        setApplications(applicationPayload.requests);
+        if (eventItems) {
+          setEvents(sortAdminEvents(eventItems));
+        }
+        if (memberItems) {
+          setMembers(memberItems);
+        }
+        if (applicationPayload) {
+          setApplications(applicationPayload.requests);
+        }
       } catch (error) {
         if (!cancelled) {
+          if (error instanceof AdminApiError && error.status === 401) {
+            clearAdminSession();
+            setSession(null);
+            if (shouldUseGoogleAdminAuth) {
+              await maybeGetSupabaseClient()?.auth.signOut();
+            }
+            navigate(getAdminPath(), { replace: true });
+            return;
+          }
           setPageError(error instanceof Error ? error.message : "관리자 데이터를 불러오지 못했습니다.");
         }
       } finally {
@@ -869,10 +931,19 @@ const AdminConsolePage = ({
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [
+    applications.length,
+    events.length,
+    isSessionBootstrapped,
+    members.length,
+    navigate,
+    section,
+    session,
+    shouldUseGoogleAdminAuth,
+  ]);
 
   useEffect(() => {
-    if (section !== "policies" || !session) {
+    if (section !== "policies" || !session || !isSessionBootstrapped) {
       return;
     }
 
@@ -890,6 +961,15 @@ const AdminConsolePage = ({
         }
       } catch (error) {
         if (!cancelled) {
+          if (error instanceof AdminApiError && error.status === 401) {
+            clearAdminSession();
+            setSession(null);
+            if (shouldUseGoogleAdminAuth) {
+              await maybeGetSupabaseClient()?.auth.signOut();
+            }
+            navigate(getAdminPath(), { replace: true });
+            return;
+          }
           setPolicyError(
             error instanceof Error
               ? error.message
@@ -908,7 +988,7 @@ const AdminConsolePage = ({
     return () => {
       cancelled = true;
     };
-  }, [section, session]);
+  }, [isSessionBootstrapped, navigate, section, session, shouldUseGoogleAdminAuth]);
 
   const visibleMembers = useMemo(() => {
     const startIndex = (memberPage - 1) * ITEMS_PER_PAGE;
@@ -1040,8 +1120,12 @@ const AdminConsolePage = ({
   }, [adminEventId, eventDetailTab]);
 
   useEffect(() => {
-    if (!session || !eventDetailTab || !adminEventId) {
+    if (!session || !isSessionBootstrapped || normalizedAdminEventId === null) {
       setSelectedEventDetail(null);
+      return;
+    }
+
+    if (selectedEventDetail?.id === normalizedAdminEventId) {
       return;
     }
 
@@ -1051,7 +1135,7 @@ const AdminConsolePage = ({
       try {
         setIsDetailLoading(true);
         setPageError("");
-        const detail = await getAdminEventDetail(session.accessToken, adminEventId);
+        const detail = await getAdminEventDetail(session.accessToken, normalizedAdminEventId);
         if (cancelled) {
           return;
         }
@@ -1060,6 +1144,15 @@ const AdminConsolePage = ({
         setEvents((previousValue) => upsertAdminEvent(previousValue, detail));
       } catch (error) {
         if (!cancelled) {
+          if (error instanceof AdminApiError && error.status === 401) {
+            clearAdminSession();
+            setSession(null);
+            if (shouldUseGoogleAdminAuth) {
+              await maybeGetSupabaseClient()?.auth.signOut();
+            }
+            navigate(getAdminPath(), { replace: true });
+            return;
+          }
           setPageError(error instanceof Error ? error.message : "이벤트 상세를 불러오지 못했습니다.");
         }
       } finally {
@@ -1074,7 +1167,14 @@ const AdminConsolePage = ({
     return () => {
       cancelled = true;
     };
-  }, [adminEventId, eventDetailTab, session]);
+  }, [
+    isSessionBootstrapped,
+    navigate,
+    normalizedAdminEventId,
+    selectedEventDetail?.id,
+    session,
+    shouldUseGoogleAdminAuth,
+  ]);
 
   useEffect(() => {
     if (session?.role === "event_manager" && (section === "members" || section === "applications")) {
@@ -1103,10 +1203,11 @@ const AdminConsolePage = ({
     navigate(getAdminPath("event-settings"));
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     clearAdminSession();
+    setSession(null);
     if (shouldUseGoogleAdminAuth) {
-      void maybeGetSupabaseClient()?.auth.signOut();
+      await maybeGetSupabaseClient()?.auth.signOut();
     }
     navigate(getAdminPath(), { replace: true });
   };
@@ -1613,7 +1714,7 @@ const AdminConsolePage = ({
           <Button
             variant="ghost"
             className="mt-1 h-auto px-0 py-0 text-sm font-bold text-white hover:bg-transparent hover:text-white/90"
-            onClick={handleLogout}
+            onClick={() => void handleLogout()}
           >
             <LogoutIcon />
             <span>로그아웃</span>

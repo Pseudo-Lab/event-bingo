@@ -4,8 +4,6 @@ import Home from "./modules/Home/Home.tsx";
 import BingoGame from "./modules/Bingo/BingoGame.tsx";
 import LandingHomePage from "./modules/Landing/LandingHomePage.tsx";
 import DemoExperiencePage from "./modules/Landing/DemoExperiencePage.tsx";
-import { CssBaseline } from "@mui/material";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
 import {
   AdminApplicationsPage,
   AdminDashboardPage,
@@ -18,21 +16,6 @@ import {
   AdminRoutesLoginPage,
 } from "./modules/Admin/AdminPortal";
 import { getAdminPath, getEventBingoPath, getEventHomePath } from "./config/eventProfiles";
-
-const APP_FONT_FAMILY =
-  '"Nanum Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif';
-
-const defaultTheme = createTheme({
-  palette: {
-    mode: "light",
-    background: {
-      default: "#63cfb3",
-    },
-  },
-  typography: {
-    fontFamily: APP_FONT_FAMILY,
-  },
-});
 
 function AppRoutes() {
   return (
@@ -117,12 +100,9 @@ function LegacyEventBingoRedirect() {
 
 function App() {
   return (
-    <ThemeProvider theme={defaultTheme}>
-      <CssBaseline />
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </ThemeProvider>
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }
 

@@ -10,7 +10,6 @@ from api.bingo.bingo_interaction.services import (
 )
 from models.bingo.bingo_boards import BingoBoards
 from models.bingo.bingo_interaction import BingoInteraction
-from models.user import BingoUser
 
 
 class FakeScalarResult:
@@ -31,24 +30,42 @@ class FakeExecuteResult:
 
 @pytest.mark.asyncio
 async def test_create_bingo_interaction_rejects_duplicate_direction(monkeypatch):
-    async def fake_has_directional_interaction(
-        cls,
-        session,
-        *,
-        send_user_id: int,
-        receive_user_id: int,
-    ) -> bool:
-        assert send_user_id == 1
-        assert receive_user_id == 2
-        return True
-
-    monkeypatch.setattr(
-        BingoInteraction,
-        "has_directional_interaction",
-        classmethod(fake_has_directional_interaction),
+    receiver_board = SimpleNamespace(
+        user_id=2,
+        event_id=7,
+        display_name="받는 사람",
+        board_data={
+            "0": {"value": "AI", "status": 1, "selected": 0, "interaction_id": 1},
+        },
+        user_interaction_count=0,
+        bingo_count=0,
+    )
+    sender_board = SimpleNamespace(
+        user_id=1,
+        event_id=7,
+        display_name="보내는 사람",
+        board_data={
+            "0": {"value": "AI", "status": 1, "selected": 1},
+        },
     )
 
-    service = CreateBingoInteraction(AsyncMock())
+    async def fake_get_board_by_userid(cls, session, user_id: int, event_id: int | None = None):
+        if user_id == 2 and event_id is None:
+            return receiver_board
+        if user_id == 1 and event_id == 7:
+            return sender_board
+        raise AssertionError(f"unexpected board lookup: user_id={user_id}, event_id={event_id}")
+
+    monkeypatch.setattr(BingoBoards, "get_board_by_userid", classmethod(fake_get_board_by_userid))
+
+    session = AsyncMock()
+    session.execute.return_value = FakeExecuteResult(
+        [
+            SimpleNamespace(user_id=1, user_name="구글 보내는 사람"),
+            SimpleNamespace(user_id=2, user_name="구글 받는 사람"),
+        ]
+    )
+    service = CreateBingoInteraction(session)
 
     response = await service.execute('["AI"]', 1, 2)
 
@@ -58,8 +75,10 @@ async def test_create_bingo_interaction_rejects_duplicate_direction(monkeypatch)
 
 @pytest.mark.asyncio
 async def test_create_bingo_interaction_updates_board_and_creates_record(monkeypatch):
-    board = SimpleNamespace(
+    receiver_board = SimpleNamespace(
         user_id=2,
+        event_id=7,
+        display_name="행사 받는 사람",
         board_data={
             "0": {"value": "AI", "status": 0, "selected": 0},
             "1": {"value": "ML", "status": 0, "selected": 0},
@@ -67,11 +86,21 @@ async def test_create_bingo_interaction_updates_board_and_creates_record(monkeyp
         user_interaction_count=0,
         bingo_count=0,
     )
+    sender_board = SimpleNamespace(
+        user_id=1,
+        event_id=7,
+        display_name="행사 보내는 사람",
+        board_data={
+            "0": {"value": "AI", "status": 1, "selected": 1},
+            "1": {"value": "ML", "status": 0, "selected": 0},
+        },
+    )
     interaction = SimpleNamespace(
         interaction_id=13,
         word_id_list='["AI"]',
         send_user_id=1,
         receive_user_id=2,
+        event_id=7,
         created_at=datetime(2026, 3, 19, 10, 0, tzinfo=timezone.utc),
     )
 
@@ -86,32 +115,44 @@ async def test_create_bingo_interaction_updates_board_and_creates_record(monkeyp
         assert receive_user_id == 2
         return False
 
-    async def fake_get_user_by_id(cls, session, user_id: int):
-        return SimpleNamespace(user_id=user_id, user_name=f"user-{user_id}")
+    async def fake_get_board_by_userid(cls, session, user_id: int, event_id: int | None = None):
+        if user_id == 2 and event_id is None:
+            return receiver_board
+        if user_id == 1 and event_id == 7:
+            return sender_board
+        raise AssertionError(f"unexpected board lookup: user_id={user_id}, event_id={event_id}")
 
-    async def fake_get_board_by_userid(cls, session, user_id: int):
+    async def fake_update_board_by_userid(
+        cls,
+        session,
+        user_id: int,
+        board_data: dict,
+        event_id: int | None = None,
+    ):
         assert user_id == 2
-        return board
-
-    async def fake_get_user_selected_words(cls, session, user_id: int):
-        assert user_id == 1
-        return ["AI"]
-
-    async def fake_update_board_by_userid(cls, session, user_id: int, board_data: dict):
-        assert user_id == 2
+        assert event_id == 7
         assert board_data["0"]["status"] == 1
         assert board_data["0"]["interaction_id"] == 1
-        return board
+        return receiver_board
 
-    async def fake_update_bingo_count(cls, session, user_id: int):
+    async def fake_update_bingo_count(cls, session, user_id: int, event_id: int | None = None):
         assert user_id == 2
-        board.bingo_count = 1
-        return board
+        assert event_id == 7
+        receiver_board.bingo_count = 1
+        return receiver_board
 
-    async def fake_create(cls, session, word_id_list: str, send_user_id: int, receive_user_id: int):
+    async def fake_create(
+        cls,
+        session,
+        word_id_list: str,
+        send_user_id: int,
+        receive_user_id: int,
+        event_id: int | None = None,
+    ):
         assert word_id_list == '["AI"]'
         assert send_user_id == 1
         assert receive_user_id == 2
+        assert event_id == 7
         return interaction
 
     monkeypatch.setattr(
@@ -119,13 +160,7 @@ async def test_create_bingo_interaction_updates_board_and_creates_record(monkeyp
         "has_directional_interaction",
         classmethod(fake_has_directional_interaction),
     )
-    monkeypatch.setattr(BingoUser, "get_user_by_id", classmethod(fake_get_user_by_id))
     monkeypatch.setattr(BingoBoards, "get_board_by_userid", classmethod(fake_get_board_by_userid))
-    monkeypatch.setattr(
-        BingoBoards,
-        "get_user_selected_words",
-        classmethod(fake_get_user_selected_words),
-    )
     monkeypatch.setattr(
         BingoBoards,
         "update_board_by_userid",
@@ -139,6 +174,12 @@ async def test_create_bingo_interaction_updates_board_and_creates_record(monkeyp
     monkeypatch.setattr(BingoInteraction, "create", classmethod(fake_create))
 
     session = AsyncMock()
+    session.execute.return_value = FakeExecuteResult(
+        [
+            SimpleNamespace(user_id=1, user_name="구글 보내는 사람"),
+            SimpleNamespace(user_id=2, user_name="구글 받는 사람"),
+        ]
+    )
     service = CreateBingoInteraction(session)
 
     response = await service.execute('["AI"]', 1, 2)
@@ -146,9 +187,9 @@ async def test_create_bingo_interaction_updates_board_and_creates_record(monkeyp
     assert response.ok is True
     assert response.updated_words == ["AI"]
     assert response.bingo_count == 1
-    assert response.send_user_name == "user-1"
-    assert response.receive_user_name == "user-2"
-    assert board.user_interaction_count == 1
+    assert response.send_user_name == "행사 보내는 사람"
+    assert response.receive_user_name == "행사 받는 사람"
+    assert receiver_board.user_interaction_count == 1
 
 
 @pytest.mark.asyncio
@@ -159,6 +200,7 @@ async def test_get_user_all_interactions_includes_user_names_and_cursor(monkeypa
         word_id_list='["AI"]',
         send_user_id=1,
         receive_user_id=2,
+        event_id=7,
         created_at=datetime(2026, 3, 19, 9, 0, tzinfo=timezone.utc),
     )
 
@@ -167,9 +209,11 @@ async def test_get_user_all_interactions_includes_user_names_and_cursor(monkeypa
         session,
         user_id: int,
         after_interaction_id: int | None = None,
+        event_id: int | None = None,
     ):
         captured["user_id"] = user_id
         captured["after_interaction_id"] = after_interaction_id
+        captured["event_id"] = event_id
         return [interaction]
 
     monkeypatch.setattr(
@@ -179,12 +223,20 @@ async def test_get_user_all_interactions_includes_user_names_and_cursor(monkeypa
     )
 
     session = AsyncMock()
-    session.execute.return_value = FakeExecuteResult(
-        [
-            SimpleNamespace(user_id=1, user_name="보내는 사람"),
-            SimpleNamespace(user_id=2, user_name="받는 사람"),
-        ]
-    )
+    session.execute.side_effect = [
+        FakeExecuteResult(
+            [
+                SimpleNamespace(user_id=1, event_id=7, display_name="행사 보내는 사람"),
+                SimpleNamespace(user_id=2, event_id=7, display_name="행사 받는 사람"),
+            ]
+        ),
+        FakeExecuteResult(
+            [
+                SimpleNamespace(user_id=1, user_name="구글 보내는 사람"),
+                SimpleNamespace(user_id=2, user_name="구글 받는 사람"),
+            ]
+        ),
+    ]
 
     service = GetUserAllInteractions(session)
 
@@ -193,8 +245,9 @@ async def test_get_user_all_interactions_includes_user_names_and_cursor(monkeypa
     assert captured == {
         "user_id": 2,
         "after_interaction_id": 10,
+        "event_id": None,
     }
     assert response.ok is True
     assert len(response.interactions) == 1
-    assert response.interactions[0].send_user_name == "보내는 사람"
-    assert response.interactions[0].receive_user_name == "받는 사람"
+    assert response.interactions[0].send_user_name == "행사 보내는 사람"
+    assert response.interactions[0].receive_user_name == "행사 받는 사람"

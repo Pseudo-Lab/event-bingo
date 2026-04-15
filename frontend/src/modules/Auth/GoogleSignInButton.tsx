@@ -146,18 +146,22 @@ const GoogleSignInButton = ({
 
   return (
     <div ref={wrapperRef} className={cn("w-full max-w-full min-w-0 space-y-3", className)}>
-      <div className={cn("relative w-full max-w-full min-w-0 overflow-hidden", disabled && "opacity-60")}>
+      <div className={cn("relative w-full max-w-full min-w-0", disabled && "opacity-60")}>
         <div
           ref={containerRef}
           className={cn(
-            "min-h-[44px] w-full max-w-full min-w-0 overflow-hidden",
-            (disabled || isSubmitting) && "pointer-events-none opacity-70"
+            "min-h-[48px] w-full max-w-full min-w-0",
+            (disabled || isSubmitting) && "pointer-events-none"
           )}
-          aria-disabled={disabled}
+          aria-busy={isSubmitting}
+          aria-disabled={disabled || isSubmitting}
         />
-        {disabled ? (
+        {disabled || isSubmitting ? (
           <div
-            className="absolute inset-0 z-10 cursor-not-allowed rounded-[999px]"
+            className={cn(
+              "absolute inset-0 z-10 rounded-[999px]",
+              disabled ? "cursor-not-allowed" : "cursor-progress"
+            )}
             aria-hidden="true"
           />
         ) : null}
