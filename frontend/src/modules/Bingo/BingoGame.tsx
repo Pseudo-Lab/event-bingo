@@ -19,7 +19,10 @@ import {
   normalizeAuthEmail,
   setAuthSession,
 } from "../../utils/authSession";
-import { ensureBingoGoogleBridge } from "../../utils/bingoGoogleBridge";
+import {
+  ensureBingoGoogleBridge,
+  syncBingoBridgeUserName,
+} from "../../utils/bingoGoogleBridge";
 import bingoNetworkingWordmark from "../../assets/illustrations/Bingo Networking.svg";
 import {
   BingoAlertToast,
@@ -186,10 +189,16 @@ const BingoGame = () => {
       return;
     }
 
+    if ((authSession.userName ?? "").trim() === trimmedName) {
+      return;
+    }
+
     setAuthSession({
       ...authSession,
       userName: trimmedName,
     });
+
+    void syncBingoBridgeUserName(trimmedName);
   }, []);
 
   const markedKeywordCount = useMemo(
@@ -438,7 +447,7 @@ const BingoGame = () => {
     const init = async () => {
       const authSession = getAuthSession();
       const storedId = authSession?.userId ?? "";
-      const storedName = authSession?.userName ?? "";
+      let storedName = authSession?.userName ?? "";
       let storedContact = resolveParticipantEmail(authSession);
 
       if (!storedId) {
@@ -459,6 +468,7 @@ const BingoGame = () => {
               session.user,
               eventSlug ?? undefined
             );
+            storedName = bridgeResult.authSession.userName;
             storedContact = resolveParticipantEmail(bridgeResult.authSession) || storedContact;
           } else if (!storedContact && sessionEmail) {
             storedContact = sessionEmail;

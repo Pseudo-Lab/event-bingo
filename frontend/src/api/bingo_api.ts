@@ -226,13 +226,13 @@ export const resetLocalMockTesterData = () => {
 };
 
 export const registerBingoUser = async (
-  userName: string,
+  userName: string | undefined,
   password: string,
   eventSlug?: string,
   userEmail?: string
 ) => {
   if (shouldUseMockApi()) {
-    return mockRegisterBingoUser(userName, password);
+    return mockRegisterBingoUser(userName ?? "", password);
   }
 
   return requestJson<BingoUserResponse>(

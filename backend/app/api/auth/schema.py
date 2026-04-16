@@ -14,7 +14,7 @@ class BingoUser(BaseSchema):
 
 
 class BingoRegisterRequest(BaseModel):
-    username: str = Field(..., min_length=1, max_length=100, description="표시 이름")
+    username: Optional[str] = Field(default=None, max_length=100, description="표시 이름")
     password: str = Field(..., min_length=4, max_length=100, description="로그인 비밀번호")
     event_slug: Optional[str] = Field(default=None, min_length=1, max_length=100, description="이벤트 slug")
     user_email: Optional[str] = Field(default=None, min_length=3, max_length=100, description="Google 계정 이메일")

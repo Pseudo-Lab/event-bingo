@@ -1,8 +1,13 @@
 import type { User } from "@supabase/supabase-js";
 
 import { loginBingoUser, registerBingoUser } from "../api/bingo_api";
-import { getSupabaseClient } from "../lib/supabaseClient";
-import { normalizeAuthEmail, setAuthSession, type AuthSession } from "./authSession";
+import { getSupabaseClient, maybeGetSupabaseClient } from "../lib/supabaseClient";
+import {
+  getAuthSession,
+  normalizeAuthEmail,
+  setAuthSession,
+  type AuthSession,
+} from "./authSession";
 import { clearLegacyLocalLoginStorage } from "./legacyAuthStorage";
 
 const LOGIN_ID_METADATA_KEY = "event_bingo_login_id";
@@ -86,7 +91,7 @@ const createBridgeKey = () => {
 
 const toAuthSession = (
   result: BingoUserResult,
-  fallbackName: string,
+  fallbackName?: string,
   fallbackEmail?: string
 ): AuthSession => {
   if (!result.ok || result.user_id == null || !result.login_id) {
@@ -98,7 +103,7 @@ const toAuthSession = (
 
   return {
     userId: String(result.user_id),
-    userName: pickString(result.user_name) || fallbackName,
+    userName: pickString(result.user_name) || pickString(fallbackName),
     loginId: result.login_id,
     userEmail: userEmail || undefined,
   };
@@ -127,6 +132,39 @@ const updateBingoBridgeMetadata = async (
   }
 };
 
+export const syncBingoBridgeUserName = async (userName: string) => {
+  const trimmedName = pickString(userName);
+  const supabase = maybeGetSupabaseClient();
+  if (!supabase) {
+    return;
+  }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return;
+  }
+
+  const currentUserName = pickString(user.user_metadata?.[USER_NAME_METADATA_KEY]);
+  if (currentUserName === trimmedName) {
+    return;
+  }
+
+  const nextMetadata = {
+    ...(user.user_metadata ?? {}),
+    [USER_NAME_METADATA_KEY]: trimmedName,
+  };
+
+  const { error } = await supabase.auth.updateUser({
+    data: nextMetadata,
+  });
+
+  if (error) {
+    console.warn("Failed to sync bingo bridge user name.", error);
+  }
+};
+
 export const ensureBingoGoogleBridge = async (
   user: User,
   eventSlug?: string
@@ -143,9 +181,10 @@ export const ensureBingoGoogleBridge = async (
     )) as BingoUserResult;
 
     if (loginResult.ok) {
+      const currentSession = getAuthSession();
       const authSession = toAuthSession(
         loginResult,
-        bridgeMetadata.userName || googleProfile.displayName,
+        currentSession?.userName || bridgeMetadata.userName,
         googleProfile.email
       );
 
@@ -163,14 +202,14 @@ export const ensureBingoGoogleBridge = async (
 
   const bridgeKey = createBridgeKey();
   const registerResult = (await registerBingoUser(
-    googleProfile.displayName,
+    undefined,
     bridgeKey,
     eventSlug,
     googleProfile.email
   )) as BingoUserResult;
   const authSession = toAuthSession(
     registerResult,
-    googleProfile.displayName,
+    "",
     googleProfile.email
   );
 

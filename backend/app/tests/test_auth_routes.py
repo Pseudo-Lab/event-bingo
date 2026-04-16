@@ -29,6 +29,17 @@ def test_bingo_register_request_accepts_optional_google_email():
     assert payload.user_email == "tester@example.com"
 
 
+def test_bingo_register_request_allows_blank_name_for_google_bridge():
+    payload = BingoRegisterRequest(
+        password="bridge-key",
+        event_slug="sample-event",
+        user_email="tester@example.com",
+    )
+
+    assert payload.username is None
+    assert payload.user_email == "tester@example.com"
+
+
 def test_bingo_login_request_accepts_optional_google_email():
     payload = BingoLoginRequest(
         login_id="ABC123",

@@ -162,6 +162,7 @@ const Home = () => {
   const [handledTestCode, setHandledTestCode] = useState<string | null>(null);
   const shouldUseGoogleAuth =
     !testModeEnabled && isSupabaseConfigured() && isGoogleIdentityConfigured();
+  const hasParticipantName = participantName.trim().length > 0;
   const eventSummary = useMemo(
     () => resolveHomeEventSummary(eventProfile, isEventProfileResolved),
     [eventProfile, isEventProfileResolved]
@@ -322,6 +323,9 @@ const Home = () => {
         }
 
         applyGoogleBridgeState(bridgeResult);
+        if (!bridgeResult.authSession.userName.trim()) {
+          navigate(eventBingoPath, { replace: true });
+        }
       } catch (error) {
         await supabase.auth.signOut();
         if (!cancelled) {
@@ -341,10 +345,12 @@ const Home = () => {
     };
   }, [
     applyGoogleBridgeState,
+    eventBingoPath,
     eventProfile.slug,
     googleAccountEmail,
     isEventProfileAvailable,
     openAlert,
+    navigate,
     shouldUseGoogleAuth,
   ]);
 
@@ -726,9 +732,14 @@ const Home = () => {
         <section className="login-form-card" aria-label="login form">
           {isLoggedIn ? (
             <div className="login-session">
-              <h3>{participantName}</h3>
+              <h3>{hasParticipantName ? participantName : "이름 설정 필요"}</h3>
               {shouldUseGoogleAuth && googleAccountEmail ? (
                 <p className="login-session__account">{googleAccountEmail}</p>
+              ) : null}
+              {!hasParticipantName ? (
+                <p className="login-session__description">
+                  빙고에서 사용할 이름을 먼저 설정해 주세요.
+                </p>
               ) : null}
               <div className="login-session__actions">
                 <button
@@ -736,7 +747,7 @@ const Home = () => {
                   className="login-submit"
                   onClick={() => navigate(eventBingoPath)}
                 >
-                  빙고로 이동
+                  {hasParticipantName ? "빙고로 이동" : "이름 설정하기"}
                 </button>
                 <button
                   type="button"

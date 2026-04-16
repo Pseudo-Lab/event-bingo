@@ -29,16 +29,17 @@ class BaseBingoUser:
 class RegisterBingoUser(BaseBingoUser):
     async def execute(
         self,
-        username: str,
+        username: str | None,
         password: str,
         event_slug: str | None = None,
         user_email: str | None = None,
     ) -> BingoUser:
         try:
-            normalized_username = username.strip()
+            normalized_username = (username or "").strip()
             normalized_password = password.strip()
+            normalized_user_email = BingoUser.normalize_user_email(user_email)
 
-            if len(normalized_username) == 0:
+            if len(normalized_username) == 0 and normalized_user_email is None:
                 raise ValueError("이름을 입력해 주세요.")
 
             if len(normalized_password) < 4:
@@ -46,9 +47,9 @@ class RegisterBingoUser(BaseBingoUser):
 
             user = await BingoUser.create(
                 self.async_session,
-                user_name=normalized_username,
+                user_name=normalized_username or None,
                 password=normalized_password,
-                user_email=user_email,
+                user_email=normalized_user_email,
             )
             await self.ensure_event_attendee(user.user_id, event_slug)
             logger.debug(f"Bingo user registered: {user}")

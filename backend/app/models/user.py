@@ -63,7 +63,7 @@ class BingoUser(Base):
     async def create(
         cls,
         session: AsyncSession,
-        user_name: str,
+        user_name: str | None,
         password: str,
         user_email: str | None = None,
     ):
