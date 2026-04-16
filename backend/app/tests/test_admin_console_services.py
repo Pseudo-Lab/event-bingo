@@ -2,17 +2,20 @@ import api.admin.console_services as console_services
 import pytest
 
 from api.admin.console_services import (
+    build_archive_participant_alias,
     build_admin_event_bingo_progress_query,
     build_admin_console_link,
+    is_event_personal_data_expired,
     normalize_event_keywords,
     resolve_participant_email,
     resolve_participant_name,
     resolve_selected_keywords,
+    resolve_personal_data_cutoff,
     validate_admin_member_deletion,
     validate_event_manager_request_transition,
     validate_event_schedule,
 )
-from datetime import datetime
+from datetime import datetime, timedelta
 from models.admin import AdminRole
 from models.event_manager_request import EventManagerRequestStatus
 
@@ -166,3 +169,32 @@ def test_resolve_participant_email_returns_dash_for_non_email_identifier():
     user = type("UserStub", (), {"user_email": "SJ6ZRJ"})()
 
     assert resolve_participant_email(user) == "-"
+
+
+def test_resolve_participant_name_returns_archive_alias_when_anonymized():
+    user = type("UserStub", (), {"user_id": 7, "user_name": "원래 이름"})()
+
+    assert resolve_participant_name(user, None, anonymized=True, attendee_id=42) == "익명 참가자 42"
+
+
+def test_resolve_participant_email_hides_value_when_anonymized():
+    user = type("UserStub", (), {"user_email": "tester@example.com"})()
+
+    assert resolve_participant_email(user, anonymized=True) == "-"
+
+
+def test_build_archive_participant_alias_uses_attendee_id():
+    assert build_archive_participant_alias(15) == "익명 참가자 15"
+
+
+def test_is_event_personal_data_expired_after_retention_window():
+    now = datetime.fromisoformat("2027-05-17T10:00:00+09:00")
+    event = type("EventStub", (), {"end_time": now - timedelta(days=366)})()
+
+    assert is_event_personal_data_expired(event, now=now) is True
+
+
+def test_resolve_personal_data_cutoff_uses_one_year_default_window():
+    now = datetime.fromisoformat("2027-05-17T10:00:00+09:00")
+
+    assert resolve_personal_data_cutoff(now=now) == now - timedelta(days=365)

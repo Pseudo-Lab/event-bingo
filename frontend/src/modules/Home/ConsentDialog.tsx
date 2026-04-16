@@ -1,19 +1,22 @@
 import React, { useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { Link } from "react-router-dom";
 
-import { getPublicConsentTemplate } from "../../api/public_event_api";
+import { getPublicEventPrivacyNoticeRecord } from "../../api/public_event_api";
 import { parseConsentTemplate, type ParsedConsentContent } from "../../utils/consentTemplate";
 
 type ConsentDialogProps = {
+  eventSlug: string;
+  eventName: string;
   eventTeam: string;
-  onDecline: () => void;
-  onAccept: () => void;
+  onClose: () => void;
 };
 
 const ConsentDialog: React.FC<ConsentDialogProps> = ({
+  eventSlug,
+  eventName,
   eventTeam,
-  onDecline,
-  onAccept,
+  onClose,
 }) => {
   const [content, setContent] = useState<ParsedConsentContent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,16 +27,16 @@ const ConsentDialog: React.FC<ConsentDialogProps> = ({
     setLoadError("");
 
     try {
-      const template = await getPublicConsentTemplate();
-      setContent(parseConsentTemplate(template, eventTeam));
+      const template = await getPublicEventPrivacyNoticeRecord(eventSlug);
+      setContent(parseConsentTemplate(template.content));
     } catch (error) {
-      console.error("Failed to load consent template", error);
+      console.error("Failed to load event privacy notice", error);
       setContent(null);
-      setLoadError("동의 문안을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      setLoadError("개인정보 처리 안내를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
       setIsLoading(false);
     }
-  }, [eventTeam]);
+  }, [eventSlug]);
 
   useEffect(() => {
     void loadTemplate();
@@ -42,11 +45,12 @@ const ConsentDialog: React.FC<ConsentDialogProps> = ({
   return (
     <div className="consent-sheet">
       <div className="consent-sheet__header">
-        <p className="consent-sheet__label">필수 동의</p>
-        <h2>{content?.title ?? "[필수] 개인정보 수집 및 이용 동의서"}</h2>
+        <p className="consent-sheet__label">개인정보 안내</p>
+        <h2>{content?.title ?? "행사 참가자 개인정보 처리 안내"}</h2>
         <p className="consent-sheet__summary">
-          로그인 전에 아래 내용을 읽고 동의 여부를 선택해 주세요. 동의하지 않으면
-          이벤트 네트워킹 기능을 이용할 수 없습니다.
+          {eventName} 참가 흐름에서 어떤 정보를 어떤 목적으로 처리하는지 확인할 수 있습니다.
+          이 안내는 {eventTeam} 행사 참가자 기준이며, DevFactory 플랫폼 처리방침은 별도로
+          확인할 수 있습니다.
         </p>
       </div>
 
@@ -54,7 +58,9 @@ const ConsentDialog: React.FC<ConsentDialogProps> = ({
         <div className="consent-sheet__document">
           {isLoading ? (
             <section className="consent-sheet__section">
-              <p className="consent-markdown__paragraph">동의 문안을 불러오는 중입니다.</p>
+              <p className="consent-markdown__paragraph">
+                개인정보 처리 안내를 불러오는 중입니다.
+              </p>
             </section>
           ) : null}
 
@@ -114,25 +120,46 @@ const ConsentDialog: React.FC<ConsentDialogProps> = ({
       <div className="consent-sheet__footer">
         <p className="consent-sheet__footer-copy">
           {loadError
-            ? "문안을 불러온 뒤 동의 여부를 선택할 수 있습니다."
-            : "개인정보 처리 내용을 모두 확인하셨다면 아래에서 동의 여부를 선택해 주세요."}
+            ? "새로고침 후 다시 시도하거나 전체 페이지에서 안내를 확인해 주세요."
+            : "이 안내는 로그인 후에도 다시 확인할 수 있습니다. 행사 운영에 필수적이지 않은 추가 활용이나 제3자 제공이 필요한 경우에는 별도 안내가 필요합니다."}
         </p>
         <div className="consent-sheet__actions">
           <button
             type="button"
             className="consent-action consent-action--secondary"
-            onClick={onDecline}
+            onClick={onClose}
           >
-            {loadError ? "닫기" : "동의 안함"}
+            닫기
           </button>
-          <button
-            type="button"
-            className="consent-action consent-action--primary"
-            onClick={loadError ? () => void loadTemplate() : onAccept}
-            disabled={isLoading}
-          >
-            {isLoading ? "불러오는 중" : loadError ? "다시 불러오기" : "동의하고 계속"}
-          </button>
+          {loadError ? (
+            <button
+              type="button"
+              className="consent-action consent-action--primary"
+              onClick={() => void loadTemplate()}
+              disabled={isLoading}
+            >
+              {isLoading ? "불러오는 중" : "다시 불러오기"}
+            </button>
+          ) : (
+            <>
+              <Link
+                to={`/event/${encodeURIComponent(eventSlug)}/privacy`}
+                className="consent-action consent-action--secondary consent-action--link"
+                target="_blank"
+                rel="noreferrer"
+              >
+                행사 안내 전체 페이지
+              </Link>
+              <Link
+                to="/privacy"
+                className="consent-action consent-action--primary consent-action--link"
+                target="_blank"
+                rel="noreferrer"
+              >
+                플랫폼 처리방침
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@ import io
 import secrets
 
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from starlette.responses import StreamingResponse
 
@@ -16,7 +16,11 @@ from models.event_manager_request import EventManagerRequest, EventManagerReques
 from models.room import Room
 from models.team import Team
 from models.user import BingoUser
-from models.policy_template import PolicyTemplate
+from models.policy_template import (
+    PARTICIPANT_PRIVACY_NOTICE_TEMPLATE_KEY,
+    PLATFORM_PRIVACY_TEMPLATE_KEY,
+    PolicyTemplate,
+)
 
 from .auth import (
     authenticate_admin_session,
@@ -65,6 +69,22 @@ from .services import get_all_bingo_boards, get_all_users, set_test_bingo_board
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
+VALID_POLICY_TEMPLATE_KEYS = {
+    PARTICIPANT_PRIVACY_NOTICE_TEMPLATE_KEY,
+    PLATFORM_PRIVACY_TEMPLATE_KEY,
+}
+
+
+def resolve_policy_template_key(template_key: str) -> str:
+    normalized_key = template_key.strip()
+    if normalized_key in VALID_POLICY_TEMPLATE_KEYS:
+        return normalized_key
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="지원하지 않는 정책 템플릿 키입니다.",
+    )
+
 
 def resolve_export_email(user) -> str:
     user_email = (getattr(user, "user_email", "") or "").strip()
@@ -112,18 +132,19 @@ async def list_admin_members(
 @admin_router.get(
     "/policy-template",
     response_model=AdminPolicyTemplateResponse,
-    summary="개인정보/이용약관 템플릿 조회",
+    summary="개인정보 처리 안내 템플릿 조회",
 )
 async def get_admin_policy_template(
     db: AsyncSessionDepends,
+    template_key: str = Query(PARTICIPANT_PRIVACY_NOTICE_TEMPLATE_KEY),
     actor: Admin = Depends(authenticate_admin_session),
 ):
     await ensure_admin_console_seed_data(db)
-    template = await PolicyTemplate.ensure_consent_template(db)
+    template = await PolicyTemplate.ensure_template(db, resolve_policy_template_key(template_key))
 
     return AdminPolicyTemplateResponse(
         ok=True,
-        message="개인정보/이용약관 템플릿을 불러왔습니다.",
+        message="개인정보 처리 안내 템플릿을 불러왔습니다.",
         template=await serialize_policy_template(db, template),
     )
 
@@ -131,11 +152,12 @@ async def get_admin_policy_template(
 @admin_router.put(
     "/policy-template",
     response_model=AdminPolicyTemplateResponse,
-    summary="개인정보/이용약관 템플릿 수정",
+    summary="개인정보 처리 안내 템플릿 수정",
 )
 async def update_admin_policy_template(
     payload: AdminPolicyTemplateUpdateRequest,
     db: AsyncSessionDepends,
+    template_key: str = Query(PARTICIPANT_PRIVACY_NOTICE_TEMPLATE_KEY),
     actor: Admin = Depends(authenticate_admin_session),
 ):
     await ensure_admin_console_seed_data(db)
@@ -148,15 +170,16 @@ async def update_admin_policy_template(
             detail="템플릿 내용은 비워둘 수 없습니다.",
         )
 
-    template = await PolicyTemplate.update_consent_template(
+    template = await PolicyTemplate.update_template(
         db,
+        template_key=resolve_policy_template_key(template_key),
         content_markdown=next_content,
         updated_by_admin_id=actor.id,
     )
 
     return AdminPolicyTemplateResponse(
         ok=True,
-        message="개인정보/이용약관 템플릿을 저장했습니다.",
+        message="개인정보 처리 안내 템플릿을 저장했습니다.",
         template=await serialize_policy_template(db, template),
     )
 
@@ -649,7 +672,6 @@ async def download_attendance_data(
             "Email": resolve_export_email(user),
             "Rating": user.rating,
             "Review": user.review,
-            "AgreedAt": user.agreement_at.strftime('%Y-%m-%d %H:%M:%S') if user.agreement_at else None,
             "CreatedAt": user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else None,
         }
         for user in users

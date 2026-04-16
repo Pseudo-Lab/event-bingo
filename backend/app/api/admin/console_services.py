@@ -43,6 +43,12 @@ from .schema import (
 
 DEFAULT_ADMIN_PHONE = "010-0000-0000"
 KST = ZoneInfo("Asia/Seoul")
+PERSONAL_DATA_RETENTION_DAYS = max(1, int(os.getenv("PRIVACY_PERSONAL_DATA_RETENTION_DAYS", "365")))
+PRIVACY_REDACTION_RUN_ON_STARTUP = (
+    os.getenv("PRIVACY_REDACTION_RUN_ON_STARTUP", "false").strip().lower() == "true"
+)
+ARCHIVED_AUTH_PROVIDER = "archived"
+ARCHIVED_PARTICIPANT_NAME_PREFIX = "익명 참가자"
 ADMIN_CONSOLE_URL_BASE = os.getenv("ADMIN_CONSOLE_URL_BASE", "http://localhost:5173/admin").strip()
 ADMIN_SMTP_HOST = os.getenv("ADMIN_SMTP_HOST", "").strip()
 ADMIN_SMTP_PORT = int(os.getenv("ADMIN_SMTP_PORT", "587"))
@@ -64,6 +70,30 @@ LEGACY_SEED_EVENT_SLUGS = {
     "campus-sprint-2026",
     "team-builder-beta",
 }
+
+
+def normalize_kst_datetime(value: datetime | None) -> datetime:
+    if value is None:
+        return datetime.now(KST)
+    if value.tzinfo is None:
+        return value.replace(tzinfo=KST)
+    return value.astimezone(KST)
+
+
+def resolve_personal_data_cutoff(now: datetime | None = None) -> datetime:
+    return normalize_kst_datetime(now) - timedelta(days=PERSONAL_DATA_RETENTION_DAYS)
+
+
+def is_event_personal_data_expired(event: Event, now: datetime | None = None) -> bool:
+    return normalize_kst_datetime(event.end_time) < resolve_personal_data_cutoff(now)
+
+
+def build_archive_participant_alias(attendee_id: int) -> str:
+    return f"{ARCHIVED_PARTICIPANT_NAME_PREFIX} {attendee_id}"
+
+
+def build_archived_user_identifier(user_id: int) -> str:
+    return f"archived-user-{user_id}"
 
 
 @dataclass
@@ -270,12 +300,24 @@ def resolve_progress_percent(bingo_count: int, success_condition: int) -> int:
     return min(100, round((bingo_count / success_condition) * 100))
 
 
-def resolve_participant_email(user: BingoUser) -> str:
+def resolve_participant_email(user: BingoUser, *, anonymized: bool = False) -> str:
+    if anonymized:
+        return "-"
+
     user_email = (user.user_email or "").strip()
     return user_email if "@" in user_email else "-"
 
 
-def resolve_participant_name(user: BingoUser, board: BingoBoards | None) -> str:
+def resolve_participant_name(
+    user: BingoUser,
+    board: BingoBoards | None,
+    *,
+    anonymized: bool = False,
+    attendee_id: int | None = None,
+) -> str:
+    if anonymized:
+        return build_archive_participant_alias(attendee_id or user.user_id)
+
     board_display_name = ((board.display_name or "").strip() if board else "")
     if board_display_name:
         return board_display_name
@@ -378,6 +420,7 @@ async def build_event_detail(
     event: Event,
     actor: Admin,
 ) -> AdminEventDetail:
+    anonymize_personal_data = is_event_personal_data_expired(event)
     attendee_rows = await session.execute(
         select(EventAttendee, BingoUser, BingoBoards)
         .join(BingoUser, BingoUser.user_id == EventAttendee.user_id)
@@ -407,8 +450,13 @@ async def build_event_detail(
         participants.append(
             AdminEventParticipantItem(
                 id=user.user_id,
-                name=resolve_participant_name(user, board),
-                email=resolve_participant_email(user),
+                name=resolve_participant_name(
+                    user,
+                    board,
+                    anonymized=anonymize_personal_data,
+                    attendee_id=attendee.id,
+                ),
+                email=resolve_participant_email(user, anonymized=anonymize_personal_data),
                 progress_percent=progress_percent,
                 keywords=keywords,
             )
@@ -488,6 +536,135 @@ async def build_event_detail(
             keyword_rows=keyword_rows,
         ),
     )
+
+
+async def redact_expired_event_personal_data(
+    session: AsyncSession,
+    *,
+    now: datetime | None = None,
+) -> dict[str, int]:
+    cutoff = resolve_personal_data_cutoff(now)
+    expired_event_ids = (
+        await session.execute(select(Event.id).where(Event.end_time < cutoff))
+    ).scalars().all()
+
+    if not expired_event_ids:
+        return {
+            "expired_events": 0,
+            "attendees_processed": 0,
+            "board_names_redacted": 0,
+            "attendee_reviews_cleared": 0,
+            "users_redacted": 0,
+            "users_skipped_due_to_recent_events": 0,
+        }
+
+    attendee_rows = await session.execute(
+        select(EventAttendee, BingoUser, BingoBoards)
+        .join(BingoUser, BingoUser.user_id == EventAttendee.user_id)
+        .outerjoin(
+            BingoBoards,
+            and_(
+                BingoBoards.user_id == EventAttendee.user_id,
+                BingoBoards.event_id == EventAttendee.event_id,
+            ),
+        )
+        .where(EventAttendee.event_id.in_(expired_event_ids))
+        .order_by(EventAttendee.id.asc())
+    )
+    attendee_tuples = attendee_rows.all()
+    if not attendee_tuples:
+        return {
+            "expired_events": len(expired_event_ids),
+            "attendees_processed": 0,
+            "board_names_redacted": 0,
+            "attendee_reviews_cleared": 0,
+            "users_redacted": 0,
+            "users_skipped_due_to_recent_events": 0,
+        }
+
+    user_map = {user.user_id: user for _, user, _ in attendee_tuples}
+    user_ids = sorted(user_map.keys())
+    retained_user_ids = set()
+    if user_ids:
+        retained_rows = await session.execute(
+            select(EventAttendee.user_id)
+            .join(Event, Event.id == EventAttendee.event_id)
+            .where(
+                EventAttendee.user_id.in_(user_ids),
+                Event.end_time >= cutoff,
+            )
+        )
+        retained_user_ids = set(retained_rows.scalars().all())
+
+    board_names_redacted = 0
+    attendee_reviews_cleared = 0
+    for attendee, _user, board in attendee_tuples:
+        if attendee.review is not None:
+            attendee.review = None
+            attendee_reviews_cleared += 1
+
+        if board is not None:
+            alias = build_archive_participant_alias(attendee.id)
+            if (board.display_name or "").strip() != alias:
+                board.display_name = alias
+                board_names_redacted += 1
+
+    users_redacted = 0
+    users_skipped = 0
+    for user_id, user in user_map.items():
+        if user_id in retained_user_ids:
+            users_skipped += 1
+            continue
+
+        redacted_identifier = build_archived_user_identifier(user_id)
+        changed = False
+        if user.user_name is not None:
+            user.user_name = None
+            changed = True
+        if user.user_email != redacted_identifier:
+            user.user_email = redacted_identifier
+            changed = True
+        if user.login_id is not None:
+            user.login_id = None
+            changed = True
+        if user.password_hash is not None:
+            user.password_hash = None
+            changed = True
+        if user.provider_id is not None:
+            user.provider_id = None
+            changed = True
+        if user.umoh_id is not None:
+            user.umoh_id = None
+            changed = True
+        if user.review is not None:
+            user.review = None
+            changed = True
+        if user.selected_words not in (None, []):
+            user.selected_words = []
+            changed = True
+        if user.privacy_agreed:
+            user.privacy_agreed = False
+            changed = True
+        if user.agreement_at is not None:
+            user.agreement_at = None
+            changed = True
+        if user.auth_provider != ARCHIVED_AUTH_PROVIDER:
+            user.auth_provider = ARCHIVED_AUTH_PROVIDER
+            changed = True
+
+        if changed:
+            users_redacted += 1
+
+    await session.commit()
+
+    return {
+        "expired_events": len(expired_event_ids),
+        "attendees_processed": len(attendee_tuples),
+        "board_names_redacted": board_names_redacted,
+        "attendee_reviews_cleared": attendee_reviews_cleared,
+        "users_redacted": users_redacted,
+        "users_skipped_due_to_recent_events": users_skipped,
+    }
 
 
 async def reset_event_runtime_data(

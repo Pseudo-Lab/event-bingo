@@ -9,29 +9,32 @@ export type ParsedConsentContent = {
   sections: ConsentSection[];
 };
 
+export type ConsentTemplateVariables = Record<string, string>;
+
 const normalizeMarkdown = (lines: string[]) =>
   lines
     .join("\n")
-    .replace(/^\s*\\-\s*/gm, "- ")
+    .replace(/^(\s*)\\-\s*/gm, "$1- ")
     .trim();
 
-export const interpolateConsentTemplate = (template: string, eventTeam: string) => {
-  return template
-    .replace(/{eventTeam}/g, eventTeam)
-    .replace(/{host}/g, eventTeam)
+export const interpolateConsentTemplate = (
+  template: string,
+  variables: ConsentTemplateVariables = {}
+) =>
+  template
+    .replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key: string) => variables[key] ?? match)
     .replace(/\r\n/g, "\n")
     .trim();
-};
 
 export const parseConsentTemplate = (
   template: string,
-  eventTeam: string
+  variables: ConsentTemplateVariables = {}
 ): ParsedConsentContent => {
-  const interpolated = interpolateConsentTemplate(template, eventTeam);
+  const interpolated = interpolateConsentTemplate(template, variables);
   const lines = interpolated.split("\n");
   const firstLine = lines[0]?.trim();
 
-  let title = "[필수] 개인정보 수집 및 이용 동의서";
+  let title = "개인정보 처리 안내";
   let contentStartIndex = 0;
 
   if (firstLine?.startsWith("#")) {

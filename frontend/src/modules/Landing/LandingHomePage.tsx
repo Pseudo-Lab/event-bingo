@@ -245,6 +245,9 @@ const LandingHomePage = () => {
             <a href="#apply" className={outlineLinkClassName}>
               이벤트 관리자 신청
             </a>
+            <Link to="/privacy" className={ghostLinkClassName}>
+              개인정보 처리 안내
+            </Link>
             <Link to={getAdminPath()} className={ghostLinkClassName}>
               관리자 로그인
             </Link>
@@ -548,6 +551,16 @@ const LandingHomePage = () => {
             </CardContent>
           </Card>
         </section>
+
+        <footer className="flex flex-col gap-3 rounded-[1.75rem] border border-white/60 bg-white/65 px-6 py-5 text-sm text-slate-500 shadow-soft backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Google 로그인과 별도로, DevFactory 플랫폼 차원의 개인정보 처리 기준은 공개
+            처리방침에서 확인할 수 있습니다.
+          </p>
+          <Link to="/privacy" className={ghostLinkClassName}>
+            플랫폼 처리방침 보기
+          </Link>
+        </footer>
       </main>
     </div>
   );

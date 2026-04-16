@@ -76,8 +76,6 @@ class BingoUser(Base):
             user_email=normalized_user_email or login_id,
             login_id=login_id,
             password_hash=password_hash,
-            privacy_agreed=True,
-            agreement_at=datetime.now(ZoneInfo("Asia/Seoul"))
         )
         session.add(new_user)
         await session.commit()
@@ -125,15 +123,6 @@ class BingoUser(Base):
         user.selected_words = words
         return user
     
-    @classmethod
-    async def update_privacy_agreement(cls, session: AsyncSession, user_id: int):
-        user = await cls.get_user_by_id(session, user_id)
-        user.privacy_agreed = True
-        user.agreement_at = datetime.now(ZoneInfo("Asia/Seoul"))
-        await session.commit()
-        await session.refresh(user)
-        return user
-
     @classmethod
     async def sync_user_email(cls, session: AsyncSession, user_id: int, user_email: str | None):
         normalized_user_email = cls.normalize_user_email(user_email)

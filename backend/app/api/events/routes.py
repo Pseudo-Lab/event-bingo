@@ -9,11 +9,13 @@ from .schema import (
     EventManagerRequestCreateItem,
     EventManagerRequestCreateRequest,
     EventManagerRequestCreateResponse,
-    PublicConsentTemplateItem,
-    PublicConsentTemplateResponse,
+    PublicEventPrivacyNoticeItem,
+    PublicEventPrivacyNoticeResponse,
     PublicEventListResponse,
     PublicEventProfileItem,
     PublicEventProfileResponse,
+    PublicPolicyTemplateItem,
+    PublicPolicyTemplateResponse,
     PublicEventSummaryItem,
 )
 
@@ -91,20 +93,63 @@ async def create_event_manager_request(
 
 
 @events_router.get(
-    "/consent-template",
-    response_model=PublicConsentTemplateResponse,
-    summary="공개 동의 템플릿 조회",
+    "/privacy-template",
+    response_model=PublicPolicyTemplateResponse,
+    summary="공개 개인정보 처리 안내 조회",
 )
-async def get_public_consent_template(
+@events_router.get(
+    "/consent-template",
+    response_model=PublicPolicyTemplateResponse,
+    include_in_schema=False,
+)
+async def get_public_policy_template(
     db: AsyncSessionDepends,
 ):
-    template = await PolicyTemplate.ensure_consent_template(db)
+    template = await PolicyTemplate.ensure_platform_policy_template(db)
 
-    return PublicConsentTemplateResponse(
+    return PublicPolicyTemplateResponse(
         ok=True,
-        message="공개 동의 템플릿을 불러왔습니다.",
-        template=PublicConsentTemplateItem(
-            content=template.content_markdown,
+        message="공개 플랫폼 개인정보처리방침을 불러왔습니다.",
+        template=PublicPolicyTemplateItem(
+            content=PolicyTemplate.render_platform_policy_content(template.content_markdown),
+            updated_at=template.updated_at,
+        ),
+    )
+
+
+@events_router.get(
+    "/{event_slug}/privacy-notice-template",
+    response_model=PublicEventPrivacyNoticeResponse,
+    summary="행사 참가자 개인정보 처리 안내 조회",
+)
+async def get_public_event_privacy_notice(
+    event_slug: str,
+    db: AsyncSessionDepends,
+):
+    event = await Event.get_by_slug(db, event_slug.strip().lower())
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="이벤트를 찾을 수 없습니다.",
+        )
+
+    template = await PolicyTemplate.ensure_consent_template(db)
+    rendered_content = PolicyTemplate.render_participant_notice_content(
+        template.content_markdown,
+        event_name=event.name,
+        event_team=event.event_team,
+        event_contact_email=event.admin_email,
+    )
+
+    return PublicEventPrivacyNoticeResponse(
+        ok=True,
+        message="행사 참가자 개인정보 처리 안내를 불러왔습니다.",
+        template=PublicEventPrivacyNoticeItem(
+            event_slug=event.slug,
+            event_name=event.name,
+            event_team=event.event_team,
+            contact_email=event.admin_email,
+            content=rendered_content,
             updated_at=template.updated_at,
         ),
     )

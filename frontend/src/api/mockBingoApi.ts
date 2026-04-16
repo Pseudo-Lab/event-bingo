@@ -23,7 +23,6 @@ type MockUser = {
   user_name: string;
   login_id: string;
   password: string;
-  privacy_agreed: boolean;
 };
 
 type MockInteraction = {
@@ -60,7 +59,6 @@ type MockUserResponse = {
   login_id?: string | null;
   user_email?: string | null;
   user_name?: string | null;
-  privacy_agreed?: boolean | null;
 };
 
 type MockInteractionResponse = {
@@ -346,7 +344,6 @@ const createMockUserResponse = (
   login_id: user.login_id,
   user_email: `tester-${user.user_id}@${MOCK_EMAIL_DOMAIN}`,
   user_name: user.user_name,
-  privacy_agreed: user.privacy_agreed,
 });
 
 const createInteractionResponse = (
@@ -405,7 +402,6 @@ const ensureDefaultTestUsers = (state: MockState) => {
         user_name: tester.userName,
         login_id: normalizedCode,
         password: DEFAULT_PASSWORD,
-        privacy_agreed: true,
       };
       state.loginIdToUserId[normalizedCode] = userId;
       state.nextUserId += 1;
@@ -527,7 +523,6 @@ export const mockLoginWithTester = async (
     user_name: userName.trim() || normalizedCode,
     login_id: normalizedCode,
     password: DEFAULT_PASSWORD,
-    privacy_agreed: true,
   };
 
   state.users[userId] = createdUser;
@@ -553,7 +548,6 @@ export const mockRegisterBingoUser = async (
     user_name: userName.trim(),
     login_id: loginId,
     password,
-    privacy_agreed: true,
   };
 
   state.users[userId] = newUser;

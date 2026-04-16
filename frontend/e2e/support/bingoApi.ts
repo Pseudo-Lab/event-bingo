@@ -26,13 +26,30 @@ const fulfillJson = async (route: Route, body: JsonBody, status = 200) => {
   });
 };
 
-export const mockConsentTemplate = async (page: Page) => {
-  await page.route("**/api/events/consent-template", async (route) => {
+export const mockPrivacyTemplate = async (page: Page) => {
+  await page.route("**/api/events/privacy-template", async (route) => {
     await fulfillJson(route, {
       ok: true,
-      message: "공개 동의 템플릿을 불러왔습니다.",
+      message: "공개 플랫폼 개인정보처리방침을 불러왔습니다.",
       template: {
-        content: "# [필수] 개인정보 수집 및 이용 동의서\n\n**{host}** 동의서입니다.",
+        content: "# DevFactory 플랫폼 개인정보처리방침\n\n**가짜연구소 DevFactory** 플랫폼 방침입니다.",
+        updated_at: "2026-03-21T00:00:00+09:00",
+      },
+    });
+  });
+
+  await page.route("**/api/events/*/privacy-notice-template", async (route) => {
+    const slug = route.request().url().split("/api/events/")[1]?.split("/")[0] ?? "event";
+    await fulfillJson(route, {
+      ok: true,
+      message: "행사 참가자 개인정보 처리 안내를 불러왔습니다.",
+      template: {
+        event_slug: slug,
+        event_name: "Bingo Networking Event",
+        event_team: "PseudoLab",
+        contact_email: "event-team@example.com",
+        content:
+          "# 행사 참가자 개인정보 처리 안내\n\n**PseudoLab** 행사 참가자 안내입니다.\n\n■ 1. 문의처\n- event-team@example.com",
         updated_at: "2026-03-21T00:00:00+09:00",
       },
     });

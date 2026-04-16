@@ -40,7 +40,7 @@ Provide a consistent UI standard for service pages and admin pages.
 - Avoid mixing many radius values in one screen.
 
 ## Component Rules
-- Login card: name, password, privacy consent, primary submit.
+- Login card: configured sign-in CTA, privacy notice link, primary submit.
 - Keyword selection: selectable chips with clear selected state.
 - Game action: keyword input plus send button in one row.
 - Progress card: completion percentage, counters, progress bar.
@@ -62,4 +62,3 @@ Provide a consistent UI standard for service pages and admin pages.
 ## QA Handoff
 - Include design compliance notes in PR when UI changes are made.
 - Flag any intentional deviations from this guide.
-

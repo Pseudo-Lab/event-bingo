@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   clearLocalMockMode,
   getLocalMockTesterUsers,
@@ -11,6 +11,7 @@ import GoogleSignInButton from "../Auth/GoogleSignInButton";
 import {
   getEventBingoPath,
   getEventHomePath,
+  getEventPrivacyPath,
   withSearch,
 } from "../../config/eventProfiles";
 import { useEventProfile } from "../../hooks/useEventProfile";
@@ -32,12 +33,12 @@ import { isTestModeEnabled, syncTestModeFromUrl } from "../../utils/testMode";
 import bingoLoginCharacterIllustration from "../../assets/illustrations/bingo-login-character.svg";
 import topIllustration from "../../assets/illustrations/top.svg";
 import { Dialog } from "../../components/ui/dialog";
-import PublicEventStatePage from "../../components/PublicEventStatePage";
 import ConsentDialog from "./ConsentDialog";
 import {
   HOME_EVENT_DISPLAY_FALLBACKS,
   resolveHomeEventSummary,
 } from "./homeDisplay";
+import PublicEventStatePage from "../../components/PublicEventStatePage";
 import "./Home.css";
 
 const PSEUDOLAB_URL = "https://pseudo-lab.com/";
@@ -146,8 +147,7 @@ const Home = () => {
   const [participantName, setParticipantName] = useState("");
   const [currentLoginId, setCurrentLoginId] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [agreeOpen, setAgreeOpen] = useState(false);
-  const [isAgreed, setIsAgreed] = useState(false);
+  const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
   const [googleAccountEmail, setGoogleAccountEmail] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
   const [alertOpen, setAlertOpen] = useState(false);
@@ -199,7 +199,6 @@ const Home = () => {
       setCurrentLoginId(storedSession.loginId);
       setGoogleAccountEmail(normalizeAuthEmail(storedSession.userEmail));
       setIsLoggedIn(true);
-      setIsAgreed(true);
       return;
     }
 
@@ -210,7 +209,6 @@ const Home = () => {
     setParticipantName(storedSession.userName);
     setCurrentLoginId(storedSession.loginId);
     setIsLoggedIn(true);
-    setIsAgreed(true);
   }, [shouldUseGoogleAuth]);
 
   const testCodeFromQuery = useMemo(() => {
@@ -261,7 +259,6 @@ const Home = () => {
     setParticipantName(userName);
     setCurrentLoginId(loginId);
     setIsLoggedIn(true);
-    setIsAgreed(true);
   }, []);
 
   const applyGoogleBridgeState = useCallback(
@@ -275,22 +272,12 @@ const Home = () => {
     [applyLoginSession]
   );
 
-  const handleConsentToggle = () => {
-    if (isAgreed) {
-      setIsAgreed(false);
-      return;
-    }
-
-    setAgreeOpen(true);
-  };
-
   const clearCurrentSessionState = useCallback(() => {
     clearAuthSession();
     clearLocalMockMode();
     setParticipantName("");
     setCurrentLoginId("");
     setIsLoggedIn(false);
-    setIsAgreed(false);
     setGoogleAccountEmail("");
   }, []);
 
@@ -349,8 +336,8 @@ const Home = () => {
     eventProfile.slug,
     googleAccountEmail,
     isEventProfileAvailable,
-    openAlert,
     navigate,
+    openAlert,
     shouldUseGoogleAuth,
   ]);
 
@@ -500,31 +487,6 @@ const Home = () => {
     isEventProfileAvailable,
   ]);
 
-  if (eventProfileLoadState === "not_found") {
-    return (
-      <PublicEventStatePage
-        eyebrow="Public Event"
-        title="행사를 찾을 수 없습니다"
-        description="입력한 행사 주소로는 공개 행사 페이지를 열 수 없습니다. 주최자에게 최신 링크를 다시 확인하거나 메인 화면에서 행사 목록을 확인해 주세요."
-      />
-    );
-  }
-
-  if (eventProfileLoadState === "error") {
-    return (
-      <PublicEventStatePage
-        eyebrow="Public Event"
-        title="행사 정보를 확인할 수 없습니다"
-        description={
-          eventProfileErrorMessage ??
-          "행사 정보를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
-        }
-        secondaryActionLabel="새로고침"
-        onSecondaryAction={() => window.location.reload()}
-      />
-    );
-  }
-
   const handleLogout = () => {
     clearCurrentSessionState();
     if (shouldUseGoogleAuth) {
@@ -629,29 +591,44 @@ const Home = () => {
   const renderGoogleLoginPanel = () => {
     return (
       <div className="login-google-panel">
-        <div className="login-consent">
-          <label className="login-consent__checkbox">
-            <input
-              type="checkbox"
-              checked={isAgreed}
-              onChange={handleConsentToggle}
-            />
-            <span>개인정보 처리 동의(필수)</span>
-          </label>
-          <button
-            type="button"
-            className="login-consent__link"
-            onClick={() => setAgreeOpen(true)}
-          >
-            내용 보기
-          </button>
+        <div className="login-policy">
+          <p className="login-policy__eyebrow">로그인 전 확인</p>
+          <p className="login-policy__summary">
+            Google 로그인 시 이름과 이메일 같은 기본 프로필 정보가 빙고 참가 정보와
+            연결될 수 있습니다. 수집 항목, 처리 목적, 보관 기준은 개인정보 처리 안내에서
+            확인할 수 있습니다.
+          </p>
+          <div className="login-policy__actions">
+            <button
+              type="button"
+              className="login-consent__link"
+              onClick={() => setPolicyDialogOpen(true)}
+            >
+              행사 참가자 안내
+            </button>
+            <Link
+              to={getEventPrivacyPath(eventSlug)}
+              className="login-consent__link login-consent__link--secondary"
+              target="_blank"
+              rel="noreferrer"
+            >
+              행사 안내 전체 페이지
+            </Link>
+            <Link
+              to="/privacy"
+              className="login-consent__link login-consent__link--secondary"
+              target="_blank"
+              rel="noreferrer"
+            >
+              플랫폼 처리방침
+            </Link>
+          </div>
         </div>
 
         <div className="login-google-panel__button-wrap">
           <div className="login-google-panel__button-slot">
             <GoogleSignInButton
               context="use"
-              disabled={!isAgreed}
               onError={(message) => openAlert(message)}
               onSuccess={handleGoogleBingoLogin}
               text="continue_with"
@@ -661,6 +638,31 @@ const Home = () => {
       </div>
     );
   };
+
+  if (eventProfileLoadState === "not_found") {
+    return (
+      <PublicEventStatePage
+        eyebrow="Public Event"
+        title="행사를 찾을 수 없습니다"
+        description="입력한 행사 주소로는 공개 행사 페이지를 열 수 없습니다. 주최자에게 최신 링크를 다시 확인하거나 메인 화면에서 행사 목록을 확인해 주세요."
+      />
+    );
+  }
+
+  if (eventProfileLoadState === "error") {
+    return (
+      <PublicEventStatePage
+        eyebrow="Public Event"
+        title="행사 정보를 확인할 수 없습니다"
+        description={
+          eventProfileErrorMessage ??
+          "행사 정보를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+        }
+        secondaryActionLabel="새로고침"
+        onSecondaryAction={() => window.location.reload()}
+      />
+    );
+  }
 
   return (
     <div className="login-page">
@@ -779,18 +781,16 @@ const Home = () => {
       </main>
 
       <Dialog
-        open={agreeOpen}
-        onClose={() => setAgreeOpen(false)}
+        open={policyDialogOpen}
+        onClose={() => setPolicyDialogOpen(false)}
         className="login-consent-dialog w-[min(92vw,48rem)]"
       >
-        {agreeOpen ? (
+        {policyDialogOpen ? (
           <ConsentDialog
+            eventSlug={eventSlug ?? eventProfile.slug}
+            eventName={eventSummary.eventName}
             eventTeam={eventSummary.eventTeam}
-            onDecline={() => setAgreeOpen(false)}
-            onAccept={() => {
-              setIsAgreed(true);
-              setAgreeOpen(false);
-            }}
+            onClose={() => setPolicyDialogOpen(false)}
           />
         ) : null}
       </Dialog>

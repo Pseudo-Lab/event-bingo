@@ -49,11 +49,36 @@ type PublicEventResponse = ApiResponseBase & {
   event?: PublicEventPayload | null;
 };
 
-type PublicConsentTemplateResponse = ApiResponseBase & {
+type PublicPolicyTemplateResponse = ApiResponseBase & {
   template?: {
     content: string;
     updated_at: string;
   } | null;
+};
+
+export type PublicPolicyTemplate = {
+  content: string;
+  updatedAt: string;
+};
+
+type PublicEventPrivacyNoticeResponse = ApiResponseBase & {
+  template?: {
+    event_slug: string;
+    event_name: string;
+    event_team: string;
+    contact_email: string;
+    content: string;
+    updated_at: string;
+  } | null;
+};
+
+export type PublicEventPrivacyNotice = {
+  eventSlug: string;
+  eventName: string;
+  eventTeam: string;
+  contactEmail: string;
+  content: string;
+  updatedAt: string;
 };
 
 type PublicEventListPayload = ApiResponseBase & {
@@ -203,9 +228,9 @@ export const getPublicEventCatalog = async (): Promise<PublicLandingEvent[]> => 
   }));
 };
 
-export const getPublicConsentTemplate = async (): Promise<string> => {
-  const payload = await requestJsonWithInit<PublicConsentTemplateResponse>(
-    "/api/events/consent-template",
+export const getPublicPolicyTemplateRecord = async (): Promise<PublicPolicyTemplate> => {
+  const payload = await requestJsonWithInit<PublicPolicyTemplateResponse>(
+    "/api/events/privacy-template",
     {
       method: "GET",
       cache: "no-store",
@@ -213,10 +238,47 @@ export const getPublicConsentTemplate = async (): Promise<string> => {
   );
 
   if (!payload.template?.content) {
-    throw new Error("동의 템플릿을 받지 못했습니다.");
+    throw new Error("개인정보 처리 안내 템플릿을 받지 못했습니다.");
   }
 
-  return payload.template.content;
+  return {
+    content: payload.template.content,
+    updatedAt: payload.template.updated_at,
+  };
+};
+
+export const getPublicPlatformPolicyTemplateRecord = getPublicPolicyTemplateRecord;
+
+export const getPublicPolicyTemplate = async (): Promise<string> => {
+  const template = await getPublicPolicyTemplateRecord();
+  return template.content;
+};
+
+export const getPublicConsentTemplate = getPublicPolicyTemplate;
+
+export const getPublicEventPrivacyNoticeRecord = async (
+  eventSlug: string
+): Promise<PublicEventPrivacyNotice> => {
+  const payload = await requestJsonWithInit<PublicEventPrivacyNoticeResponse>(
+    `/api/events/${encodeURIComponent(eventSlug)}/privacy-notice-template`,
+    {
+      method: "GET",
+      cache: "no-store",
+    }
+  );
+
+  if (!payload.template?.content) {
+    throw new Error("행사 참가자 개인정보 처리 안내를 받지 못했습니다.");
+  }
+
+  return {
+    eventSlug: payload.template.event_slug,
+    eventName: payload.template.event_name,
+    eventTeam: payload.template.event_team,
+    contactEmail: payload.template.contact_email,
+    content: payload.template.content,
+    updatedAt: payload.template.updated_at,
+  };
 };
 
 export const submitEventManagerApplication = async (

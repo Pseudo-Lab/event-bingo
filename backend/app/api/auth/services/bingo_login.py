@@ -93,10 +93,6 @@ class LoginBingoUser(BaseBingoUser):
             if not BingoUser.verify_password(normalized_password, user.password_hash):
                 raise ValueError("비밀번호가 일치하지 않습니다.")
 
-            user = await BingoUser.update_privacy_agreement(
-                self.async_session,
-                user.user_id,
-            )
             user = await BingoUser.sync_user_email(
                 self.async_session,
                 user.user_id,

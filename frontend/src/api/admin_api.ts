@@ -7,6 +7,7 @@ import type {
   AdminEventManagerRequestReviewResult,
   AdminMember,
   AdminPolicyTemplate,
+  AdminPolicyTemplateKey,
   AdminSession,
 } from "../modules/Admin/adminTypes";
 import { getApiBaseUrl } from "../lib/apiBase";
@@ -472,9 +473,12 @@ export const reviewAdminEventManagerRequest = async (
   };
 };
 
-export const getAdminPolicyTemplate = async (accessToken: string) => {
+export const getAdminPolicyTemplate = async (
+  accessToken: string,
+  templateKey: AdminPolicyTemplateKey = "consent_markdown"
+) => {
   const payload = await requestJson<AdminPolicyTemplateResponse>(
-    "/api/admin/policy-template",
+    `/api/admin/policy-template?template_key=${encodeURIComponent(templateKey)}`,
     {
       cache: "no-store",
     },
@@ -486,10 +490,10 @@ export const getAdminPolicyTemplate = async (accessToken: string) => {
 
 export const updateAdminPolicyTemplate = async (
   accessToken: string,
-  input: { content: string }
+  input: { templateKey: AdminPolicyTemplateKey; content: string }
 ) => {
   const payload = await requestJson<AdminPolicyTemplateResponse>(
-    "/api/admin/policy-template",
+    `/api/admin/policy-template?template_key=${encodeURIComponent(input.templateKey)}`,
     {
       method: "PUT",
       body: JSON.stringify({

@@ -256,6 +256,10 @@ export const getEventHomePath = (eventSlug?: string | null) => {
   return `/event/${normalizeEventSlug(eventSlug)}`;
 };
 
+export const getEventPrivacyPath = (eventSlug?: string | null) => {
+  return `${getEventHomePath(eventSlug)}/privacy`;
+};
+
 export const getEventBingoPath = (eventSlug?: string | null) => {
   return `${getEventHomePath(eventSlug)}/bingo`;
 };

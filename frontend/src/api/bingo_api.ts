@@ -27,7 +27,6 @@ type BingoUserResponse = ApiResponseBase & {
   login_id?: string | null;
   user_email?: string | null;
   user_name?: string | null;
-  privacy_agreed?: boolean | null;
 };
 
 type BingoBoardCell = {

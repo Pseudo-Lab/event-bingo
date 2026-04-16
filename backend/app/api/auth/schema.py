@@ -10,7 +10,6 @@ class BingoUser(BaseSchema):
     login_id: Optional[str] = Field(title="빙고 로그인 코드", default=None)
     user_email: Optional[str] = Field(title="레거시 로그인 식별자", default=None)
     umoh_id: Optional[int] = Field(title="우모 ID", default=None)
-    privacy_agreed: Optional[bool] = Field(title="개인정보 동의 여부", default=False)
 
 
 class BingoRegisterRequest(BaseModel):

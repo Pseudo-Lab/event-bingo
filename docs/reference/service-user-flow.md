@@ -15,8 +15,9 @@
 
 ## Service Screens
 1. Login screen:
-- name and password input
-- privacy agreement checkbox
+- sign-in CTA for the configured login method
+- event-participant privacy notice link before login
+- DevFactory platform privacy-policy page access
 
 2. Keyword selection screen:
 - user selects required keyword count
@@ -42,4 +43,3 @@
 ## Language And Sync Rule
 - English file is source-of-truth for implementation.
 - Keep Korean mirror `docs/reference/service-user-flow.ko.md` in sync on every update.
-

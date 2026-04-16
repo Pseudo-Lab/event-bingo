@@ -68,6 +68,7 @@ import type {
   AdminEventStatus,
   AdminMember,
   AdminPolicyTemplate,
+  AdminPolicyTemplateKey,
   AdminRole,
   AdminSession,
 } from "./adminTypes";
@@ -87,6 +88,7 @@ import {
   getEventKeywordPresetDefinitions,
   type EventKeywordPresetId,
 } from "./adminKeywordUtils";
+import { interpolateConsentTemplate } from "../../utils/consentTemplate";
 
 type AdminSection = AdminConsoleSection;
 type EventDetailTab = "overview" | "dashboard" | "participants";
@@ -113,6 +115,41 @@ type EventFormState = {
 const ITEMS_PER_PAGE = 4;
 const DETAIL_PARTICIPANTS_PER_PAGE = 8;
 const POLICY_PREVIEW_HOST = "샘플 행사 운영팀";
+const POLICY_PREVIEW_CONTACT_EMAIL = "event-team@example.com";
+const POLICY_PREVIEW_PLATFORM_HOST = "가짜연구소 DevFactory";
+const POLICY_PREVIEW_PLATFORM_CONTACT_EMAIL = "pseudolab.operator@gmail.com";
+const POLICY_TEMPLATE_OPTIONS: Array<{
+  key: AdminPolicyTemplateKey;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: "consent_markdown",
+    label: "행사 참가자 안내",
+    description: "행사 로그인 전 모달과 /event/:slug/privacy 페이지에 노출됩니다.",
+  },
+  {
+    key: "platform_privacy_markdown",
+    label: "DevFactory 플랫폼 방침",
+    description: "랜딩과 /privacy 페이지에 노출되는 플랫폼 개인정보처리방침입니다.",
+  },
+];
+const POLICY_PREVIEW_VARIABLES: Record<AdminPolicyTemplateKey, Record<string, string>> = {
+  consent_markdown: {
+    eventName: "샘플 네트워킹 데이",
+    eventTeam: POLICY_PREVIEW_HOST,
+    host: POLICY_PREVIEW_HOST,
+    eventContactEmail: POLICY_PREVIEW_CONTACT_EMAIL,
+    platformHost: POLICY_PREVIEW_PLATFORM_HOST,
+    platformContactEmail: POLICY_PREVIEW_PLATFORM_CONTACT_EMAIL,
+    platformPrivacyPath: "/privacy",
+  },
+  platform_privacy_markdown: {
+    platformHost: POLICY_PREVIEW_PLATFORM_HOST,
+    platformContactEmail: POLICY_PREVIEW_PLATFORM_CONTACT_EMAIL,
+    platformPrivacyPath: "/privacy",
+  },
+};
 const EVENT_DETAIL_TABS: Array<{ key: EventDetailTab; label: string }> = [
   { key: "overview", label: "개요" },
   { key: "dashboard", label: "대시보드" },
@@ -482,7 +519,7 @@ const navigationItems: Array<{
   { key: "members", label: "회원 관리", Icon: UsersIcon, adminOnly: true },
   { key: "applications", label: "신청 관리", Icon: UsersIcon, adminOnly: true },
   { key: "event-settings", label: "이벤트 관리", Icon: EventIcon },
-  { key: "policies", label: "이용약관 및 개인정보", Icon: FileIcon },
+  { key: "policies", label: "개인정보 처리 안내", Icon: FileIcon },
 ];
 
 const AdminBrand = ({ compact = false }: { compact?: boolean }) => {
@@ -762,8 +799,14 @@ const AdminConsolePage = ({
   const [pageNotice, setPageNotice] = useState("");
   const [inviteReviewResult, setInviteReviewResult] =
     useState<AdminEventManagerRequestReviewResult | null>(null);
-  const [policyTemplate, setPolicyTemplate] = useState<AdminPolicyTemplate | null>(null);
-  const [policyDraft, setPolicyDraft] = useState("");
+  const [selectedPolicyKey, setSelectedPolicyKey] =
+    useState<AdminPolicyTemplateKey>("consent_markdown");
+  const [policyTemplates, setPolicyTemplates] = useState<
+    Partial<Record<AdminPolicyTemplateKey, AdminPolicyTemplate>>
+  >({});
+  const [policyDrafts, setPolicyDrafts] = useState<
+    Partial<Record<AdminPolicyTemplateKey, string>>
+  >({});
   const [policyNotice, setPolicyNotice] = useState("");
   const [policyError, setPolicyError] = useState("");
   const [isSessionBootstrapped, setIsSessionBootstrapped] = useState(false);
@@ -954,10 +997,21 @@ const AdminConsolePage = ({
         setIsPolicyLoading(true);
         setPolicyError("");
         setPolicyNotice("");
-        const template = await getAdminPolicyTemplate(session.accessToken);
+        const templates = await Promise.all(
+          POLICY_TEMPLATE_OPTIONS.map(async (option) => ({
+            key: option.key,
+            template: await getAdminPolicyTemplate(session.accessToken, option.key),
+          }))
+        );
         if (!cancelled) {
-          setPolicyTemplate(template);
-          setPolicyDraft(template.content);
+          const nextTemplates = Object.fromEntries(
+            templates.map(({ key, template }) => [key, template])
+          ) as Partial<Record<AdminPolicyTemplateKey, AdminPolicyTemplate>>;
+          const nextDrafts = Object.fromEntries(
+            templates.map(({ key, template }) => [key, template.content])
+          ) as Partial<Record<AdminPolicyTemplateKey, string>>;
+          setPolicyTemplates(nextTemplates);
+          setPolicyDrafts(nextDrafts);
         }
       } catch (error) {
         if (!cancelled) {
@@ -973,7 +1027,7 @@ const AdminConsolePage = ({
           setPolicyError(
             error instanceof Error
               ? error.message
-              : "이용약관 및 개인정보 템플릿을 불러오지 못했습니다."
+              : "개인정보 처리 문안을 불러오지 못했습니다."
           );
         }
       } finally {
@@ -1489,7 +1543,10 @@ const AdminConsolePage = ({
   };
 
   const handleResetPolicyDraft = () => {
-    setPolicyDraft(policyTemplate?.content ?? "");
+    setPolicyDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [selectedPolicyKey]: activePolicyTemplate?.content ?? "",
+    }));
     setPolicyError("");
     setPolicyNotice("");
   };
@@ -1510,16 +1567,23 @@ const AdminConsolePage = ({
       setIsPolicySaving(true);
       setPolicyError("");
       const savedTemplate = await updateAdminPolicyTemplate(session.accessToken, {
+        templateKey: selectedPolicyKey,
         content: nextContent,
       });
-      setPolicyTemplate(savedTemplate);
-      setPolicyDraft(savedTemplate.content);
-      setPolicyNotice("이용약관 및 개인정보 템플릿을 저장했습니다.");
+      setPolicyTemplates((currentTemplates) => ({
+        ...currentTemplates,
+        [selectedPolicyKey]: savedTemplate,
+      }));
+      setPolicyDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        [selectedPolicyKey]: savedTemplate.content,
+      }));
+      setPolicyNotice(`${selectedPolicyOption.label} 템플릿을 저장했습니다.`);
     } catch (error) {
       setPolicyError(
         error instanceof Error
           ? error.message
-          : "이용약관 및 개인정보 템플릿을 저장하지 못했습니다."
+          : "개인정보 처리 문안을 저장하지 못했습니다."
       );
       setPolicyNotice("");
     } finally {
@@ -1568,7 +1632,7 @@ const AdminConsolePage = ({
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(eventForm.adminEmail.trim().toLowerCase())) {
-      setEventFormError("관리자 이메일을 확인해 주세요.");
+      setEventFormError("행사 문의 이메일을 확인해 주세요.");
       return;
     }
 
@@ -1649,12 +1713,16 @@ const AdminConsolePage = ({
     eventForm.boardSize
   );
   const canEditPolicyTemplate = session?.role === "admin";
-  const hasPolicyChanges = policyTemplate !== null && policyDraft.trim() !== policyTemplate.content.trim();
+  const activePolicyTemplate = policyTemplates[selectedPolicyKey] ?? null;
+  const policyDraft = policyDrafts[selectedPolicyKey] ?? "";
+  const selectedPolicyOption =
+    POLICY_TEMPLATE_OPTIONS.find((option) => option.key === selectedPolicyKey) ??
+    POLICY_TEMPLATE_OPTIONS[0];
+  const hasPolicyChanges =
+    activePolicyTemplate !== null && policyDraft.trim() !== activePolicyTemplate.content.trim();
   const policyPreviewContent = useMemo(() => {
-    return policyDraft
-      .replace(/{eventTeam}/g, POLICY_PREVIEW_HOST)
-      .replace(/{host}/g, POLICY_PREVIEW_HOST);
-  }, [policyDraft]);
+    return interpolateConsentTemplate(policyDraft, POLICY_PREVIEW_VARIABLES[selectedPolicyKey]);
+  }, [policyDraft, selectedPolicyKey]);
 
   if (!session) {
     return null;
@@ -2659,8 +2727,8 @@ const AdminConsolePage = ({
             {section === "policies" ? (
               <>
                 <SectionHeader
-                  title="이용약관 및 개인정보"
-                  description="서비스 홈 동의 팝업과 같은 원본 템플릿을 이 화면에서 확인하고, Admin만 수정할 수 있습니다."
+                  title="개인정보 처리 안내"
+                  description="행사 참가자 안내와 DevFactory 플랫폼 처리방침을 분리해 관리합니다. Admin만 수정할 수 있습니다."
                   action={
                     canEditPolicyTemplate ? (
                       <div className="flex flex-wrap items-center gap-3">
@@ -2699,19 +2767,47 @@ const AdminConsolePage = ({
                   </div>
                 ) : null}
 
+                <div className="flex flex-wrap gap-3">
+                  {POLICY_TEMPLATE_OPTIONS.map((option) => {
+                    const isSelected = option.key === selectedPolicyKey;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        className={cn(
+                          "rounded-full border px-4 py-2 text-sm font-semibold transition-colors",
+                          isSelected
+                            ? "border-brand-600 bg-brand-600 text-white"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:text-brand-700"
+                        )}
+                        onClick={() => {
+                          setSelectedPolicyKey(option.key);
+                          setPolicyError("");
+                          setPolicyNotice("");
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <div className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)] xl:min-h-[calc(100vh-16rem)]">
                   <Card className="overflow-hidden rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
                     <CardHeader className="space-y-2 p-7 pb-0">
                       <CardTitle>템플릿 안내</CardTitle>
-                      <CardDescription>저장 즉시 서비스 홈 동의 팝업에도 같은 원본이 반영됩니다.</CardDescription>
+                      <CardDescription>저장 즉시 서비스 홈 안내 팝업과 공개 정책 페이지에도 같은 원본이 반영됩니다.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3 p-7 pt-6">
                       <div className="rounded-[1.35rem] border border-white/90 bg-white/90 px-4 py-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                          적용 위치
+                          현재 선택
                         </p>
                         <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-                          서비스 홈 로그인 전 동의 팝업
+                          {selectedPolicyOption.label}
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-slate-500">
+                          {selectedPolicyOption.description}
                         </p>
                       </div>
                       <div className="rounded-[1.35rem] border border-white/90 bg-white/90 px-4 py-4">
@@ -2727,14 +2823,9 @@ const AdminConsolePage = ({
                           치환 변수
                         </p>
                         <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-                          <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
-                            {"{host}"}
-                          </code>
-                          와
-                          <code className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
-                            {"{eventTeam}"}
-                          </code>
-                          는 실제 행사 팀명으로 치환됩니다.
+                          {selectedPolicyKey === "consent_markdown"
+                            ? "행사 참가자 안내는 {eventName}, {eventTeam}, {eventContactEmail}, {platformHost}를 사용합니다."
+                            : "플랫폼 방침은 {platformHost}, {platformContactEmail}를 사용합니다."}
                         </p>
                       </div>
                       <div className="rounded-[1.35rem] border border-white/90 bg-white/90 px-4 py-4">
@@ -2742,11 +2833,21 @@ const AdminConsolePage = ({
                           마지막 수정
                         </p>
                         <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-                          {policyTemplate
-                            ? `${policyTemplate.updatedByName ?? "시스템 기본값"} · ${formatAdminDate(
-                                policyTemplate.updatedAt
+                          {activePolicyTemplate
+                            ? `${activePolicyTemplate.updatedByName ?? "시스템 기본값"} · ${formatAdminDate(
+                                activePolicyTemplate.updatedAt
                               )}`
                             : "아직 불러오지 않았습니다."}
+                        </p>
+                      </div>
+                      <div className="rounded-[1.35rem] border border-amber-100 bg-amber-50/80 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
+                          게시 전 점검
+                        </p>
+                        <p className="mt-2 text-sm font-semibold leading-6 text-amber-900">
+                          기본값은 Supabase 위탁, SMTP 이메일 발송 위탁, 개인식별정보 1년 이내
+                          삭제·익명화, 익명 통계·행사 아카이브 장기 보관 기준입니다. 대괄호로 남은
+                          SMTP 사업자명과 실제 Supabase 리전/국가는 게시 전에 반드시 확정해 주세요.
                         </p>
                       </div>
                     </CardContent>
@@ -2757,28 +2858,35 @@ const AdminConsolePage = ({
                       <Card className="overflow-hidden rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
                         <CardHeader className="space-y-2 p-7 pb-0">
                           <CardTitle>템플릿 편집</CardTitle>
-                          <CardDescription>마크다운 원문을 저장하면 홈 동의 팝업도 같은 문안을 사용합니다.</CardDescription>
+                          <CardDescription>
+                            선택한 템플릿의 마크다운 원문을 저장하면 해당 공개 화면에 바로 반영됩니다.
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="p-7 pt-6">
                           {isPolicyLoading ? (
                             <EmptyPanelState
                               className="min-h-[16rem]"
-                              message="이용약관 및 개인정보 템플릿을 불러오는 중입니다."
+                              message="개인정보 처리 문안을 불러오는 중입니다."
                             />
                           ) : (
                             <div className="space-y-3">
-                              <Label htmlFor="policy-template-editor">마크다운 원문</Label>
+                              <Label htmlFor="policy-template-editor">
+                                {selectedPolicyOption.label} 마크다운 원문
+                              </Label>
                               <Textarea
                                 id="policy-template-editor"
                                 value={policyDraft}
                                 onChange={(event) => {
-                                  setPolicyDraft(event.target.value);
+                                  setPolicyDrafts((currentDrafts) => ({
+                                    ...currentDrafts,
+                                    [selectedPolicyKey]: event.target.value,
+                                  }));
                                   if (policyNotice) {
                                     setPolicyNotice("");
                                   }
                                 }}
                                 className="min-h-[20rem] rounded-[1.25rem] border-white/90 bg-white/90 font-mono text-xs leading-6 shadow-none"
-                                placeholder="# [필수] 개인정보 수집 및 이용 동의서"
+                                placeholder={`# ${selectedPolicyOption.label}`}
                               />
                             </div>
                           )}
@@ -2790,14 +2898,14 @@ const AdminConsolePage = ({
                       <CardHeader className="space-y-2 p-7 pb-0">
                         <CardTitle>미리보기</CardTitle>
                         <CardDescription>
-                          치환 변수는 미리보기에서 `{POLICY_PREVIEW_HOST}` 기준으로 표시됩니다.
+                          치환 변수는 미리보기에서 샘플 행사와 DevFactory 기준 값으로 치환됩니다.
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="flex min-h-0 flex-1 flex-col p-7 pt-6">
                         {isPolicyLoading ? (
                           <EmptyPanelState
                             className="min-h-[24rem]"
-                            message="이용약관 및 개인정보 템플릿을 불러오는 중입니다."
+                            message="개인정보 처리 문안을 불러오는 중입니다."
                           />
                         ) : policyDraft ? (
                           <div className="min-h-0 flex-1 overflow-y-auto rounded-[1.5rem] border border-white/90 bg-white/90 p-6 pr-7 md:p-8 md:pr-9 [scrollbar-gutter:stable_both-edges]">
@@ -3351,7 +3459,7 @@ const AdminConsolePage = ({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="event-modal-email">관리자 이메일</Label>
+                  <Label htmlFor="event-modal-email">행사 문의 이메일</Label>
                   <Input
                     id="event-modal-email"
                     type="email"
@@ -3362,7 +3470,7 @@ const AdminConsolePage = ({
                         adminEmail: event.target.value,
                       }))
                     }
-                    placeholder="abcde@gmail.com"
+                    placeholder="event-team@example.com"
                     className="h-12 rounded-xl"
                   />
                 </div>

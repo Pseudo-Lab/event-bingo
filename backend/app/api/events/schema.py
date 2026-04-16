@@ -37,13 +37,26 @@ class PublicEventListResponse(BaseSchema):
     events: list[PublicEventSummaryItem] = Field(default_factory=list)
 
 
-class PublicConsentTemplateItem(BaseModel):
+class PublicPolicyTemplateItem(BaseModel):
     content: str
     updated_at: datetime
 
 
-class PublicConsentTemplateResponse(BaseSchema):
-    template: Optional[PublicConsentTemplateItem] = None
+class PublicPolicyTemplateResponse(BaseSchema):
+    template: Optional[PublicPolicyTemplateItem] = None
+
+
+class PublicEventPrivacyNoticeItem(BaseModel):
+    event_slug: str
+    event_name: str
+    event_team: str
+    contact_email: str
+    content: str
+    updated_at: datetime
+
+
+class PublicEventPrivacyNoticeResponse(BaseSchema):
+    template: Optional[PublicEventPrivacyNoticeItem] = None
 
 
 class EventManagerRequestCreateRequest(BaseModel):

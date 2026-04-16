@@ -4,6 +4,8 @@ import Home from "./modules/Home/Home.tsx";
 import BingoGame from "./modules/Bingo/BingoGame.tsx";
 import LandingHomePage from "./modules/Landing/LandingHomePage.tsx";
 import DemoExperiencePage from "./modules/Landing/DemoExperiencePage.tsx";
+import PublicPrivacyPage from "./modules/Landing/PublicPrivacyPage.tsx";
+import PublicEventPrivacyPage from "./modules/Landing/PublicEventPrivacyPage.tsx";
 import {
   AdminApplicationsPage,
   AdminDashboardPage,
@@ -25,6 +27,7 @@ function AppRoutes() {
           <Route path="/" element={<LandingHomePage />} />
           <Route path="/event" element={<Navigate to="/" replace />} />
           <Route path="/experience" element={<DemoExperiencePage />} />
+          <Route path="/privacy" element={<PublicPrivacyPage />} />
           <Route path="/bingo" element={<DemoExperiencePage />} />
           <Route path="/admin" element={<AdminRoutesLoginPage />} />
           <Route path="/admin/invite" element={<Navigate to={getAdminPath()} replace />} />
@@ -43,6 +46,7 @@ function AppRoutes() {
           />
           <Route path="/admin/policies" element={<AdminPoliciesPage />} />
           <Route path="/event/:eventSlug" element={<Home />} />
+          <Route path="/event/:eventSlug/privacy" element={<PublicEventPrivacyPage />} />
           <Route path="/event/:eventSlug/bingo" element={<BingoGame />} />
           <Route
             path="/event/:eventSlug/admin"
