@@ -51,6 +51,7 @@ import {
   getCellsInLine,
   getCompletedLines,
   getDefaultAlertTitle,
+  getBingoMissionProgressPercent,
   getLatestIncomingBatch,
   getLatestInteractionId,
   getUniqueKeywords,
@@ -60,6 +61,10 @@ import {
 } from "./bingoGameUtils";
 import type { BoardPreviewPreset } from "./bingoGameTypes";
 import { syncTestModeFromUrl } from "../../utils/testMode";
+import {
+  readGoalCelebrationFlag as readStoredGoalCelebrationFlag,
+  writeGoalCelebrationFlag as writeStoredGoalCelebrationFlag,
+} from "./bingoSessionState";
 import "./BingoGame.css";
 
 const PSEUDOLAB_URL = "https://pseudo-lab.com/";
@@ -149,7 +154,13 @@ const BingoGame = () => {
   const [animatedCells, setAnimatedCells] = useState<number[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [newBingoCells, setNewBingoCells] = useState<number[]>([]);
-  const [hasShownConfetti, setHasShownConfetti] = useState(false);
+  const [hasShownConfetti, setHasShownConfetti] = useState(() =>
+    readStoredGoalCelebrationFlag(
+      typeof window === "undefined" ? undefined : window.sessionStorage,
+      eventSlug,
+      getAuthSession()?.userId
+    )
+  );
   const [alertSeverity, setAlertSeverity] = useState<AlertSeverity>("success");
   const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
   const [boardPreviewPreset, setBoardPreviewPreset] = useState<BoardPreviewPreset | null>(null);
@@ -207,11 +218,8 @@ const BingoGame = () => {
   );
 
   const completionRate = useMemo(() => {
-    return Math.min(
-      100,
-      Math.round((markedKeywordCount / boardCellCount) * 100)
-    );
-  }, [boardCellCount, markedKeywordCount]);
+    return getBingoMissionProgressPercent(bingoCount, bingoMissionCount);
+  }, [bingoCount, bingoMissionCount]);
 
   const participantSummary = useMemo(() => {
     const name = displayName || username;
@@ -612,12 +620,18 @@ const BingoGame = () => {
   const resetPreviewVisualState = useCallback(() => {
     setShowAllBingoModal(false);
     setShowConfetti(false);
-    setHasShownConfetti(false);
+    setHasShownConfetti(
+      readStoredGoalCelebrationFlag(
+        typeof window === "undefined" ? undefined : window.sessionStorage,
+        eventSlug,
+        userId || getAuthSession()?.userId
+      )
+    );
     setNewBingoFound(false);
     setAnimatedCells([]);
     setNewBingoCells([]);
     setLatestReceivedKeywords([]);
-  }, []);
+  }, [eventSlug, userId]);
 
   const applyBoardPreview = useCallback(
     (preset: BoardPreviewPreset) => {
@@ -770,12 +784,39 @@ const BingoGame = () => {
 
     const newCompletedLines = getCompletedLines(bingoBoard, boardSize);
     const newBingoCount = newCompletedLines.length;
+    const celebrationAlreadySeen = readStoredGoalCelebrationFlag(
+      typeof window === "undefined" ? undefined : window.sessionStorage,
+      eventSlug,
+      userId || getAuthSession()?.userId
+    );
+    if (celebrationAlreadySeen) {
+      const lineCells = newCompletedLines.flatMap((line) =>
+        getCellsInLine(line.type, line.index, boardSize)
+      );
+      setBingoLineCells([...new Set(lineCells)]);
+    }
+
     setCompletedLines(newCompletedLines);
     setBingoCount(newBingoCount);
-    if (newBingoCount >= bingoMissionCount) {
+    if (newBingoCount >= bingoMissionCount && !celebrationAlreadySeen) {
+      writeStoredGoalCelebrationFlag(
+        typeof window === "undefined" ? undefined : window.sessionStorage,
+        eventSlug,
+        userId || getAuthSession()?.userId
+      );
       setShowAllBingoModal(true);
     }
-  }, [bingoBoard, bingoMissionCount, boardSize]);
+  }, [bingoBoard, bingoMissionCount, boardSize, eventSlug, userId]);
+
+  useEffect(() => {
+    setHasShownConfetti(
+      readStoredGoalCelebrationFlag(
+        typeof window === "undefined" ? undefined : window.sessionStorage,
+        eventSlug,
+        userId || getAuthSession()?.userId
+      )
+    );
+  }, [eventSlug, userId]);
 
   useEffect(() => {
     let resetAnimationTimer: number | null = null;

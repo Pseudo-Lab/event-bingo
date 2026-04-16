@@ -8,6 +8,7 @@ import {
   buildIncomingKeywordAlert,
   buildPreviewBoard,
   buildExchangeHistory,
+  getBingoMissionProgressPercent,
   getCompletedLines,
   getLatestIncomingBatch,
 } from "./bingoGameUtils";
@@ -148,6 +149,22 @@ describe("getCompletedLines", () => {
       { type: "diagonal", index: 1 },
       { type: "diagonal", index: 2 },
     ]);
+  });
+});
+
+describe("getBingoMissionProgressPercent", () => {
+  it("returns progress relative to the mission line target", () => {
+    expect(getBingoMissionProgressPercent(1, 3)).toBe(33);
+    expect(getBingoMissionProgressPercent(2, 3)).toBe(67);
+  });
+
+  it("caps progress at 100 once the mission is cleared", () => {
+    expect(getBingoMissionProgressPercent(3, 3)).toBe(100);
+    expect(getBingoMissionProgressPercent(5, 3)).toBe(100);
+  });
+
+  it("returns 0 when the mission target is invalid", () => {
+    expect(getBingoMissionProgressPercent(2, 0)).toBe(0);
   });
 });
 

@@ -56,6 +56,17 @@ export const parseInteractionKeywords = (payload: string[] | string) => {
 export const getInteractionKeywords = (record: InteractionRecord) =>
   parseInteractionKeywords(record.word_id_list);
 
+export const getBingoMissionProgressPercent = (
+  bingoCount: number,
+  bingoMissionCount: number
+) => {
+  if (bingoMissionCount <= 0) {
+    return 0;
+  }
+
+  return Math.min(100, Math.round((bingoCount / bingoMissionCount) * 100));
+};
+
 export const getPendingKeywordsForBoard = (
   board: BingoCell[],
   sourceKeywords: string[]
