@@ -83,6 +83,40 @@ export const mockPublicEventProfile = async (
   });
 };
 
+export const mockPublicEventCatalog = async (
+  page: Page,
+  events: Array<{
+    id: number;
+    slug: string;
+    name: string;
+    startAt: string;
+    boardSize: 3 | 5;
+    bingoMissionCount: number;
+    status: "scheduled" | "in_progress" | "ended";
+  }>
+) => {
+  await page.route("**/api/events", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await fulfillJson(route, {
+      ok: true,
+      message: "공개 이벤트 목록을 불러왔습니다.",
+      events: events.map((eventItem) => ({
+        id: eventItem.id,
+        slug: eventItem.slug,
+        name: eventItem.name,
+        start_at: eventItem.startAt,
+        board_size: eventItem.boardSize,
+        bingo_mission_count: eventItem.bingoMissionCount,
+        status: eventItem.status,
+      })),
+    });
+  });
+};
+
 export const mockParticipantSearch = async (
   page: Page,
   participants: Array<{ user_id: number; display_name: string }>,
