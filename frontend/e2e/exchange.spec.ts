@@ -71,6 +71,40 @@ test("sends keywords from an existing bingo session", async ({ page }) => {
   await expect(page.getByLabel("상대방 이름 검색")).toHaveValue("");
 });
 
+test.describe("mobile touch", () => {
+  test.use({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+
+  test("submits an exchange with touch on mobile", async ({ page }) => {
+    await page.route("**/api/bingo/interactions", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          buildInteractionCreateResponse({
+            sendUserId: session.userId,
+            receiveUserId: 9,
+            sendUserName: session.userName,
+            receiveUserName: "상대방",
+            updatedWords: selectedValues,
+          })
+        ),
+      });
+    });
+
+    await openExchangePage({ page });
+    await page.getByLabel("상대방 이름 검색").tap();
+    await selectOpponent(page);
+    await page.getByRole("button", { name: "보내기" }).tap();
+
+    await expect(page.locator(".bingo-toast__title")).toHaveText("키워드를 전송했어요");
+    await expect(page.locator(".history-panel").first()).toContainText("상대방");
+  });
+});
+
 test("blocks duplicate exchange before calling the API", async ({ page }) => {
   let postCalled = false;
 

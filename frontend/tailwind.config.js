@@ -3,7 +3,13 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     fontFamily: {
-      sans: ["Nanum Gothic", "Apple SD Gothic Neo", "Noto Sans KR", "system-ui", "sans-serif"],
+      sans: [
+        "NanumSquareRoundOTF",
+        "Apple SD Gothic Neo",
+        "Noto Sans KR",
+        "system-ui",
+        "sans-serif",
+      ],
     },
     extend: {
       colors: {

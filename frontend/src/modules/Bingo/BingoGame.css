@@ -635,7 +635,10 @@
 }
 
 .bingo-hero__form input {
+  display: block;
   flex: 1;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   border: 0;
   background: transparent;
@@ -713,6 +716,8 @@
 }
 
 .bingo-hero__form button {
+  position: relative;
+  z-index: 11;
   flex: 0 0 auto;
   max-width: 100%;
   border: 0;
@@ -724,6 +729,8 @@
   font-size: 1.08rem;
   font-weight: 900;
   letter-spacing: -0.04em;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   box-shadow: 0 14px 24px rgba(52, 168, 131, 0.22);
   transition:
     transform 160ms ease,

@@ -138,6 +138,7 @@ const BingoGame = () => {
   const [nameSetupOpen, setNameSetupOpen] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const opponentInputRef = useRef<HTMLInputElement | null>(null);
   const opponentSearchRequestIdRef = useRef(0);
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
   const [bingoCount, setBingoCount] = useState(0);
@@ -971,6 +972,7 @@ const BingoGame = () => {
       setOpponentQuery(user.display_name);
       setOpponentSearchResults([]);
       setHasCompletedOpponentSearch(false);
+      opponentInputRef.current?.blur();
     },
     []
   );
@@ -990,6 +992,8 @@ const BingoGame = () => {
   };
 
   const handleExchange = async () => {
+    opponentInputRef.current?.blur();
+
     if (isBoardPreviewActive) {
       showAlert("보드 프리뷰를 해제한 뒤 실제 전송을 진행해 주세요.", "info", {
         title: "프리뷰가 켜져 있어요",
@@ -1245,6 +1249,7 @@ const BingoGame = () => {
                 >
                   <div className="bingo-hero__form-field">
                     <input
+                      ref={opponentInputRef}
                       value={opponentQuery}
                       onChange={(event) => handleOpponentSearch(event.target.value)}
                       placeholder={

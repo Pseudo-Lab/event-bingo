@@ -2,8 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "NanumSquareRoundOTF";
+  src: url("https://cdn.jsdelivr.net/gh/innks/NanumSquareRound@master/NanumSquareRoundL.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "NanumSquareRoundOTF";
+  src: url("https://cdn.jsdelivr.net/gh/innks/NanumSquareRound@master/NanumSquareRoundR.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "NanumSquareRoundOTF";
+  src: url("https://cdn.jsdelivr.net/gh/innks/NanumSquareRound@master/NanumSquareRoundB.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "NanumSquareRoundOTF";
+  src: url("https://cdn.jsdelivr.net/gh/innks/NanumSquareRound@master/NanumSquareRoundEB.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  font-family: "Nanum Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  font-family: "NanumSquareRoundOTF", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color: #163d33;
