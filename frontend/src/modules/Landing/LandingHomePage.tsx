@@ -47,9 +47,78 @@ const getStatusLabel = (status: PublicLandingEvent["status"]) => {
   return "예정";
 };
 
-const getCategoryColor = (index: number) => {
-  const colors = ["bg-blue-500", "bg-purple-500", "bg-brand-600", "bg-orange-500"];
-  return colors[index % colors.length];
+const formatPosterDate = (dateStr: string) => {
+  const d = new Date(dateStr);
+  const days = ["일", "월", "화", "수", "목", "금", "토"];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const dow = days[d.getDay()];
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${y}.${m}.${dd} (${dow}) ${hh}:${mm}`;
+};
+
+const POSTER_THEMES = [
+  { bg: "from-green-50 to-emerald-50", text: "text-slate-900", sub: "text-green-700", date: "text-slate-600", badge: "bg-green-700 text-white" },
+  { bg: "from-stone-50 to-amber-50", text: "text-slate-900", sub: "text-stone-600", date: "text-stone-500", badge: "bg-stone-600 text-white" },
+  { bg: "from-slate-900 to-indigo-950", text: "text-rose-500", sub: "text-slate-300", date: "text-slate-400", badge: "bg-rose-500 text-white" },
+  { bg: "from-slate-900 to-emerald-950", text: "text-white", sub: "text-emerald-300", date: "text-slate-400", badge: "bg-emerald-600 text-white" },
+];
+
+const generatePosterMeta = (event: PublicLandingEvent) => {
+  const n = event.name.toLowerCase();
+  if (n.includes("networking") || n.includes("네트워킹")) {
+    return { tagline: "연결로 시작하는 성장", tags: ["네트워킹", "컨퍼런스"], desc: "개발자와 함께 만드는 연결의 하루" };
+  }
+  if (n.includes("community") || n.includes("커뮤니티") || n.includes("meetup") || n.includes("밋업")) {
+    return { tagline: "함께 성장하는 커뮤니티", tags: ["커뮤니티", "밋업"], desc: "함께 성장하는 개발자 커뮤니티" };
+  }
+  if (n.includes("tech") || n.includes("talk") || n.includes("토크") || n.includes("세미나")) {
+    return { tagline: "기술로 연결되는 우리", tags: ["토크", "세미나"], desc: "기술과 사람을 잇는 토크 세션" };
+  }
+  if (n.includes("ai") || n.includes("data") || n.includes("데이터")) {
+    return { tagline: "데이터와 AI의 미래", tags: ["AI", "데이터"], desc: "AI와 데이터 분야의 네트워킹" };
+  }
+  return { tagline: "빙고로 시작하는 만남", tags: ["네트워킹", "빙고"], desc: `${event.boardSize}x${event.boardSize} 빙고로 만드는 새로운 연결` };
+};
+
+const PosterDecoration = ({ variant }: { variant: number }) => {
+  switch (variant % 4) {
+    case 0:
+      return (
+        <>
+          <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full bg-green-200/40" />
+          <div className="absolute top-24 -left-6 w-20 h-20 rounded-full bg-green-300/30" />
+          <div className="absolute bottom-12 right-8 w-14 h-14 rounded-full bg-emerald-200/50" />
+          <div className="absolute top-8 right-24 w-8 h-8 rounded-full bg-green-400/20" />
+        </>
+      );
+    case 1:
+      return (
+        <>
+          <div className="absolute top-6 right-6 w-20 h-20 rotate-45 rounded-md bg-amber-200/30" />
+          <div className="absolute bottom-20 -left-3 w-14 h-14 rotate-12 rounded-md bg-stone-200/40" />
+          <div className="absolute -bottom-4 right-14 w-24 h-24 rotate-45 rounded-md bg-amber-100/30" />
+        </>
+      );
+    case 2:
+      return (
+        <>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-52 h-52 rounded-full border border-white/10" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-36 h-36 rounded-full border border-white/[.07]" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full border border-white/[.04]" />
+        </>
+      );
+    default:
+      return (
+        <>
+          <div className="absolute -bottom-8 -right-8 w-36 h-36 rotate-45 bg-emerald-500/10" />
+          <div className="absolute top-12 right-16 w-16 h-16 rotate-12 bg-emerald-400/10" />
+          <div className="absolute -top-4 -left-4 w-28 h-28 -rotate-12 bg-teal-500/10" />
+        </>
+      );
+  }
 };
 
 const BINGO_KEYWORDS = [
@@ -368,45 +437,59 @@ const LandingHomePage = () => {
       <section id="events" className="py-16 lg:py-20 bg-white">
         <div className="mx-auto max-w-7xl px-6 lg:px-10">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-black tracking-tight text-slate-950 mb-3">이벤트 사례</h2>
-            <p className="text-slate-500 text-base">실제 행사에서 Bingo Networking이 만들어낸 연결의 순간들</p>
+            <h2 className="text-3xl font-black tracking-tight text-slate-950 mb-2">이벤트 사례</h2>
+            <div className="w-10 h-0.5 bg-green-600 mx-auto mb-3" />
+            <p className="text-slate-500 text-base">다양한 개발자 네트워킹 행사에서 Bingo Networking이 함께했습니다.</p>
           </div>
 
           {isLoadingEvents ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="rounded-2xl bg-slate-100 animate-pulse h-72" />
+                <div key={i} className="rounded-2xl bg-slate-100 animate-pulse h-[420px]" />
               ))}
             </div>
           ) : displayEvents.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {displayEvents.map((eventItem, index) => (
-                <Link
-                  key={eventItem.id}
-                  to={getEventHomePath(eventItem.slug)}
-                  className="group block rounded-2xl bg-slate-900 overflow-hidden hover:scale-[1.02] transition-transform"
-                >
-                  <div className="p-6 h-full flex flex-col min-h-[280px]">
-                    <div className="mb-4">
-                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold text-white ${getCategoryColor(index)}`}>
-                        {getStatusLabel(eventItem.status)}
-                      </span>
-                    </div>
-                    <h3 className="text-xl font-black text-white leading-tight mb-2">
-                      {eventItem.name}
-                    </h3>
-                    <p className="text-slate-400 text-sm leading-relaxed flex-1">
-                      {eventItem.boardSize}×{eventItem.boardSize} 빙고 · 목표 {eventItem.bingoMissionCount}줄
-                    </p>
-                    <div className="mt-6 pt-4 border-t border-white/10">
-                      <div className="flex items-center gap-1.5 text-slate-400 text-xs">
-                        <span>📅</span>
-                        <span>{formatLandingDate(eventItem.startAt)}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {displayEvents.map((eventItem, index) => {
+                const theme = POSTER_THEMES[index % POSTER_THEMES.length];
+                const meta = generatePosterMeta(eventItem);
+                return (
+                  <Link
+                    key={eventItem.id}
+                    to={getEventHomePath(eventItem.slug)}
+                    className="group block rounded-2xl overflow-hidden shadow-md hover:shadow-xl hover:scale-[1.02] transition-all duration-200"
+                  >
+                    {/* Poster */}
+                    <div className={`relative overflow-hidden bg-gradient-to-br ${theme.bg} aspect-square p-5 flex flex-col justify-between`}>
+                      <PosterDecoration variant={index} />
+                      <div className="relative z-10">
+                        <h3 className={`text-2xl font-black leading-tight uppercase tracking-tight ${theme.text}`}>
+                          {eventItem.name}
+                        </h3>
+                        <p className={`text-sm mt-2 font-medium ${theme.sub}`}>{meta.tagline}</p>
+                      </div>
+                      <div className="relative z-10 space-y-2">
+                        <p className={`text-xs ${theme.date}`}>{formatPosterDate(eventItem.startAt)}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {meta.tags.map((tag) => (
+                            <span key={tag} className={`text-xs font-bold px-2.5 py-1 rounded-full ${theme.badge}`}>
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                    {/* Info */}
+                    <div className="bg-white border-t border-slate-200 p-5">
+                      <h4 className="font-bold text-slate-900 text-sm mb-1 group-hover:text-brand-700 transition-colors">
+                        {eventItem.name}
+                      </h4>
+                      <p className="text-xs text-slate-500 mb-3">{meta.desc}</p>
+                      <p className="text-xs text-slate-400">{formatLandingDate(eventItem.startAt)}</p>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-16 text-slate-400 text-sm">
