@@ -15,12 +15,16 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@emotion/react": "^11.11.3",
+    "@emotion/styled": "^11.11.0",
+    "@mui/icons-material": "5.15.4",
+    "@mui/material": "^5.15.4",
     "@supabase/supabase-js": "^2.101.0",
     "prettier": "^3.3.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^6.30.3"
+    "react-router-dom": "^6.21.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0",
@@ -36,7 +40,7 @@
     "postcss": "^8.5.8",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.2.2",
-    "vite": "^6.4.2",
+    "vite": "^6.2.5",
     "vitest": "^3.2.4"
   }
 }

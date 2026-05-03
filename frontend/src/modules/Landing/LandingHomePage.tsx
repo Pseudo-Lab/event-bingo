@@ -1,28 +1,11 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
   getPublicEventCatalog,
   submitEventManagerApplication,
   type PublicLandingEvent,
 } from "../../api/public_event_api";
-import topIllustration from "../../assets/illustrations/top.svg";
-import { Button } from "../../components/ui/button";
-import { Card, CardContent } from "../../components/ui/card";
-import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
-import { Textarea } from "../../components/ui/textarea";
 import { getAdminPath, getEventHomePath } from "../../config/eventProfiles";
-
-const primaryLinkClassName =
-  "inline-flex items-center justify-center rounded-full bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-800";
-const secondaryLinkClassName =
-  "inline-flex items-center justify-center rounded-full border border-brand-700 bg-white px-4 py-2.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50";
-const textLinkClassName =
-  "inline-flex items-center justify-center rounded-full px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-white/70 hover:text-slate-900";
-const navSecondaryLinkClassName =
-  "inline-flex items-center justify-center rounded-full border border-brand-700 bg-white px-3.5 py-1.5 text-[13px] font-semibold text-brand-700 transition-colors hover:bg-brand-50";
-const navTextLinkClassName =
-  "inline-flex items-center justify-center rounded-full px-2.5 py-1.5 text-[13px] font-semibold text-slate-600 transition-colors hover:bg-white/70 hover:text-slate-900";
 
 type ApplicationFormState = {
   name: string;
@@ -34,59 +17,6 @@ type ApplicationFormState = {
   expectedAttendeeCount: string;
   notes: string;
 };
-
-type CaseStudyPosterProps = {
-  accentClassName: string;
-  title: string;
-  description: string;
-  meta: string;
-  badgeLabel: string;
-  badgeClassName: string;
-  actionLabel: string;
-  href?: string;
-};
-
-const DEMO_KEYWORDS = [
-  "AI",
-  "디자인",
-  "커뮤니티",
-  "창업",
-  "프로덕트",
-  "데이터",
-  "협업",
-  "교육",
-  "마케팅",
-];
-
-const CASE_STUDY_POSTER_STYLES = [
-  "bg-[linear-gradient(160deg,#0e6d4d_0%,#1dac79_55%,#d7f7ea_100%)] text-white",
-  "bg-[linear-gradient(160deg,#f5faf7_0%,#d9f2e7_52%,#95d6ba_100%)] text-slate-900",
-  "bg-[linear-gradient(160deg,#0f172a_0%,#1d4f5d_50%,#8be0d1_100%)] text-white",
-  "bg-[linear-gradient(160deg,#eff7f3_0%,#ffffff_54%,#d7efe4_100%)] text-slate-900",
-] as const;
-
-const CASE_STUDY_PLACEHOLDERS = [
-  {
-    title: "행사 사례 준비 중",
-    description: "추후 실제 행사 포스터나 현장 이미지를 교체할 자리입니다.",
-    meta: "Poster Slot",
-  },
-  {
-    title: "커뮤니티 밋업",
-    description: "참가자 톤에 맞는 행사 포스터 스타일을 빠르게 맞출 수 있습니다.",
-    meta: "Community Meetup",
-  },
-  {
-    title: "데모데이 / 컨퍼런스",
-    description: "행사명과 일정, 보드 규칙만 바꿔도 사례 섹션으로 바로 활용됩니다.",
-    meta: "Conference",
-  },
-  {
-    title: "워크숍 / 내부 이벤트",
-    description: "현재는 플레이스홀더로 두고, 나중에 실제 사례로 교체하면 됩니다.",
-    meta: "Workshop",
-  },
-] as const;
 
 const initialFormState: ApplicationFormState = {
   name: "",
@@ -102,12 +32,9 @@ const initialFormState: ApplicationFormState = {
 const formatLandingDate = (value: string) => {
   try {
     return new Intl.DateTimeFormat("ko-KR", {
-      month: "long",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
     }).format(new Date(value));
   } catch {
     return value;
@@ -115,90 +42,78 @@ const formatLandingDate = (value: string) => {
 };
 
 const getStatusLabel = (status: PublicLandingEvent["status"]) => {
-  if (status === "in_progress") {
-    return "진행 중";
-  }
-  if (status === "ended") {
-    return "종료";
-  }
+  if (status === "in_progress") return "진행 중";
+  if (status === "ended") return "종료";
   return "예정";
 };
 
-const getStatusClassName = (status: PublicLandingEvent["status"]) => {
-  if (status === "in_progress") {
-    return "bg-brand-700 text-white";
-  }
-  if (status === "ended") {
-    return "bg-slate-200 text-slate-700";
-  }
-  return "bg-white/85 text-slate-800";
+const getCategoryColor = (index: number) => {
+  const colors = ["bg-blue-500", "bg-purple-500", "bg-brand-600", "bg-orange-500"];
+  return colors[index % colors.length];
 };
 
-const PreviewBoard = () => {
-  return (
-    <div className="grid grid-cols-3 gap-3 rounded-[2rem] bg-[#0d5f45] p-4 shadow-[0_20px_50px_rgba(9,79,57,0.18)]">
-      {DEMO_KEYWORDS.map((keyword, index) => (
+const BINGO_KEYWORDS = [
+  "AI", "백엔드", "iOS", "프론트엔드",
+  "DevOps", "클라우드", "교육", "메개변",
+  "데이터", "커뮤니티", "채용", "오픈소스",
+];
+
+const PROFILE_KEYWORDS = ["프론트엔드", "TypeScript", "React", "UX", "오픈소스"];
+
+const BingoPreview = () => (
+  <div className="rounded-2xl bg-white shadow-lg p-4 w-full">
+    <div className="grid grid-cols-4 gap-1.5 mb-3">
+      {BINGO_KEYWORDS.map((kw, i) => (
         <div
-          key={keyword}
-          className={`flex aspect-square items-center justify-center rounded-[1.35rem] border px-2 text-center text-sm font-bold leading-5 ${
-            index % 3 === 0
-              ? "border-brand-200 bg-brand-100 text-brand-900"
-              : "border-white/15 bg-white text-slate-700"
+          key={kw}
+          className={`rounded-lg text-xs font-bold text-center py-2 px-1 ${
+            i === 0 || i === 4
+              ? "bg-brand-100 text-brand-800 border border-brand-200"
+              : "bg-slate-50 text-slate-700 border border-slate-200"
           }`}
         >
-          {keyword}
+          {kw}
         </div>
       ))}
     </div>
-  );
-};
+    <button className="w-full rounded-lg bg-brand-700 text-white text-xs font-bold py-2">
+      빙고 연동하기
+    </button>
+  </div>
+);
 
-const CaseStudyPoster = ({
-  accentClassName,
-  title,
-  description,
-  meta,
-  badgeLabel,
-  badgeClassName,
-  actionLabel,
-  href,
-}: CaseStudyPosterProps) => {
-  const content = (
-    <Card className="group h-full overflow-hidden rounded-[1.9rem] border-white/70 bg-white shadow-soft transition-transform duration-200 hover:-translate-y-1">
-      <CardContent className="flex h-full flex-col p-0">
-        <div className={`flex min-h-[11rem] flex-col justify-between p-5 ${accentClassName}`}>
-          <div className="flex items-start justify-between gap-3">
-            <span className={`rounded-full px-3 py-1 text-xs font-bold backdrop-blur ${badgeClassName}`}>
-              {badgeLabel}
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] opacity-75">
-              {meta}
-            </span>
-          </div>
-          <div className="space-y-2">
-            <p className="text-2xl font-black tracking-[-0.05em]">{title}</p>
-            <p className="max-w-[16rem] text-sm leading-6 opacity-90">{description}</p>
-          </div>
-        </div>
-        <div className="flex items-center justify-between gap-3 px-5 py-4">
-          <p className="text-sm font-semibold text-slate-500">{meta}</p>
-          <span className="text-sm font-bold text-brand-700">{actionLabel}</span>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  if (!href) {
-    return content;
-  }
-
-  return <Link to={href}>{content}</Link>;
-};
+const ProfileCard = () => (
+  <div className="rounded-2xl bg-white shadow-lg p-4 w-64">
+    <div className="flex items-center gap-3 mb-3">
+      <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 text-sm font-bold">
+        김
+      </div>
+      <div>
+        <p className="text-sm font-bold text-slate-900">김빙고님</p>
+        <p className="text-xs text-slate-500">프론트엔드 개발자</p>
+        <p className="text-xs text-slate-400">서울 · 2년차</p>
+      </div>
+    </div>
+    <p className="text-xs font-semibold text-slate-500 mb-2">관심 키워드</p>
+    <div className="flex flex-wrap gap-1.5 mb-3">
+      {PROFILE_KEYWORDS.map((kw) => (
+        <span key={kw} className="rounded-full bg-slate-100 text-slate-700 text-xs font-semibold px-2.5 py-1">
+          {kw}
+        </span>
+      ))}
+    </div>
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-slate-400">매칭된 키워드 8개</span>
+      <div className="h-1.5 w-20 rounded-full bg-slate-100 overflow-hidden">
+        <div className="h-full w-2/3 rounded-full bg-brand-500" />
+      </div>
+    </div>
+  </div>
+);
 
 const LandingHomePage = () => {
   const [events, setEvents] = useState<PublicLandingEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
-  const [eventsError, setEventsError] = useState("");
   const [form, setForm] = useState<ApplicationFormState>(initialFormState);
   const [formError, setFormError] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
@@ -206,76 +121,42 @@ const LandingHomePage = () => {
 
   useEffect(() => {
     let cancelled = false;
-
     const loadEvents = async () => {
       try {
-        setIsLoadingEvents(true);
-        setEventsError("");
         const nextEvents = await getPublicEventCatalog();
-        if (!cancelled) {
-          setEvents(nextEvents);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setEventsError(error instanceof Error ? error.message : "이벤트 목록을 불러오지 못했습니다.");
-        }
+        if (!cancelled) setEvents(nextEvents);
+      } catch {
+        // silent
       } finally {
-        if (!cancelled) {
-          setIsLoadingEvents(false);
-        }
+        if (!cancelled) setIsLoadingEvents(false);
       }
     };
-
     void loadEvents();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (!form.name.trim()) {
-      setFormError("이름을 입력해 주세요.");
-      return;
-    }
-
+    if (!form.name.trim()) { setFormError("이름을 입력해 주세요."); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim().toLowerCase())) {
-      setFormError("올바른 이메일 주소를 입력해 주세요.");
-      return;
+      setFormError("올바른 이메일 주소를 입력해 주세요."); return;
     }
-
-    if (!form.eventName.trim()) {
-      setFormError("행사명을 입력해 주세요.");
-      return;
-    }
-
-    if (form.eventPurpose.trim().length < 10) {
-      setFormError("행사 목적은 10자 이상 입력해 주세요.");
-      return;
-    }
-
+    if (!form.eventName.trim()) { setFormError("행사명을 입력해 주세요."); return; }
+    if (form.eventPurpose.trim().length < 10) { setFormError("행사 목적은 10자 이상 입력해 주세요."); return; }
     try {
       setIsSubmitting(true);
       setFormError("");
       setSubmitMessage("");
-
       await submitEventManagerApplication({
         name: form.name,
         email: form.email,
         organization: form.organization,
         eventName: form.eventName,
         eventPurpose: form.eventPurpose,
-        expectedEventDate: form.expectedEventDate
-          ? `${form.expectedEventDate}T09:00:00+09:00`
-          : undefined,
-        expectedAttendeeCount: form.expectedAttendeeCount
-          ? Number(form.expectedAttendeeCount)
-          : undefined,
+        expectedEventDate: form.expectedEventDate ? `${form.expectedEventDate}T09:00:00+09:00` : undefined,
+        expectedAttendeeCount: form.expectedAttendeeCount ? Number(form.expectedAttendeeCount) : undefined,
         notes: form.notes,
       });
-
       setSubmitMessage("신청을 접수했습니다. 검토 후 관리자 계정 발급 여부를 안내드릴게요.");
       setForm(initialFormState);
     } catch (error) {
@@ -285,359 +166,272 @@ const LandingHomePage = () => {
     }
   };
 
-  const caseStudyEvents = events.slice(0, 4);
+  const displayEvents = useMemo(() => events.slice(0, 4), [events]);
 
   return (
-    <div className="min-h-screen bg-[#f5f3ec] text-slate-900">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,172,121,0.14),transparent_28%),radial-gradient(circle_at_92%_14%,rgba(15,23,42,0.08),transparent_18%),linear-gradient(180deg,#f5f3ec_0%,#edf3ef_100%)]"
-      />
+    <div className="min-h-screen bg-white text-slate-900">
+      {/* Navbar */}
+      <nav className="sticky top-0 z-50 bg-white border-b border-slate-100">
+        <div className="mx-auto max-w-7xl px-6 lg:px-10 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-brand-700 flex items-center justify-center">
+              <span className="text-white text-xs font-black">B</span>
+            </div>
+            <span className="font-black text-lg tracking-tight text-slate-900">
+              Bingo <span className="text-brand-700">Networking</span>
+            </span>
+          </div>
+          <div className="hidden md:flex items-center gap-8">
+            <a href="#events" className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
+              이벤트 사례
+            </a>
+            <Link to="/experience" className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
+              튜토리얼
+            </Link>
+            <a href="#apply" className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
+              이용방법
+            </a>
+          </div>
+          <Link
+            to={getAdminPath()}
+            className="rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-sm font-bold px-4 py-2 transition-colors"
+          >
+            관리자 로그인
+          </Link>
+        </div>
+      </nav>
 
-      <div className="relative flex min-h-screen flex-col">
-        <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-5 py-3 sm:px-8 sm:py-4 lg:gap-6 lg:px-10 lg:py-4">
-          <header className="border-b border-slate-900/10 pb-2 lg:pb-3">
-            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-              <Link to="/" className="w-fit">
-                <img
-                  src={topIllustration}
-                  alt="Bingo Networking"
-                  className="h-9 w-auto sm:h-10 lg:h-[3rem]"
-                />
+      {/* Hero */}
+      <section className="bg-gradient-to-br from-slate-50 to-green-50/40 border-b border-slate-100">
+        <div className="mx-auto max-w-7xl px-6 lg:px-10 py-16 lg:py-20 grid lg:grid-cols-[1.1fr_0.9fr] gap-12 items-start">
+          {/* Left */}
+          <div className="space-y-8">
+            <span className="inline-flex items-center gap-2 rounded-full bg-brand-50 border border-brand-200 px-4 py-1.5 text-sm font-semibold text-brand-800">
+              🎯 개발자 네트워킹을 위한 빙고 플랫폼
+            </span>
+            <h1 className="text-4xl lg:text-5xl xl:text-6xl font-black tracking-[-0.05em] text-slate-950 leading-[1.1]">
+              개발자 행사를<br />
+              더 <span className="text-brand-700">자연스럽게</span><br />
+              연결하는<br />
+              빙고 네트워킹
+            </h1>
+            <p className="text-base lg:text-lg text-slate-600 leading-7 max-w-md">
+              키워드 빙고 게임으로 대화의 시작을 만들고
+              개발자들이 행사에서 더 가까워질 수 있도록 도와줍니다.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <a
+                href="#events"
+                className="inline-flex items-center justify-center rounded-xl border-2 border-brand-700 text-brand-700 hover:bg-brand-50 px-6 py-3 text-sm font-bold transition-colors"
+              >
+                이벤트 사례 보기
+              </a>
+              <Link
+                to="/experience"
+                className="inline-flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 px-6 py-3 text-sm font-bold transition-colors"
+              >
+                샘플 체험하기
               </Link>
+            </div>
 
-              <div className="flex flex-wrap gap-1.5 lg:justify-end">
-                <Link to="/experience" className={navTextLinkClassName}>
-                  체험해보기
-                </Link>
-                <Link to={getAdminPath()} className={navSecondaryLinkClassName}>
-                  관리자 페이지
-                </Link>
-                <Link to="/privacy" className={navTextLinkClassName}>
-                  개인정보 처리 안내
-                </Link>
+            <div className="relative mt-4">
+              <div className="max-w-xs">
+                <BingoPreview />
+              </div>
+              <div className="absolute -bottom-4 left-48 hidden sm:block">
+                <ProfileCard />
               </div>
             </div>
-          </header>
+            <div className="h-16 sm:h-24" />
+          </div>
 
-          <section className="grid gap-3 xl:grid-cols-[1.12fr_0.88fr] xl:items-stretch">
-            <Card className="h-full overflow-hidden rounded-[2.4rem] border-slate-900/10 bg-white shadow-soft">
-              <CardContent className="flex h-full min-h-[20rem] flex-col p-0">
-                <div className="relative flex h-full flex-col justify-between overflow-hidden bg-[linear-gradient(160deg,#effaf5_0%,#d9f2e7_55%,#fbfdfc_100%)] p-4 sm:p-5 lg:p-5">
-                  <div
-                    aria-hidden="true"
-                    className="absolute -right-16 top-10 h-48 w-48 rounded-full bg-white/55 blur-3xl"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="absolute -left-10 bottom-0 h-36 w-36 rounded-full bg-brand-200/60 blur-3xl"
-                  />
+          {/* Right: Application Form */}
+          <div id="apply" className="bg-white rounded-3xl border border-slate-200 shadow-xl p-7 sm:p-8">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-brand-700 text-lg">👥</span>
+              <span className="text-sm font-bold text-brand-700">이벤트 관리자 신청</span>
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 mb-1">
+              행사 운영 권한이 필요하신가요?
+            </h2>
+            <p className="text-sm text-slate-500 mb-6">
+              신청 검토 후 관리자 계정을 발급해드립니다.
+            </p>
 
-                  <div className="relative flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-3">
-                      <span className="inline-flex rounded-full bg-white/85 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-brand-700">
-                        Experience Slot
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">이름</label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="김빙고"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">이메일</label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                    placeholder="organizer@example.com"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">소속</label>
+                  <input
+                    type="text"
+                    value={form.organization}
+                    onChange={(e) => setForm((p) => ({ ...p, organization: e.target.value }))}
+                    placeholder="DevFactory"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">행사명</label>
+                  <input
+                    type="text"
+                    value={form.eventName}
+                    onChange={(e) => setForm((p) => ({ ...p, eventName: e.target.value }))}
+                    placeholder="2026 Bingo Networking Day"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">예상 행사 날짜</label>
+                  <input
+                    type="date"
+                    value={form.expectedEventDate}
+                    onChange={(e) => setForm((p) => ({ ...p, expectedEventDate: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">예상 참가자 수</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.expectedAttendeeCount}
+                    onChange={(e) => setForm((p) => ({ ...p, expectedAttendeeCount: e.target.value }))}
+                    placeholder="120"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">행사 목적</label>
+                <textarea
+                  value={form.eventPurpose}
+                  onChange={(e) => setForm((p) => ({ ...p, eventPurpose: e.target.value }))}
+                  rows={3}
+                  placeholder="예: 참가자 간 아이스브레이킹, 기술 주제 네트워킹, 후원사 부스 유입 유도 등"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">추가 메모 (선택)</label>
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                  rows={2}
+                  placeholder="운영 기간, 팀 기능 필요 여부, 결과 리포트 필요 여부 등을 자유롭게 작성해주세요."
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              {formError && <p className="text-sm font-semibold text-rose-600">{formError}</p>}
+              {submitMessage && <p className="text-sm font-semibold text-brand-700">{submitMessage}</p>}
+
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 rounded-xl bg-brand-700 hover:bg-brand-800 disabled:opacity-60 text-white font-bold py-3 text-sm transition-colors"
+                >
+                  {isSubmitting ? "접수 중..." : "관리자 권한 신청"}
+                </button>
+                <span className="text-xs text-slate-400 flex items-center gap-1">
+                  🔒 개인정보 수집 후 검토 안내
+                </span>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      {/* Events Section */}
+      <section id="events" className="py-16 lg:py-20 bg-white">
+        <div className="mx-auto max-w-7xl px-6 lg:px-10">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-black tracking-tight text-slate-950 mb-3">이벤트 사례</h2>
+            <p className="text-slate-500 text-base">실제 행사에서 Bingo Networking이 만들어낸 연결의 순간들</p>
+          </div>
+
+          {isLoadingEvents ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="rounded-2xl bg-slate-100 animate-pulse h-72" />
+              ))}
+            </div>
+          ) : displayEvents.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {displayEvents.map((eventItem, index) => (
+                <Link
+                  key={eventItem.id}
+                  to={getEventHomePath(eventItem.slug)}
+                  className="group block rounded-2xl bg-slate-900 overflow-hidden hover:scale-[1.02] transition-transform"
+                >
+                  <div className="p-6 h-full flex flex-col min-h-[280px]">
+                    <div className="mb-4">
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold text-white ${getCategoryColor(index)}`}>
+                        {getStatusLabel(eventItem.status)}
                       </span>
-                      <div className="space-y-1.5">
-                        <h1 className="text-3xl font-black tracking-[-0.06em] text-slate-950 sm:text-[2.2rem] lg:text-[2.7rem]">
-                          체험해보기
-                        </h1>
-                        <p className="max-w-lg text-sm leading-6 text-slate-600">
-                          지금은 데모로 두고, 나중에는 실제 사용 장면 영상으로 바꿔 쓸 수 있습니다.
-                        </p>
-                      </div>
                     </div>
-
-                    <span className="inline-flex w-fit rounded-full border border-white/80 bg-white/60 px-3 py-1 text-[11px] font-semibold text-slate-600 backdrop-blur">
-                      추후 영상 교체 가능
-                    </span>
-                  </div>
-
-                  <div className="relative mt-4 grid gap-4 lg:grid-cols-[0.92fr_1.08fr] lg:items-end">
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        {[
-                          "로그인 없이 빠르게 체험",
-                          "랜덤 매칭과 보드 흐름 미리보기",
-                        ].map((item) => (
-                          <div
-                            key={item}
-                            className="flex items-center gap-3 rounded-[1.2rem] bg-white/72 px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-[0_12px_24px_rgba(12,73,53,0.08)] backdrop-blur"
-                          >
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-700 text-xs font-black text-white">
-                              ✓
-                            </span>
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {DEMO_KEYWORDS.slice(0, 4).map((keyword) => (
-                          <span
-                            key={keyword}
-                            className="rounded-full border border-white/80 bg-white/75 px-3 py-1 text-sm font-semibold text-brand-700 shadow-sm"
-                          >
-                            {keyword}
-                          </span>
-                        ))}
-                      </div>
-
-                      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
-                        <Link to="/experience" className={primaryLinkClassName}>
-                          체험해보기
-                        </Link>
-                      </div>
-                    </div>
-
-                    <div className="mx-auto w-full max-w-[16.5rem] rounded-[2rem] border border-white/80 bg-white/80 p-3 shadow-[0_24px_50px_rgba(7,69,49,0.12)] backdrop-blur">
-                      <div className="mb-3 flex items-center justify-between">
-                        <div className="flex gap-2">
-                          <span className="h-2.5 w-2.5 rounded-full bg-rose-300" />
-                          <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
-                          <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
-                        </div>
-                        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                          demo preview
-                        </span>
-                      </div>
-                      <div className="relative">
-                        <PreviewBoard />
-                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-700/88 text-lg font-black text-white shadow-[0_18px_35px_rgba(14,109,77,0.3)]">
-                            ▶
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="h-full rounded-[2.2rem] border-slate-900/10 bg-white/95 shadow-soft">
-              <CardContent className="space-y-4 p-4 sm:p-5">
-                <div className="space-y-1">
-                  <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand-700">
-                    이벤트 관리자 신청
-                  </p>
-                  <h2 className="text-xl font-black tracking-[-0.05em] text-slate-950 sm:text-[1.7rem]">
-                    행사 운영 권한이 필요하신가요?
-                  </h2>
-                  <p className="text-sm leading-5 text-slate-600">
-                    행사 정보만 남겨주시면 검토 후 안내드립니다.
-                  </p>
-                </div>
-
-                <form className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3" onSubmit={handleSubmit}>
-                  <div className="space-y-2">
-                    <Label htmlFor="landing-name">이름</Label>
-                    <Input
-                      id="landing-name"
-                      value={form.name}
-                      onChange={(event) =>
-                        setForm((previousValue) => ({ ...previousValue, name: event.target.value }))
-                      }
-                      placeholder="김행사"
-                      className="bg-[#f8fbf9]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="landing-email">이메일</Label>
-                    <Input
-                      id="landing-email"
-                      type="email"
-                      value={form.email}
-                      onChange={(event) =>
-                        setForm((previousValue) => ({ ...previousValue, email: event.target.value }))
-                      }
-                      placeholder="organizer@example.com"
-                      className="bg-[#f8fbf9]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="landing-organization">소속</Label>
-                    <Input
-                      id="landing-organization"
-                      value={form.organization}
-                      onChange={(event) =>
-                        setForm((previousValue) => ({
-                          ...previousValue,
-                          organization: event.target.value,
-                        }))
-                      }
-                      placeholder="가짜연구소"
-                      className="bg-[#f8fbf9]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="landing-event-name">행사명</Label>
-                    <Input
-                      id="landing-event-name"
-                      value={form.eventName}
-                      onChange={(event) =>
-                        setForm((previousValue) => ({ ...previousValue, eventName: event.target.value }))
-                      }
-                      placeholder="2026 Bingo Networking Day"
-                      className="bg-[#f8fbf9]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="landing-date">예상 행사 날짜</Label>
-                    <Input
-                      id="landing-date"
-                      type="date"
-                      value={form.expectedEventDate}
-                      onChange={(event) =>
-                        setForm((previousValue) => ({
-                          ...previousValue,
-                          expectedEventDate: event.target.value,
-                        }))
-                      }
-                      className="bg-[#f8fbf9]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="landing-attendees">예상 참가자 수</Label>
-                    <Input
-                      id="landing-attendees"
-                      type="number"
-                      min="1"
-                      value={form.expectedAttendeeCount}
-                      onChange={(event) =>
-                        setForm((previousValue) => ({
-                          ...previousValue,
-                          expectedAttendeeCount: event.target.value,
-                        }))
-                      }
-                      placeholder="120"
-                      className="bg-[#f8fbf9]"
-                    />
-                  </div>
-                  <div className="space-y-2 xl:col-span-3">
-                    <Label htmlFor="landing-purpose">행사 목적</Label>
-                    <Textarea
-                      id="landing-purpose"
-                      value={form.eventPurpose}
-                      onChange={(event) =>
-                        setForm((previousValue) => ({
-                          ...previousValue,
-                          eventPurpose: event.target.value,
-                        }))
-                      }
-                      placeholder="어떤 참가자들이 만나고, 빙고를 통해 어떤 행동을 유도하고 싶은지 적어 주세요."
-                      className="min-h-[72px] bg-[#f8fbf9]"
-                    />
-                  </div>
-                  <div className="space-y-2 xl:col-span-3">
-                    <Label htmlFor="landing-notes">추가 메모 (선택)</Label>
-                    <Input
-                      id="landing-notes"
-                      value={form.notes}
-                      onChange={(event) =>
-                        setForm((previousValue) => ({ ...previousValue, notes: event.target.value }))
-                      }
-                      className="bg-[#f8fbf9]"
-                      placeholder="운영 기간, 팀 기능, 리포트 요청 등"
-                    />
-                  </div>
-
-                  {formError ? (
-                    <p className="text-sm font-semibold text-rose-600 sm:col-span-2 xl:col-span-3">{formError}</p>
-                  ) : null}
-                  {submitMessage ? (
-                    <p className="text-sm font-semibold text-brand-700 sm:col-span-2 xl:col-span-3">
-                      {submitMessage}
+                    <h3 className="text-xl font-black text-white leading-tight mb-2">
+                      {eventItem.name}
+                    </h3>
+                    <p className="text-slate-400 text-sm leading-relaxed flex-1">
+                      {eventItem.boardSize}×{eventItem.boardSize} 빙고 · 목표 {eventItem.bingoMissionCount}줄
                     </p>
-                  ) : null}
-
-                  <div className="flex flex-wrap items-center gap-2.5 pt-1 sm:col-span-2 xl:col-span-3">
-                    <Button type="submit" disabled={isSubmitting} className="rounded-full px-6">
-                      {isSubmitting ? "접수 중..." : "관리자 권한 신청 보내기"}
-                    </Button>
-                    <Link to={getAdminPath()} className={secondaryLinkClassName}>
-                      관리자 페이지
-                    </Link>
-                    <p className="text-sm text-slate-500">접수 후 순차 검토됩니다.</p>
+                    <div className="mt-6 pt-4 border-t border-white/10">
+                      <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+                        <span>📅</span>
+                        <span>{formatLandingDate(eventItem.startAt)}</span>
+                      </div>
+                    </div>
                   </div>
-                </form>
-              </CardContent>
-            </Card>
-          </section>
-
-          <section className="space-y-5">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand-700">
-                  이벤트 사례
-                </p>
-                <h2 className="text-3xl font-black tracking-[-0.05em] text-slate-950">
-                  이벤트 목록
-                </h2>
-              </div>
-              {eventsError ? (
-                <p className="text-sm font-semibold text-rose-600">{eventsError}</p>
-              ) : isLoadingEvents ? (
-                <p className="text-sm font-semibold text-slate-400">행사 사례를 불러오는 중입니다.</p>
-              ) : null}
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {caseStudyEvents.length > 0
-                ? caseStudyEvents.map((eventItem, index) => (
-                    <CaseStudyPoster
-                      key={eventItem.id}
-                      accentClassName={
-                        CASE_STUDY_POSTER_STYLES[index % CASE_STUDY_POSTER_STYLES.length]
-                      }
-                      title={eventItem.name}
-                      description={`${eventItem.boardSize}x${eventItem.boardSize} 보드 · 목표 ${eventItem.bingoMissionCount}줄`}
-                      meta={formatLandingDate(eventItem.startAt)}
-                      badgeLabel={getStatusLabel(eventItem.status)}
-                      badgeClassName={getStatusClassName(eventItem.status)}
-                      actionLabel="행사 보기"
-                      href={getEventHomePath(eventItem.slug)}
-                    />
-                  ))
-                : CASE_STUDY_PLACEHOLDERS.map((item, index) => (
-                    <CaseStudyPoster
-                      key={item.meta}
-                      accentClassName={
-                        CASE_STUDY_POSTER_STYLES[index % CASE_STUDY_POSTER_STYLES.length]
-                      }
-                      title={item.title}
-                      description={item.description}
-                      meta={item.meta}
-                      badgeLabel="Poster"
-                      badgeClassName="bg-black/10 text-current"
-                      actionLabel="교체 예정"
-                    />
-                  ))}
-            </div>
-          </section>
-        </main>
-
-        <footer className="relative mt-12 w-full bg-[#0f172a] text-white">
-          <div className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[1fr_auto] lg:items-end lg:px-10">
-            <div className="space-y-3">
-              <p className="text-2xl font-black tracking-[-0.04em]">DevFactory</p>
-              <div className="flex flex-wrap gap-3 text-sm text-white/70">
-                <Link to="/privacy" className="hover:text-white">
-                  이용약관
                 </Link>
-                <Link to="/privacy" className="hover:text-white">
-                  개인정보 처리방침
-                </Link>
-              </div>
+              ))}
             </div>
+          ) : (
+            <div className="text-center py-16 text-slate-400 text-sm">
+              아직 공개된 행사가 없습니다.
+            </div>
+          )}
+        </div>
+      </section>
 
-            <div className="space-y-1 text-sm text-white/70 lg:text-right">
-              <p>문의는 관리자 신청 폼을 통해 접수해 주세요.</p>
-              <p>copyright © DevFactory</p>
+      {/* Footer */}
+      <footer className="bg-slate-900 text-white">
+        <div className="mx-auto max-w-7xl px-6 lg:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <p className="font-black text-lg mb-2">DevFactory</p>
+            <div className="flex gap-4 text-sm text-slate-400">
+              <a href="#" className="hover:text-white transition-colors">이용약관</a>
+              <a href="#" className="hover:text-white transition-colors">개인정보처리방침</a>
             </div>
           </div>
-        </footer>
-      </div>
+          <div className="text-right text-sm text-slate-400">
+            <p>contact@devfactory.kr</p>
+            <p>copyright © DevFactory</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

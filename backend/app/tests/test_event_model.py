@@ -15,7 +15,8 @@ def test_generated_event_slug_is_stable_and_opaque():
 
 
 def test_event_status_handles_naive_datetimes():
-    now = datetime.now()
+    # 서버가 UTC일 때도 올바르게 동작하려면 서울 시각 기준 naive datetime을 사용해야 함
+    now = datetime.now(ZoneInfo("Asia/Seoul")).replace(tzinfo=None)
     event = Event(
         name="Naive Event",
         slug="naive-event",
