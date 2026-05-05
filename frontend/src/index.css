@@ -81,3 +81,55 @@ button:focus,
 button:focus-visible {
   outline-offset: 2px;
 }
+
+/* Demo bingo celebration animations */
+@keyframes celebratePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.03); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes bounceIn {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes softRise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes softFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-soft-rise {
+  animation: softRise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-soft-fade {
+  animation: softFade 420ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-soft-rise,
+  .animate-soft-fade {
+    animation: none !important;
+  }
+}
