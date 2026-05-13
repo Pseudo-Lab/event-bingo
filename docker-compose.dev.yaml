@@ -4,19 +4,18 @@ services:
       context: ./frontend
       target: build            # 빌드 스테이지만 사용 (node 환경)
       args:
-        - VITE_API_URL=http://localhost:8000
         - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
         - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
         - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_DEV_API_PROXY_TARGET=http://backend:8000
       - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
       - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
     working_dir: /app
     command: npm run dev
     ports:
-      - "3000:3000"
+      - "${DEV_FRONTEND_PORT:-3001}:3000"
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
@@ -34,13 +33,17 @@ services:
       SWAGGER_PASSWORD: ${SWAGGER_PASSWORD:?set in .env}
       SUPABASE_URL: ${SUPABASE_URL:?set in .env}
       SUPABASE_KEY: ${SUPABASE_KEY:?set in .env}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
     command: >
       /bin/sh -c "
+        cd /app &&
         alembic upgrade head &&
-        python app/start.py
+        cd /app/app &&
+        uvicorn main:app --host 0.0.0.0 --port 8000 --reload
       "
     ports:
-      - "8000:8000"
+      - "${DEV_BACKEND_PORT:-8001}:8000"
     volumes:
       - ./backend/app:/app/app
       - ./backend/migrations:/app/migrations
+      - ./.env:/app/app/config/.env:ro
