@@ -2,6 +2,7 @@ import os
 from asyncio import current_task
 from core.log import logger
 from typing import Annotated, AsyncIterator
+from uuid import uuid4
 from fastapi import Depends
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import (
     async_scoped_session,
     AsyncSession,
 )
+from sqlalchemy.pool import NullPool
 
 from dotenv import load_dotenv
 from models.base import Base
@@ -26,13 +28,15 @@ class Database:
     def initialize(self):
         self.async_engine = create_async_engine(
             os.getenv("DB_URL"),
+            poolclass=NullPool,
             pool_pre_ping=True,
             pool_recycle=300,
             connect_args={
-                # Supabase Pooler(pgbouncer) transaction mode 호환
-                # prepared statement 캐시 비활성화 필수
+                # Supabase pooler / PgBouncer uses transaction pooling, so
+                # asyncpg statement names must stay unique and unpooled.
                 "statement_cache_size": 0,
                 "prepared_statement_cache_size": 0,
+                "prepared_statement_name_func": lambda: f"__asyncpg_{uuid4()}__",
             },
         )
         self.async_session_factory = async_sessionmaker(
