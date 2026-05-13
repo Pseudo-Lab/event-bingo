@@ -17,6 +17,12 @@ const normalizeMarkdown = (lines: string[]) =>
     .replace(/^(\s*)\\-\s*/gm, "$1- ")
     .trim();
 
+const normalizeSectionTitle = (line: string) =>
+  line
+    .replace(/^■\s*/, "")
+    .replace(/^\d+\.\s+/, "")
+    .trim();
+
 export const interpolateConsentTemplate = (
   template: string,
   variables: ConsentTemplateVariables = {}
@@ -61,7 +67,7 @@ export const parseConsentTemplate = (
     if (trimmedLine.startsWith("■")) {
       flushSection();
       currentSection = {
-        title: trimmedLine.replace(/^■\s*/, ""),
+        title: normalizeSectionTitle(trimmedLine),
         lines: [],
       };
       return;

@@ -651,9 +651,22 @@
 .consent-markdown__list {
   display: grid;
   gap: 0.5rem;
+  list-style-position: outside;
   margin: 0.75rem 0 0;
   padding-left: 1.15rem;
   color: #52615d;
+}
+
+.consent-markdown__list--unordered {
+  list-style-type: disc;
+}
+
+.consent-markdown__list--ordered {
+  list-style-type: decimal;
+}
+
+.consent-markdown__list .consent-markdown__list {
+  margin-top: 0.5rem;
 }
 
 .consent-markdown__item {

@@ -64,6 +64,11 @@ const PublicPrivacyPage = () => {
                       {children}
                     </ul>
                   ),
+                  ol: ({ children }) => (
+                    <ol className="list-decimal space-y-2 pl-5 text-sm leading-7 text-slate-600 sm:text-base">
+                      {children}
+                    </ol>
+                  ),
                   li: ({ children }) => <li>{children}</li>,
                   strong: ({ children }) => (
                     <strong className="font-extrabold text-slate-950">{children}</strong>

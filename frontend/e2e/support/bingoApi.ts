@@ -49,7 +49,7 @@ export const mockPrivacyTemplate = async (page: Page) => {
         event_team: "PseudoLab",
         contact_email: "event-team@example.com",
         content:
-          "# 행사 참가자 개인정보 처리 안내\n\n**PseudoLab** 행사 참가자 안내입니다.\n\n■ 1. 문의처\n- event-team@example.com",
+          "# 행사 참가자 개인정보 처리 안내\n\n**PseudoLab** 행사 참가자 안내입니다.\n\n■ 1. 문의처\n- event-team@example.com\n\n1. 개인정보 문의",
         updated_at: "2026-03-21T00:00:00+09:00",
       },
     });
