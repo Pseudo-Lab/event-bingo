@@ -100,7 +100,14 @@ const ConsentDialog: React.FC<ConsentDialogProps> = ({
                     <p className="consent-markdown__paragraph">{children}</p>
                   ),
                   ul: ({ children }) => (
-                    <ul className="consent-markdown__list">{children}</ul>
+                    <ul className="consent-markdown__list consent-markdown__list--unordered">
+                      {children}
+                    </ul>
+                  ),
+                  ol: ({ children }) => (
+                    <ol className="consent-markdown__list consent-markdown__list--ordered">
+                      {children}
+                    </ol>
                   ),
                   li: ({ children }) => (
                     <li className="consent-markdown__item">{children}</li>

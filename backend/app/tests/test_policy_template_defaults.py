@@ -32,6 +32,8 @@ def test_default_policy_template_uses_one_year_identifier_retention_rule():
     assert "CSV 파일로 내보내는 기능" in DEFAULT_CONSENT_POLICY_TEMPLATE
     assert "빙고 보드 구성 정보" in DEFAULT_CONSENT_POLICY_TEMPLATE
     assert "민감정보, 고유식별정보, 제3자의 개인정보" in DEFAULT_CONSENT_POLICY_TEMPLATE
+    assert "참가 시각과 이용 기록" in DEFAULT_CONSENT_POLICY_TEMPLATE
+    assert "로그인 시각" not in DEFAULT_CONSENT_POLICY_TEMPLATE
 
 
 def test_platform_policy_template_marks_devfactory_scope_separately():
@@ -43,3 +45,5 @@ def test_platform_policy_template_marks_devfactory_scope_separately():
     assert "키워드 교환 및 상호작용 기록" in DEFAULT_PLATFORM_POLICY_TEMPLATE
     assert "CSV 파일로 내보내는 기능" in DEFAULT_PLATFORM_POLICY_TEMPLATE
     assert "[SMTP 이메일 발송 사업자명]" not in DEFAULT_PLATFORM_POLICY_TEMPLATE
+    assert "계정 생성·수정 시각" in DEFAULT_PLATFORM_POLICY_TEMPLATE
+    assert "최근 접속 시각" not in DEFAULT_PLATFORM_POLICY_TEMPLATE

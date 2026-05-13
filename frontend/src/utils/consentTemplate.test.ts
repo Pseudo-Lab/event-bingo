@@ -32,6 +32,24 @@ describe("consentTemplate", () => {
     });
   });
 
+  it("normalizes simple pre-numbered section titles before UI numbering is applied", () => {
+    const parsedContent = parseConsentTemplate(
+      "# 제목\n\n■ 1. 개인정보 처리 주체 및 적용 범위\n내용\n\n■ 10. 안내의 변경\n내용",
+      {}
+    );
+
+    expect(parsedContent.sections.map((section) => section.title)).toEqual([
+      "개인정보 처리 주체 및 적용 범위",
+      "안내의 변경",
+    ]);
+  });
+
+  it("keeps dotted subsection numbers in authored section titles", () => {
+    expect(
+      parseConsentTemplate("# 제목\n\n■ 3.3. 세부 기준\n내용", {}).sections[0]?.title
+    ).toBe("3.3. 세부 기준");
+  });
+
   it("preserves nested list indentation for policy sections", () => {
     expect(
       parseConsentTemplate(
