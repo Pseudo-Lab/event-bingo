@@ -46,7 +46,7 @@ const LandingNavbar = () => {
   );
 
   const handlePageLinkClick = useCallback(
-    (to: string) => {
+    () => {
       setMobileMenuOpen(false);
       // Scroll to top after route change
       requestAnimationFrame(() => {
