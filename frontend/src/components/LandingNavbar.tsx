@@ -75,7 +75,7 @@ const LandingNavbar = () => {
       <Link
         key={link.label}
         to={link.to}
-        onClick={() => handlePageLinkClick(link.to)}
+        onClick={handlePageLinkClick}
         className={className}
       >
         {link.label}
@@ -121,7 +121,7 @@ const LandingNavbar = () => {
       <Link
         key={link.label}
         to={link.to}
-        onClick={() => handlePageLinkClick(link.to)}
+        onClick={handlePageLinkClick}
         className="flex items-center justify-between py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:text-slate-950"
       >
         {content}
