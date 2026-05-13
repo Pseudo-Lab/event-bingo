@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { submitEventManagerApplication } from "../../../api/public_event_api";
 
 type ApplicationFormState = {
@@ -136,7 +137,19 @@ const AdminApplicationForm = () => {
         >
           {isSubmitting ? "접수 중..." : "관리자 권한 신청"}
         </button>
-        <p className="text-xs text-slate-400 text-center">개인정보 수집 후 검토 안내</p>
+        <p className="text-center text-xs leading-5 text-slate-400">
+          제출 시 이름, 이메일, 행사명, 행사 목적이 관리자 신청 검토와 연락을 위해
+          처리됩니다. 자세한 내용은{" "}
+          <Link
+            to="/privacy"
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-brand-700 underline-offset-2 hover:underline"
+          >
+            개인정보처리방침
+          </Link>
+          을 확인해 주세요.
+        </p>
       </form>
     </div>
   );

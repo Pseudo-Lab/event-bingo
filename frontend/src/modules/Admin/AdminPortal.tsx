@@ -37,7 +37,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
-import GoogleSignInButton from "../Auth/GoogleSignInButton";
 import {
   Table,
   TableBody,
@@ -52,7 +51,6 @@ import {
   isSupabaseConfigured,
   maybeGetSupabaseClient,
 } from "../../lib/supabaseClient";
-import { isGoogleIdentityConfigured } from "../../lib/googleIdentity";
 import {
   clearAdminSession,
   getAdminSession,
@@ -116,8 +114,7 @@ const ITEMS_PER_PAGE = 4;
 const DETAIL_PARTICIPANTS_PER_PAGE = 8;
 const POLICY_PREVIEW_HOST = "샘플 행사 운영팀";
 const POLICY_PREVIEW_CONTACT_EMAIL = "event-team@example.com";
-const POLICY_PREVIEW_PLATFORM_HOST = "가짜연구소 DevFactory";
-const POLICY_PREVIEW_PLATFORM_CONTACT_EMAIL = "pseudolab.operator@gmail.com";
+const POLICY_PREVIEW_PLATFORM_HOST = "DevFactory 서비스 운영팀";
 const POLICY_TEMPLATE_OPTIONS: Array<{
   key: AdminPolicyTemplateKey;
   label: string;
@@ -128,11 +125,6 @@ const POLICY_TEMPLATE_OPTIONS: Array<{
     label: "행사 참가자 안내",
     description: "행사 로그인 전 모달과 /event/:slug/privacy 페이지에 노출됩니다.",
   },
-  {
-    key: "platform_privacy_markdown",
-    label: "DevFactory 플랫폼 방침",
-    description: "랜딩과 /privacy 페이지에 노출되는 플랫폼 개인정보처리방침입니다.",
-  },
 ];
 const POLICY_PREVIEW_VARIABLES: Record<AdminPolicyTemplateKey, Record<string, string>> = {
   consent_markdown: {
@@ -141,12 +133,6 @@ const POLICY_PREVIEW_VARIABLES: Record<AdminPolicyTemplateKey, Record<string, st
     host: POLICY_PREVIEW_HOST,
     eventContactEmail: POLICY_PREVIEW_CONTACT_EMAIL,
     platformHost: POLICY_PREVIEW_PLATFORM_HOST,
-    platformContactEmail: POLICY_PREVIEW_PLATFORM_CONTACT_EMAIL,
-    platformPrivacyPath: "/privacy",
-  },
-  platform_privacy_markdown: {
-    platformHost: POLICY_PREVIEW_PLATFORM_HOST,
-    platformContactEmail: POLICY_PREVIEW_PLATFORM_CONTACT_EMAIL,
     platformPrivacyPath: "/privacy",
   },
 };
@@ -155,8 +141,14 @@ const EVENT_DETAIL_TABS: Array<{ key: EventDetailTab; label: string }> = [
   { key: "dashboard", label: "대시보드" },
   { key: "participants", label: "참가자" },
 ];
-const canUseGoogleAdminAuth = () =>
-  isSupabaseConfigured() && isGoogleIdentityConfigured();
+const canUseGoogleAdminAuth = () => isSupabaseConfigured();
+const getAdminOAuthRedirectUrl = () => {
+  if (typeof window === "undefined") {
+    return getAdminPath();
+  }
+
+  return new URL(getAdminPath(), window.location.origin).toString();
+};
 const EVENT_KEYWORD_PRESET_OPTIONS = getEventKeywordPresetDefinitions();
 
 const formatAdminDate = (value: string) => {
@@ -619,10 +611,36 @@ const EmptyPanelState = ({
   );
 };
 
+const GoogleLogoIcon = () => (
+  <svg
+    aria-hidden="true"
+    className="h-5 w-5 shrink-0"
+    viewBox="0 0 24 24"
+    focusable="false"
+  >
+    <path
+      fill="#4285F4"
+      d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.29h6.47a5.53 5.53 0 0 1-2.4 3.63v2.96h3.89c2.28-2.1 3.53-5.2 3.53-8.61Z"
+    />
+    <path
+      fill="#34A853"
+      d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.89-2.96c-1.08.72-2.45 1.14-4.06 1.14-3.12 0-5.77-2.1-6.72-4.93H1.26v3.05A11.99 11.99 0 0 0 12 24Z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M5.28 14.34A7.23 7.23 0 0 1 4.9 12c0-.81.14-1.6.38-2.34V6.61H1.26A11.99 11.99 0 0 0 0 12c0 1.94.46 3.77 1.26 5.39l4.02-3.05Z"
+    />
+    <path
+      fill="#EA4335"
+      d="M12 4.73c1.76 0 3.34.6 4.59 1.8l3.44-3.44C17.95 1.15 15.23 0 12 0A11.99 11.99 0 0 0 1.26 6.61l4.02 3.05C6.23 6.83 8.88 4.73 12 4.73Z"
+    />
+  </svg>
+);
+
 const LoginPage = () => {
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = useState("");
-  const [, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const shouldUseGoogleAdminAuth = canUseGoogleAdminAuth();
 
   useEffect(() => {
@@ -673,38 +691,26 @@ const LoginPage = () => {
     };
   }, [navigate, shouldUseGoogleAdminAuth]);
 
-  const handleGoogleLogin = async ({
-    credential,
-    nonce,
-  }: {
-    credential: string;
-    nonce: string;
-  }) => {
+  const handleGoogleLogin = async () => {
     const supabase = getSupabaseClient();
 
     try {
       setIsSubmitting(true);
       setErrorMessage("");
 
-      const { data, error } = await supabase.auth.signInWithIdToken({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        token: credential,
-        nonce,
+        options: {
+          redirectTo: getAdminOAuthRedirectUrl(),
+          queryParams: {
+            prompt: "select_account",
+          },
+        },
       });
 
       if (error) {
         throw error;
       }
-
-      const accessToken = data.session?.access_token;
-      if (!accessToken) {
-        throw new Error("Supabase 관리자 세션을 확인하지 못했습니다.");
-      }
-
-      const nextSession = await getAdminMe(accessToken);
-      clearLegacyLocalLoginStorage();
-      setAdminSession(nextSession);
-      navigate(getAdminPath("event-settings"), { replace: true });
     } catch (error) {
       clearAdminSession();
       await supabase.auth.signOut();
@@ -737,12 +743,16 @@ const LoginPage = () => {
 
               <div className="flex w-full justify-center">
                 <div className="w-full max-w-[360px]">
-                  <GoogleSignInButton
-                    context="signin"
-                    onError={(message) => setErrorMessage(message)}
-                    onSuccess={handleGoogleLogin}
-                    text="signin_with"
-                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 w-full rounded-full border-[#dadce0] bg-white px-6 text-[15px] font-semibold text-[#3c4043] shadow-none hover:bg-[#f8fafd] hover:text-[#202124] focus-visible:ring-slate-300"
+                    disabled={isSubmitting}
+                    onClick={handleGoogleLogin}
+                  >
+                    <GoogleLogoIcon />
+                    <span>{isSubmitting ? "Google로 이동 중..." : "Google 계정으로 로그인"}</span>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -2728,7 +2738,7 @@ const AdminConsolePage = ({
               <>
                 <SectionHeader
                   title="개인정보 처리 안내"
-                  description="행사 참가자 안내와 DevFactory 플랫폼 처리방침을 분리해 관리합니다. Admin만 수정할 수 있습니다."
+                  description="행사 참가자 안내 템플릿을 관리합니다. 플랫폼 개인정보처리방침은 프론트 고정 문서로 관리합니다."
                   action={
                     canEditPolicyTemplate ? (
                       <div className="flex flex-wrap items-center gap-3">
@@ -2796,7 +2806,10 @@ const AdminConsolePage = ({
                   <Card className="overflow-hidden rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
                     <CardHeader className="space-y-2 p-7 pb-0">
                       <CardTitle>템플릿 안내</CardTitle>
-                      <CardDescription>저장 즉시 서비스 홈 안내 팝업과 공개 정책 페이지에도 같은 원본이 반영됩니다.</CardDescription>
+                      <CardDescription>
+                        저장 즉시 로그인 전 안내 모달과 행사별 개인정보 안내 페이지에
+                        반영됩니다. 플랫폼 개인정보처리방침은 프론트 고정 문서로 관리합니다.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3 p-7 pt-6">
                       <div className="rounded-[1.35rem] border border-white/90 bg-white/90 px-4 py-4">
@@ -2823,9 +2836,9 @@ const AdminConsolePage = ({
                           치환 변수
                         </p>
                         <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-                          {selectedPolicyKey === "consent_markdown"
-                            ? "행사 참가자 안내는 {eventName}, {eventTeam}, {eventContactEmail}, {platformHost}를 사용합니다."
-                            : "플랫폼 방침은 {platformHost}, {platformContactEmail}를 사용합니다."}
+                          행사 참가자 안내는{" "}
+                          {"{eventName}, {eventTeam}, {eventContactEmail}, {platformHost}"}를
+                          사용합니다.
                         </p>
                       </div>
                       <div className="rounded-[1.35rem] border border-white/90 bg-white/90 px-4 py-4">
@@ -2845,9 +2858,9 @@ const AdminConsolePage = ({
                           게시 전 점검
                         </p>
                         <p className="mt-2 text-sm font-semibold leading-6 text-amber-900">
-                          기본값은 Supabase 위탁, SMTP 이메일 발송 위탁, 개인식별정보 1년 이내
-                          삭제·익명화, 익명 통계·행사 아카이브 장기 보관 기준입니다. 대괄호로 남은
-                          SMTP 사업자명과 실제 Supabase 리전/국가는 게시 전에 반드시 확정해 주세요.
+                          기본값은 개인식별정보 1년 이내 삭제·익명화와 익명 통계·행사 아카이브
+                          장기 보관 기준입니다. Google/Supabase의 위탁, 제3자 제공, 국외 이전
+                          해당 여부는 실제 연동 방식과 계약관계, 데이터 저장 위치 확인 후 확정해 주세요.
                         </p>
                       </div>
                     </CardContent>
@@ -2859,7 +2872,8 @@ const AdminConsolePage = ({
                         <CardHeader className="space-y-2 p-7 pb-0">
                           <CardTitle>템플릿 편집</CardTitle>
                           <CardDescription>
-                            선택한 템플릿의 마크다운 원문을 저장하면 해당 공개 화면에 바로 반영됩니다.
+                            행사 참가자 안내 마크다운 원문을 저장하면 해당 공개 화면에 바로
+                            반영됩니다.
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="p-7 pt-6">

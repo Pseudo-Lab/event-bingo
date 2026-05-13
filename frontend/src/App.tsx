@@ -6,6 +6,7 @@ import LandingHomePage from "./modules/Landing/LandingHomePage.tsx";
 import DemoExperiencePage from "./modules/Landing/DemoExperiencePage.tsx";
 import PublicPrivacyPage from "./modules/Landing/PublicPrivacyPage.tsx";
 import PublicEventPrivacyPage from "./modules/Landing/PublicEventPrivacyPage.tsx";
+import PublicTermsPage from "./modules/Landing/PublicTermsPage.tsx";
 import {
   AdminApplicationsPage,
   AdminDashboardPage,
@@ -27,6 +28,7 @@ function AppRoutes() {
           <Route path="/" element={<LandingHomePage />} />
           <Route path="/event" element={<Navigate to="/" replace />} />
           <Route path="/experience" element={<DemoExperiencePage />} />
+          <Route path="/terms" element={<PublicTermsPage />} />
           <Route path="/privacy" element={<PublicPrivacyPage />} />
           <Route path="/bingo" element={<DemoExperiencePage />} />
           <Route path="/admin" element={<AdminRoutesLoginPage />} />

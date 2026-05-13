@@ -3,7 +3,11 @@ from fastapi import APIRouter, HTTPException, status
 from core.db import AsyncSessionDepends
 from models.event import Event, EventStatus
 from models.event_manager_request import EventManagerRequest
-from models.policy_template import PolicyTemplate
+from models.policy_template import (
+    DEFAULT_PLATFORM_POLICY_TEMPLATE,
+    PLATFORM_PRIVACY_POLICY_UPDATED_AT,
+    PolicyTemplate,
+)
 
 from .schema import (
     EventManagerRequestCreateItem,
@@ -102,17 +106,13 @@ async def create_event_manager_request(
     response_model=PublicPolicyTemplateResponse,
     include_in_schema=False,
 )
-async def get_public_policy_template(
-    db: AsyncSessionDepends,
-):
-    template = await PolicyTemplate.ensure_platform_policy_template(db)
-
+async def get_public_policy_template():
     return PublicPolicyTemplateResponse(
         ok=True,
         message="공개 플랫폼 개인정보처리방침을 불러왔습니다.",
         template=PublicPolicyTemplateItem(
-            content=PolicyTemplate.render_platform_policy_content(template.content_markdown),
-            updated_at=template.updated_at,
+            content=PolicyTemplate.render_platform_policy_content(DEFAULT_PLATFORM_POLICY_TEMPLATE),
+            updated_at=PLATFORM_PRIVACY_POLICY_UPDATED_AT,
         ),
     )
 

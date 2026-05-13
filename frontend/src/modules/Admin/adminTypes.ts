@@ -75,7 +75,7 @@ export type AdminPolicyTemplate = {
   updatedByName?: string;
 };
 
-export type AdminPolicyTemplateKey = "consent_markdown" | "platform_privacy_markdown";
+export type AdminPolicyTemplateKey = "consent_markdown";
 
 export type AdminEventManagerRequestReviewResult = {
   request: AdminEventManagerRequest;

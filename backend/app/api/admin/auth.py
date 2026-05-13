@@ -1,11 +1,12 @@
 import logging
 import time
 
+import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from core.db import AsyncSessionDepends
-from core.security import decode_supabase_token
+from core.security import SUPABASE_KEY, SUPABASE_URL, decode_supabase_token
 from models.admin import Admin
 
 logger = logging.getLogger(__name__)
@@ -17,9 +18,51 @@ _admin_cache: dict[str, tuple[Admin, float]] = {}
 _ADMIN_CACHE_TTL = 60.0
 
 
+async def _fetch_supabase_user_payload(token: str) -> dict | None:
+    """Supabase Auth 서버에 토큰 검증을 위임합니다. 로컬 JWT 검증이 불가능할 때만 사용합니다."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return None
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{SUPABASE_URL.rstrip('/')}/auth/v1/user",
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {token}",
+                },
+                timeout=5,
+            )
+
+        if response.status_code >= 400:
+            logger.debug("Supabase Auth user lookup failed: %s", response.status_code)
+            return None
+
+        user = response.json()
+    except Exception as error:
+        logger.debug("Supabase Auth user lookup failed: %s", error)
+        return None
+
+    if not isinstance(user, dict):
+        return None
+
+    user_id = user.get("id")
+    email = user.get("email")
+    if not user_id or not email:
+        return None
+
+    return {
+        "sub": user_id,
+        "email": email,
+    }
+
+
 async def _try_supabase_admin_auth(db, token: str):
     """Supabase JWT로 Admin 인증 시도. 실패하면 None 반환."""
     payload = decode_supabase_token(token)
+    if payload is None:
+        payload = await _fetch_supabase_user_payload(token)
+
     if payload is None:
         return None
 
