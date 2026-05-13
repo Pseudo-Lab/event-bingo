@@ -36,6 +36,12 @@ Last-Validated: 2026-03-22
 - Impact PRs must follow `.github/PULL_REQUEST_TEMPLATE.md`.
 - If agent outputs conflict, resolve by source-priority docs, then PO intent, then relevant domain-owner technical decision.
 
+## Team Lead Mode
+- Use Team Lead Mode only when the user explicitly asks for team-style or multi-agent work.
+- In Team Lead Mode, one lead agent coordinates role assignment, file ownership, sequencing, sub-agent outputs, and final integration.
+- Follow the detailed Team Lead Mode rules in `docs/reference/agent-collaboration.md`.
+- Do not spawn or simulate a team for small single-domain tasks unless the user asks for it.
+
 ## Light-Weight Completion Rule
 - When a separate handoff doc is not required, leave a short completion note in commit or PR text with:
 - what changed
@@ -101,7 +107,6 @@ Last-Validated: 2026-03-22
 - Product Owner defines scope, acceptance criteria, sequencing, and major risk mitigations.
 - Backend and Frontend implement in parallel when possible.
 - QA validates service-page scenarios first, then admin scenarios.
-
 
 
 
