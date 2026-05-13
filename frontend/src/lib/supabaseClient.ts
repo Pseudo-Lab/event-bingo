@@ -62,7 +62,7 @@ export const getSupabaseClient = () => {
     supabaseClient = createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
       auth: {
         autoRefreshToken: true,
-        detectSessionInUrl: false,
+        detectSessionInUrl: true,
         persistSession: true,
         storage: sessionStorageAdapter,
         storageKey: SUPABASE_STORAGE_KEY,

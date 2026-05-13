@@ -37,7 +37,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
-import GoogleSignInButton from "../Auth/GoogleSignInButton";
 import {
   Table,
   TableBody,
@@ -52,7 +51,6 @@ import {
   isSupabaseConfigured,
   maybeGetSupabaseClient,
 } from "../../lib/supabaseClient";
-import { isGoogleIdentityConfigured } from "../../lib/googleIdentity";
 import {
   clearAdminSession,
   getAdminSession,
@@ -155,8 +153,14 @@ const EVENT_DETAIL_TABS: Array<{ key: EventDetailTab; label: string }> = [
   { key: "dashboard", label: "대시보드" },
   { key: "participants", label: "참가자" },
 ];
-const canUseGoogleAdminAuth = () =>
-  isSupabaseConfigured() && isGoogleIdentityConfigured();
+const canUseGoogleAdminAuth = () => isSupabaseConfigured();
+const getAdminOAuthRedirectUrl = () => {
+  if (typeof window === "undefined") {
+    return getAdminPath();
+  }
+
+  return new URL(getAdminPath(), window.location.origin).toString();
+};
 const EVENT_KEYWORD_PRESET_OPTIONS = getEventKeywordPresetDefinitions();
 
 const formatAdminDate = (value: string) => {
@@ -619,10 +623,36 @@ const EmptyPanelState = ({
   );
 };
 
+const GoogleLogoIcon = () => (
+  <svg
+    aria-hidden="true"
+    className="h-5 w-5 shrink-0"
+    viewBox="0 0 24 24"
+    focusable="false"
+  >
+    <path
+      fill="#4285F4"
+      d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.29h6.47a5.53 5.53 0 0 1-2.4 3.63v2.96h3.89c2.28-2.1 3.53-5.2 3.53-8.61Z"
+    />
+    <path
+      fill="#34A853"
+      d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.89-2.96c-1.08.72-2.45 1.14-4.06 1.14-3.12 0-5.77-2.1-6.72-4.93H1.26v3.05A11.99 11.99 0 0 0 12 24Z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M5.28 14.34A7.23 7.23 0 0 1 4.9 12c0-.81.14-1.6.38-2.34V6.61H1.26A11.99 11.99 0 0 0 0 12c0 1.94.46 3.77 1.26 5.39l4.02-3.05Z"
+    />
+    <path
+      fill="#EA4335"
+      d="M12 4.73c1.76 0 3.34.6 4.59 1.8l3.44-3.44C17.95 1.15 15.23 0 12 0A11.99 11.99 0 0 0 1.26 6.61l4.02 3.05C6.23 6.83 8.88 4.73 12 4.73Z"
+    />
+  </svg>
+);
+
 const LoginPage = () => {
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = useState("");
-  const [, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const shouldUseGoogleAdminAuth = canUseGoogleAdminAuth();
 
   useEffect(() => {
@@ -673,38 +703,26 @@ const LoginPage = () => {
     };
   }, [navigate, shouldUseGoogleAdminAuth]);
 
-  const handleGoogleLogin = async ({
-    credential,
-    nonce,
-  }: {
-    credential: string;
-    nonce: string;
-  }) => {
+  const handleGoogleLogin = async () => {
     const supabase = getSupabaseClient();
 
     try {
       setIsSubmitting(true);
       setErrorMessage("");
 
-      const { data, error } = await supabase.auth.signInWithIdToken({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        token: credential,
-        nonce,
+        options: {
+          redirectTo: getAdminOAuthRedirectUrl(),
+          queryParams: {
+            prompt: "select_account",
+          },
+        },
       });
 
       if (error) {
         throw error;
       }
-
-      const accessToken = data.session?.access_token;
-      if (!accessToken) {
-        throw new Error("Supabase 관리자 세션을 확인하지 못했습니다.");
-      }
-
-      const nextSession = await getAdminMe(accessToken);
-      clearLegacyLocalLoginStorage();
-      setAdminSession(nextSession);
-      navigate(getAdminPath("event-settings"), { replace: true });
     } catch (error) {
       clearAdminSession();
       await supabase.auth.signOut();
@@ -737,12 +755,16 @@ const LoginPage = () => {
 
               <div className="flex w-full justify-center">
                 <div className="w-full max-w-[360px]">
-                  <GoogleSignInButton
-                    context="signin"
-                    onError={(message) => setErrorMessage(message)}
-                    onSuccess={handleGoogleLogin}
-                    text="signin_with"
-                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 w-full rounded-full border-[#dadce0] bg-white px-6 text-[15px] font-semibold text-[#3c4043] shadow-none hover:bg-[#f8fafd] hover:text-[#202124] focus-visible:ring-slate-300"
+                    disabled={isSubmitting}
+                    onClick={handleGoogleLogin}
+                  >
+                    <GoogleLogoIcon />
+                    <span>{isSubmitting ? "Google로 이동 중..." : "Google 계정으로 로그인"}</span>
+                  </Button>
                 </div>
               </div>
             </div>
