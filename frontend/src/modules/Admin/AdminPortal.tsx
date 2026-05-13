@@ -114,8 +114,7 @@ const ITEMS_PER_PAGE = 4;
 const DETAIL_PARTICIPANTS_PER_PAGE = 8;
 const POLICY_PREVIEW_HOST = "샘플 행사 운영팀";
 const POLICY_PREVIEW_CONTACT_EMAIL = "event-team@example.com";
-const POLICY_PREVIEW_PLATFORM_HOST = "가짜연구소 DevFactory";
-const POLICY_PREVIEW_PLATFORM_CONTACT_EMAIL = "pseudolab.operator@gmail.com";
+const POLICY_PREVIEW_PLATFORM_HOST = "DevFactory 서비스 운영팀";
 const POLICY_TEMPLATE_OPTIONS: Array<{
   key: AdminPolicyTemplateKey;
   label: string;
@@ -126,11 +125,6 @@ const POLICY_TEMPLATE_OPTIONS: Array<{
     label: "행사 참가자 안내",
     description: "행사 로그인 전 모달과 /event/:slug/privacy 페이지에 노출됩니다.",
   },
-  {
-    key: "platform_privacy_markdown",
-    label: "DevFactory 플랫폼 방침",
-    description: "랜딩과 /privacy 페이지에 노출되는 플랫폼 개인정보처리방침입니다.",
-  },
 ];
 const POLICY_PREVIEW_VARIABLES: Record<AdminPolicyTemplateKey, Record<string, string>> = {
   consent_markdown: {
@@ -139,12 +133,6 @@ const POLICY_PREVIEW_VARIABLES: Record<AdminPolicyTemplateKey, Record<string, st
     host: POLICY_PREVIEW_HOST,
     eventContactEmail: POLICY_PREVIEW_CONTACT_EMAIL,
     platformHost: POLICY_PREVIEW_PLATFORM_HOST,
-    platformContactEmail: POLICY_PREVIEW_PLATFORM_CONTACT_EMAIL,
-    platformPrivacyPath: "/privacy",
-  },
-  platform_privacy_markdown: {
-    platformHost: POLICY_PREVIEW_PLATFORM_HOST,
-    platformContactEmail: POLICY_PREVIEW_PLATFORM_CONTACT_EMAIL,
     platformPrivacyPath: "/privacy",
   },
 };
@@ -2750,7 +2738,7 @@ const AdminConsolePage = ({
               <>
                 <SectionHeader
                   title="개인정보 처리 안내"
-                  description="행사 참가자 안내와 DevFactory 플랫폼 처리방침을 분리해 관리합니다. Admin만 수정할 수 있습니다."
+                  description="행사 참가자 안내 템플릿을 관리합니다. 플랫폼 개인정보처리방침은 프론트 고정 문서로 관리합니다."
                   action={
                     canEditPolicyTemplate ? (
                       <div className="flex flex-wrap items-center gap-3">
@@ -2818,7 +2806,10 @@ const AdminConsolePage = ({
                   <Card className="overflow-hidden rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
                     <CardHeader className="space-y-2 p-7 pb-0">
                       <CardTitle>템플릿 안내</CardTitle>
-                      <CardDescription>저장 즉시 서비스 홈 안내 팝업과 공개 정책 페이지에도 같은 원본이 반영됩니다.</CardDescription>
+                      <CardDescription>
+                        저장 즉시 로그인 전 안내 모달과 행사별 개인정보 안내 페이지에
+                        반영됩니다. 플랫폼 개인정보처리방침은 프론트 고정 문서로 관리합니다.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3 p-7 pt-6">
                       <div className="rounded-[1.35rem] border border-white/90 bg-white/90 px-4 py-4">
@@ -2845,9 +2836,9 @@ const AdminConsolePage = ({
                           치환 변수
                         </p>
                         <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-                          {selectedPolicyKey === "consent_markdown"
-                            ? "행사 참가자 안내는 {eventName}, {eventTeam}, {eventContactEmail}, {platformHost}를 사용합니다."
-                            : "플랫폼 방침은 {platformHost}, {platformContactEmail}를 사용합니다."}
+                          행사 참가자 안내는{" "}
+                          {"{eventName}, {eventTeam}, {eventContactEmail}, {platformHost}"}를
+                          사용합니다.
                         </p>
                       </div>
                       <div className="rounded-[1.35rem] border border-white/90 bg-white/90 px-4 py-4">
@@ -2867,9 +2858,9 @@ const AdminConsolePage = ({
                           게시 전 점검
                         </p>
                         <p className="mt-2 text-sm font-semibold leading-6 text-amber-900">
-                          기본값은 Supabase 위탁, SMTP 이메일 발송 위탁, 개인식별정보 1년 이내
-                          삭제·익명화, 익명 통계·행사 아카이브 장기 보관 기준입니다. 대괄호로 남은
-                          SMTP 사업자명과 실제 Supabase 리전/국가는 게시 전에 반드시 확정해 주세요.
+                          기본값은 개인식별정보 1년 이내 삭제·익명화와 익명 통계·행사 아카이브
+                          장기 보관 기준입니다. Google/Supabase의 위탁, 제3자 제공, 국외 이전
+                          해당 여부는 실제 연동 방식과 계약관계, 데이터 저장 위치 확인 후 확정해 주세요.
                         </p>
                       </div>
                     </CardContent>
@@ -2881,7 +2872,8 @@ const AdminConsolePage = ({
                         <CardHeader className="space-y-2 p-7 pb-0">
                           <CardTitle>템플릿 편집</CardTitle>
                           <CardDescription>
-                            선택한 템플릿의 마크다운 원문을 저장하면 해당 공개 화면에 바로 반영됩니다.
+                            행사 참가자 안내 마크다운 원문을 저장하면 해당 공개 화면에 바로
+                            반영됩니다.
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="p-7 pt-6">

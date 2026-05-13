@@ -18,7 +18,6 @@ from models.team import Team
 from models.user import BingoUser
 from models.policy_template import (
     PARTICIPANT_PRIVACY_NOTICE_TEMPLATE_KEY,
-    PLATFORM_PRIVACY_TEMPLATE_KEY,
     PolicyTemplate,
 )
 
@@ -71,7 +70,6 @@ admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
 VALID_POLICY_TEMPLATE_KEYS = {
     PARTICIPANT_PRIVACY_NOTICE_TEMPLATE_KEY,
-    PLATFORM_PRIVACY_TEMPLATE_KEY,
 }
 
 
