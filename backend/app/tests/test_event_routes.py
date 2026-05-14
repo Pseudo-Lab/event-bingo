@@ -1,11 +1,15 @@
 import asyncio
+from datetime import datetime, timezone
+from types import SimpleNamespace
 
+import api.events.routes as event_routes
 from api.events.routes import (
     events_router,
     get_public_policy_template,
     normalize_event_manager_request_purpose,
 )
 from api.events.schema import EventManagerRequestCreateRequest
+from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 from models.policy_template import PLATFORM_PRIVACY_POLICY_UPDATED_AT
 
 
@@ -53,3 +57,56 @@ def test_event_manager_request_purpose_normalization_uses_placeholder_for_blank_
     assert normalize_event_manager_request_purpose(None) == "미입력"
     assert normalize_event_manager_request_purpose("   ") == "미입력"
     assert normalize_event_manager_request_purpose(" 내부 네트워킹 ") == "내부 네트워킹"
+
+
+def test_create_event_manager_request_sends_receipt_email(monkeypatch):
+    created_at = datetime(2026, 5, 14, tzinfo=timezone.utc)
+    create_payload = {}
+    sent_payload = {}
+
+    async def fake_create(_session, **kwargs):
+        create_payload.update(kwargs)
+        return SimpleNamespace(
+            id=42,
+            status=EventManagerRequestStatus.PENDING,
+            created_at=created_at,
+        )
+
+    def fake_send_event_manager_request_received_email(**kwargs):
+        sent_payload.update(kwargs)
+        return True
+
+    monkeypatch.setattr(EventManagerRequest, "create", fake_create)
+    monkeypatch.setattr(
+        event_routes,
+        "send_event_manager_request_received_email",
+        fake_send_event_manager_request_received_email,
+    )
+
+    response = asyncio.run(
+        event_routes.create_event_manager_request(
+            EventManagerRequestCreateRequest(
+                name=" 홍길동 ",
+                email=" Organizer@Example.COM ",
+                event_name=" 네트워킹 데이 ",
+                event_purpose=" ",
+                expected_event_date=datetime(2026, 6, 1, tzinfo=timezone.utc),
+                expected_attendee_count=100,
+            ),
+            object(),
+        )
+    )
+
+    assert response.ok is True
+    assert response.request.id == 42
+    assert create_payload["name"] == "홍길동"
+    assert create_payload["email"] == "organizer@example.com"
+    assert create_payload["event_name"] == "네트워킹 데이"
+    assert create_payload["event_purpose"] == "미입력"
+    assert sent_payload == {
+        "recipient_email": "organizer@example.com",
+        "recipient_name": "홍길동",
+        "event_name": "네트워킹 데이",
+        "expected_event_date": datetime(2026, 6, 1, tzinfo=timezone.utc),
+        "expected_attendee_count": 100,
+    }

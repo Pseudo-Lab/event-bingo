@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from core.db import AsyncSessionDepends
+from api.admin.console_services import send_event_manager_request_received_email
 from models.event import Event, EventStatus
 from models.event_manager_request import EventManagerRequest
 from models.policy_template import (
@@ -78,16 +79,27 @@ async def create_event_manager_request(
     payload: EventManagerRequestCreateRequest,
     db: AsyncSessionDepends,
 ):
+    normalized_name = payload.name.strip()
+    normalized_email = payload.email.strip().lower()
+    normalized_event_name = payload.event_name.strip()
+
     created_request = await EventManagerRequest.create(
         db,
-        name=payload.name.strip(),
-        email=payload.email.strip().lower(),
+        name=normalized_name,
+        email=normalized_email,
         organization=payload.organization.strip() if payload.organization else None,
-        event_name=payload.event_name.strip(),
+        event_name=normalized_event_name,
         event_purpose=normalize_event_manager_request_purpose(payload.event_purpose),
         expected_event_date=payload.expected_event_date,
         expected_attendee_count=payload.expected_attendee_count,
         notes=payload.notes.strip() if payload.notes else None,
+    )
+    send_event_manager_request_received_email(
+        recipient_email=normalized_email,
+        recipient_name=normalized_name,
+        event_name=normalized_event_name,
+        expected_event_date=payload.expected_event_date,
+        expected_attendee_count=payload.expected_attendee_count,
     )
 
     return EventManagerRequestCreateResponse(

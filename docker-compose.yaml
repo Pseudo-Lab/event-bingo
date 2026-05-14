@@ -30,6 +30,10 @@ services:
       ADMIN_SMTP_USERNAME: ${ADMIN_SMTP_USERNAME:-}
       ADMIN_SMTP_PASSWORD: ${ADMIN_SMTP_PASSWORD:-}
       ADMIN_SMTP_FROM_EMAIL: ${ADMIN_SMTP_FROM_EMAIL:-}
+      ADMIN_SMTP_FROM_NAME: ${ADMIN_SMTP_FROM_NAME:-DevFactory 운영팀}
+      ADMIN_SMTP_REPLY_TO: ${ADMIN_SMTP_REPLY_TO:-}
+      ADMIN_SMTP_USE_TLS: ${ADMIN_SMTP_USE_TLS:-true}
+      ADMIN_SMTP_USE_SSL: ${ADMIN_SMTP_USE_SSL:-false}
     command: >
       /bin/sh -c "
         alembic upgrade head &&
