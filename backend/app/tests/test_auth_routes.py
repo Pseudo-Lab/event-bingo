@@ -65,7 +65,7 @@ def test_resolve_participant_search_name_falls_back_to_user_name():
     assert resolve_participant_search_name(board, user) == "기본 이름"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_bingo_search_participants_uses_event_attendee_search(monkeypatch: pytest.MonkeyPatch):
     event = type("EventStub", (), {"id": 7})()
     participant_rows = [

@@ -28,7 +28,7 @@ class FakeExecuteResult:
         return FakeScalarResult(self._values)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_create_bingo_interaction_rejects_duplicate_direction(monkeypatch):
     receiver_board = SimpleNamespace(
         user_id=2,
@@ -73,7 +73,7 @@ async def test_create_bingo_interaction_rejects_duplicate_direction(monkeypatch)
     assert "이미 동일한 참가자" in response.message
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_create_bingo_interaction_updates_board_and_creates_record(monkeypatch):
     receiver_board = SimpleNamespace(
         user_id=2,
@@ -192,7 +192,7 @@ async def test_create_bingo_interaction_updates_board_and_creates_record(monkeyp
     assert receiver_board.user_interaction_count == 1
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_get_user_all_interactions_includes_user_names_and_cursor(monkeypatch):
     captured: dict[str, int | None] = {}
     interaction = SimpleNamespace(
