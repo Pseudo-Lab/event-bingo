@@ -39,8 +39,8 @@ const PublicFooter = () => (
 
         <div className="col-span-2 grid content-start gap-1 sm:col-span-1">
           <p className="text-sm font-black text-slate-100">문의</p>
-          <a href="mailto:soohyun.dev@gmail.com" className={`${linkClassName} break-all`}>
-            soohyun.dev@gmail.com
+          <a href="mailto:devfactory.ops@gmail.com" className={`${linkClassName} break-all`}>
+            devfactory.ops@gmail.com
           </a>
         </div>
       </div>

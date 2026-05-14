@@ -18,7 +18,6 @@ const initialFormState: ApplicationFormState = {
 
 const AdminApplicationForm = () => {
   const [form, setForm] = useState<ApplicationFormState>(initialFormState);
-  const [googleLoginEmailConfirmed, setGoogleLoginEmailConfirmed] = useState(false);
   const [formError, setFormError] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -28,9 +27,6 @@ const AdminApplicationForm = () => {
     if (!form.name.trim()) { setFormError("이름을 입력해 주세요."); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim().toLowerCase())) {
       setFormError("올바른 이메일 주소를 입력해 주세요."); return;
-    }
-    if (!googleLoginEmailConfirmed) {
-      setFormError("입력한 이메일로 Google 로그인이 가능한지 확인해 주세요."); return;
     }
     if (!form.eventName.trim()) { setFormError("행사명을 입력해 주세요."); return; }
     try {
@@ -47,7 +43,6 @@ const AdminApplicationForm = () => {
         "신청을 접수했습니다. 운영팀 검토 후 승인되면 입력한 이메일로 관리자 접속 방법을 안내드립니다."
       );
       setForm(initialFormState);
-      setGoogleLoginEmailConfirmed(false);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "신청을 접수하지 못했습니다.");
     } finally {
@@ -79,7 +74,7 @@ const AdminApplicationForm = () => {
               type="text"
               value={form.name}
               onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              placeholder="김행사"
+              placeholder="홍길동"
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent focus:shadow-sm"
             />
           </div>
@@ -95,22 +90,8 @@ const AdminApplicationForm = () => {
               placeholder="organizer@example.com"
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent focus:shadow-sm"
             />
-            <p className="mt-1 text-xs leading-5 text-slate-600">
-              승인 후 이 이메일로 Google 로그인하여 관리자 페이지에 접속합니다. Gmail이
-              아니어도 Google 계정에 연결된 이메일이면 사용할 수 있습니다.
-            </p>
           </div>
         </div>
-
-        <label className="flex items-start gap-2 rounded-xl border border-brand-100 bg-brand-50/70 px-3 py-3 text-xs font-semibold leading-5 text-brand-800">
-          <input
-            type="checkbox"
-            checked={googleLoginEmailConfirmed}
-            onChange={(event) => setGoogleLoginEmailConfirmed(event.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-brand-200 text-brand-700 focus:ring-brand-500"
-          />
-          <span>입력한 이메일로 Google 로그인이 가능한 것을 확인했습니다.</span>
-        </label>
 
         <div>
           <label htmlFor="app-event" className="block text-xs font-semibold text-slate-700 mb-1">
@@ -159,8 +140,8 @@ const AdminApplicationForm = () => {
           {isSubmitting ? "접수 중..." : "관리자 권한 신청"}
         </button>
         <p className="text-center text-xs leading-5 text-slate-500">
-          제출 시 이름, Google 로그인에 사용할 이메일, 행사명, 행사 목적이 관리자 신청
-          검토, Google 로그인 계정 확인, 승인 안내를 위해 처리됩니다. 자세한 내용은{" "}
+          승인되면 접속 방법을 이메일로 안내드립니다. 안내받은 Google 계정으로 로그인해 주세요. <br></br>
+          자세한 내용은{" "}
           <Link
             to="/privacy"
             target="_blank"

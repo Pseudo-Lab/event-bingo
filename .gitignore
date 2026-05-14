@@ -120,3 +120,6 @@ python-version
 __pypackages__/
 site/
 releases/
+
+# OpenClaw local memory
+memory/

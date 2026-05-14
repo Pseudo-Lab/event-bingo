@@ -64,6 +64,7 @@ ADMIN_SMTP_USERNAME = os.getenv("ADMIN_SMTP_USERNAME", "").strip()
 ADMIN_SMTP_PASSWORD = os.getenv("ADMIN_SMTP_PASSWORD", "")
 ADMIN_SMTP_FROM_EMAIL = os.getenv("ADMIN_SMTP_FROM_EMAIL", "").strip()
 ADMIN_SMTP_FROM_NAME = os.getenv("ADMIN_SMTP_FROM_NAME", "Bingo Networking Admin").strip()
+ADMIN_SMTP_REPLY_TO = os.getenv("ADMIN_SMTP_REPLY_TO", ADMIN_SMTP_FROM_EMAIL).strip()
 ADMIN_SMTP_USE_TLS = os.getenv("ADMIN_SMTP_USE_TLS", "true").strip().lower() != "false"
 ADMIN_SMTP_USE_SSL = os.getenv("ADMIN_SMTP_USE_SSL", "false").strip().lower() == "true"
 LEGACY_SEED_ADMIN_EMAILS = {
@@ -201,20 +202,23 @@ def build_admin_console_link() -> str:
 
 def _build_access_granted_email(name: str, console_url: str) -> EmailMessage:
     message = EmailMessage()
-    message["Subject"] = "[Bingo Networking] 관리자 권한이 부여되었습니다"
+    message["Subject"] = "[Event Bingo] 관리자 권한이 승인되었습니다"
     message["From"] = formataddr((ADMIN_SMTP_FROM_NAME, ADMIN_SMTP_FROM_EMAIL or "no-reply@example.com"))
+    if ADMIN_SMTP_REPLY_TO:
+        message["Reply-To"] = ADMIN_SMTP_REPLY_TO
     message.set_content(
         "\n".join(
             [
                 f"{name}님, 안녕하세요.",
                 "",
-                "이벤트 관리자 권한 신청이 승인되었습니다.",
+                "DevFactory 운영팀입니다.",
+                "Event Bingo 관리자 권한 신청이 승인되었습니다.",
                 "이제 승인된 이메일로 Google 로그인하면 관리자 페이지에 접속할 수 있습니다.",
                 "Gmail 주소가 아니어도 Google 계정에 연결된 이메일이면 사용할 수 있습니다.",
                 "",
                 console_url,
                 "",
-                "환영합니다.",
+                f"문의가 있으면 {ADMIN_SMTP_REPLY_TO or ADMIN_SMTP_FROM_EMAIL}로 회신해 주세요.",
             ]
         )
     )

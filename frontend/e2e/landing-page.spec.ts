@@ -43,33 +43,29 @@ test("landing page keeps the experience and admin entry points prominent", async
 
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "개발자 네트워킹을 더 쉽고 재밌게" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "행사 네트워킹을 더 쉽고 재밌게" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "행사 운영 권한이 필요하신가요?" })).toBeVisible();
   await expect(page.getByText("이벤트 사례").first()).toBeVisible();
   await expect(page.getByLabel("이름")).toBeVisible();
   await expect(page.getByLabel("Google 로그인에 사용할 이메일")).toBeVisible();
   await expect(
-    page.getByText("Gmail이 아니어도 Google 계정에 연결된 이메일이면 사용할 수 있습니다.")
+    page.getByText("승인되면 접속 방법을 이메일로 안내드립니다.", { exact: false })
   ).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: "입력한 이메일로 Google 로그인이 가능한 것을 확인했습니다." })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "입력한 이메일로 Google 로그인이 가능한 것을 확인했습니다." })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "관리자 권한 신청" })).toHaveCount(1);
   await expect(page.getByRole("link", { name: "데모 체험" }).first()).toBeVisible();
   await expect(page.getByText("Summer Meetup").first()).toBeVisible();
   await expect(page.getByText("Product Sprint Day").first()).toBeVisible();
 
-  await page.getByLabel("이름").fill("김행사");
+  await page.getByLabel("이름").fill("홍길동");
   await page.getByLabel("Google 로그인에 사용할 이메일").fill("organizer@example.com");
   await page.getByLabel("행사명").fill("Summer Meetup 운영");
-  await page.getByRole("button", { name: "관리자 권한 신청" }).click();
-  await expect(page.getByRole("alert")).toHaveText("입력한 이메일로 Google 로그인이 가능한지 확인해 주세요.");
-
-  await page.getByRole("checkbox", { name: "입력한 이메일로 Google 로그인이 가능한 것을 확인했습니다." }).check();
   await page.getByRole("button", { name: "관리자 권한 신청" }).click();
   await expect(page.getByRole("status")).toHaveText(
     "신청을 접수했습니다. 운영팀 검토 후 승인되면 입력한 이메일로 관리자 접속 방법을 안내드립니다."
   );
   expect(applicationRequestBody).toMatchObject({
-    name: "김행사",
+    name: "홍길동",
     email: "organizer@example.com",
     event_name: "Summer Meetup 운영",
   });

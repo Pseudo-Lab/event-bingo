@@ -17,7 +17,7 @@ const HeroSection = () => (
       {/* Left — headline + CTA */}
       <div className="animate-soft-rise space-y-6">
         <h1 className="text-3xl lg:text-4xl xl:text-5xl font-black tracking-[-0.03em] text-white leading-[1.15]">
-          개발자 네트워킹을<br />
+          행사 네트워킹을<br />
           더 쉽고 재밌게
         </h1>
         <p className="text-base lg:text-lg text-slate-200 leading-7 max-w-md">

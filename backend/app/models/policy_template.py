@@ -12,7 +12,7 @@ from models.base import Base
 
 KST = ZoneInfo("Asia/Seoul")
 DEFAULT_PLATFORM_HOST = "DevFactory 서비스 운영팀"
-DEFAULT_PLATFORM_CONTACT_EMAIL = "soohyun.dev@gmail.com"
+DEFAULT_PLATFORM_CONTACT_EMAIL = "devfactory.ops@gmail.com"
 DEFAULT_PLATFORM_PRIVACY_PATH = "/privacy"
 PLATFORM_PRIVACY_POLICY_UPDATED_AT = datetime(2026, 5, 14, tzinfo=KST)
 CONSENT_POLICY_TEMPLATE_KEY = "consent_markdown"
@@ -100,7 +100,7 @@ PREVIOUS_DEFAULT_CONSENT_POLICY_TEMPLATE = """# 개인정보처리방침
 
 ■ 11. 개인정보 보호 문의처
 개인정보 보호 관련 문의, 열람청구, 정정·삭제 요구는 행사 운영팀 또는 서비스 관리자에게 할 수 있습니다.
-문의 이메일: **pseudolab.operator@gmail.com**
+문의 이메일: **devfactory.ops@gmail.com**
 실제 운영 연락처가 변경되거나 행사별 별도 문의처가 필요한 경우 본 항목을 최신 정보로 수정해야 합니다.
 
 ■ 12. 개인정보처리방침의 변경

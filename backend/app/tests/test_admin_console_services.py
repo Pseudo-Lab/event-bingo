@@ -57,6 +57,21 @@ def test_build_admin_console_link_uses_explicit_console_base(monkeypatch: pytest
     assert build_admin_console_link() == "https://example.com/admin"
 
 
+def test_build_access_granted_email_sets_event_bingo_sender_and_reply_to(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(console_services, "ADMIN_SMTP_FROM_NAME", "DevFactory 운영팀")
+    monkeypatch.setattr(console_services, "ADMIN_SMTP_FROM_EMAIL", "support@example.com")
+    monkeypatch.setattr(console_services, "ADMIN_SMTP_REPLY_TO", "devfactory.ops@gmail.com")
+
+    message = console_services._build_access_granted_email("운영자", "https://example.com/admin")
+
+    assert message["Subject"] == "[Event Bingo] 관리자 권한이 승인되었습니다"
+    assert message["Reply-To"] == "devfactory.ops@gmail.com"
+    assert "DevFactory 운영팀입니다." in message.get_content()
+    assert "devfactory.ops@gmail.com" in message.get_content()
+
+
 def test_validate_event_manager_request_transition_allows_pending_review():
     validate_event_manager_request_transition(
         EventManagerRequestStatus.PENDING,
