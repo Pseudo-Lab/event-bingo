@@ -2032,8 +2032,8 @@ const AdminConsolePage = ({
                         </p>
                         <p>
                           {inviteReviewResult.inviteEmailSent
-                            ? "환영 메일 발송 완료 · 승인된 이메일의 Google 계정으로 관리자 로그인할 수 있습니다."
-                            : "메일 발송에 실패했거나 설정이 없어, 승인된 이메일의 Google 계정으로 바로 로그인하면 됩니다."}
+                            ? "승인 안내 메일 발송 완료 · 승인된 이메일로 Google 로그인하면 관리자 페이지에 접속할 수 있습니다."
+                            : "메일 발송에 실패했거나 설정이 없어 수동 안내가 필요합니다. 승인된 이메일로 Google 로그인하면 관리자 페이지에 접속할 수 있습니다."}
                         </p>
                       </div>
                     ) : null}
@@ -2984,7 +2984,8 @@ const AdminConsolePage = ({
               <div>
                 <h2 className="text-2xl font-black tracking-tight text-brand-800">관리자 추가</h2>
                 <p className="mt-2 text-sm text-slate-500">
-                  승인된 이메일은 Google 로그인으로 바로 관리자 콘솔에 접근할 수 있습니다.
+                  승인된 이메일로 Google 로그인하면 바로 관리자 페이지에 접속할 수 있습니다.
+                  Gmail이 아니어도 Google 계정에 연결된 이메일이면 사용할 수 있습니다.
                 </p>
               </div>
               <Button
@@ -3003,7 +3004,7 @@ const AdminConsolePage = ({
             <form className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={handleCreateAdmin}>
               <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-4 [scrollbar-gutter:stable_both-edges]">
                 <div className="space-y-2">
-                  <Label htmlFor="new-admin-email">이메일</Label>
+                  <Label htmlFor="new-admin-email">Google 로그인에 사용할 이메일</Label>
                   <Input
                     id="new-admin-email"
                     type="email"
@@ -3014,8 +3015,12 @@ const AdminConsolePage = ({
                         email: event.target.value,
                       }))
                     }
-                    placeholder="abcd@gmail.com"
+                    placeholder="organizer@example.com"
                   />
+                  <p className="text-xs leading-5 text-slate-500">
+                    승인 후 이 이메일로 Google 로그인합니다. Gmail 주소가 아니어도 Google
+                    계정에 연결되어 있으면 사용할 수 있습니다.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
