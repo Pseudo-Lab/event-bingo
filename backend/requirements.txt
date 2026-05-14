@@ -8,5 +8,5 @@ pandas==2.3.3
 prometheus-fastapi-instrumentator==6.1.0
 python-dotenv==1.0.1
 SQLAlchemy[asyncio]==2.0.29
-tzdata==2024.1
+tzdata==2026.2
 uvicorn==0.27.0.post1
