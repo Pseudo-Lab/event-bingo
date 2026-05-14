@@ -1,27 +1,63 @@
 name: Build and Push GHCR Images
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/ghcr-images.yaml"
-      - "backend/**"
-      - "frontend/**"
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
   workflow_dispatch:
 
 concurrency:
-  group: ghcr-images-${{ github.ref }}
+  group: ghcr-images-${{ github.event.workflow_run.head_branch || github.ref }}
   cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
   OPS_REPOSITORY: Pseudo-Lab/DevFactory-Ops
   OPS_TARGET_DIR: services/event-bingo/overlays/prod
+  SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
+  changes:
+    name: Check image build scope
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.scope.outputs.should_build }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Check changed files
+        id: scope
+        run: |
+          set -euo pipefail
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed_files="$(git diff-tree --no-commit-id --name-only -r -m "$SOURCE_SHA")"
+          echo "$changed_files"
+
+          if echo "$changed_files" | grep -Eq '^(\.github/workflows/ghcr-images\.yaml|backend/|frontend/)'; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build-amd64:
     name: Build amd64 (${{ matrix.component }})
+    needs: changes
+    if: >
+      needs.changes.outputs.should_build == 'true' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,6 +76,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -67,7 +105,7 @@ jobs:
           provenance: false
           sbom: false
           tags: |
-            ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-amd64
+            ${{ steps.prep.outputs.image }}:sha-${{ env.SOURCE_SHA }}-amd64
           cache-from: type=gha,scope=${{ matrix.component }}-amd64
           cache-to: type=gha,scope=${{ matrix.component }}-amd64,mode=max
 
@@ -82,7 +120,7 @@ jobs:
           provenance: false
           sbom: false
           tags: |
-            ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-amd64
+            ${{ steps.prep.outputs.image }}:sha-${{ env.SOURCE_SHA }}-amd64
           build-args: |
             VITE_API_URL=${{ secrets.VITE_API_URL }}
             VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
@@ -93,6 +131,12 @@ jobs:
 
   build-arm64:
     name: Build arm64 (${{ matrix.component }})
+    needs: changes
+    if: >
+      needs.changes.outputs.should_build == 'true' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -111,6 +155,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -143,7 +189,7 @@ jobs:
           provenance: false
           sbom: false
           tags: |
-            ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-arm64
+            ${{ steps.prep.outputs.image }}:sha-${{ env.SOURCE_SHA }}-arm64
           cache-from: type=gha,scope=${{ matrix.component }}-arm64
           cache-to: type=gha,scope=${{ matrix.component }}-arm64,mode=max
 
@@ -158,7 +204,7 @@ jobs:
           provenance: false
           sbom: false
           tags: |
-            ${{ steps.prep.outputs.image }}:sha-${{ github.sha }}-arm64
+            ${{ steps.prep.outputs.image }}:sha-${{ env.SOURCE_SHA }}-arm64
           build-args: |
             VITE_API_URL=${{ secrets.VITE_API_URL }}
             VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
@@ -203,27 +249,25 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE="${{ steps.prep.outputs.image }}"
-          SHORT_SHA="${GITHUB_SHA::7}"
+          SHORT_SHA="${SOURCE_SHA::7}"
 
           docker buildx imagetools create \
             -t "${IMAGE}:sha-${SHORT_SHA}" \
-            "${IMAGE}:sha-${GITHUB_SHA}-amd64" \
-            "${IMAGE}:sha-${GITHUB_SHA}-arm64"
+            "${IMAGE}:sha-${SOURCE_SHA}-amd64" \
+            "${IMAGE}:sha-${SOURCE_SHA}-arm64"
 
       - name: Create multi-arch tag (latest)
-        if: github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
           IMAGE="${{ steps.prep.outputs.image }}"
 
           docker buildx imagetools create \
             -t "${IMAGE}:latest" \
-            "${IMAGE}:sha-${GITHUB_SHA}-amd64" \
-            "${IMAGE}:sha-${GITHUB_SHA}-arm64"
+            "${IMAGE}:sha-${SOURCE_SHA}-amd64" \
+            "${IMAGE}:sha-${SOURCE_SHA}-arm64"
 
   deploy-handoff:
     name: Update Ops Manifest
-    if: github.ref == 'refs/heads/main'
     needs: merge-manifest
     runs-on: ubuntu-latest
     steps:
@@ -248,7 +292,7 @@ jobs:
 
       - name: Update image tags
         env:
-          SHORT_SHA: ${{ github.sha }}
+          SHORT_SHA: ${{ env.SOURCE_SHA }}
         run: |
           set -euo pipefail
           SHORT_SHA="${SHORT_SHA::7}"
@@ -276,5 +320,5 @@ jobs:
           fi
 
           git add "${{ env.OPS_TARGET_DIR }}/kustomization.yaml"
-          git commit -m "chore(event-bingo): update images to sha-${GITHUB_SHA::7}"
+          git commit -m "chore(event-bingo): update images to sha-${SOURCE_SHA::7}"
           git push origin main
