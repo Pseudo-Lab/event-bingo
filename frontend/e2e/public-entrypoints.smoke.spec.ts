@@ -19,9 +19,18 @@ test("demo experience starts without login and records a sample encounter", asyn
   await expect(
     page.getByRole("heading", { name: "보드가 채워지는 흐름을 관찰해 보세요" }),
   ).toBeVisible();
+  await expect(page.getByText("아직 만남 기록이 없습니다.")).toBeVisible();
 
   await page.getByRole("button", { name: "랜덤 유저 만나기" }).click();
 
+  await expect(page.getByText("아직 만남 기록이 없습니다.")).toHaveCount(0);
+  await expect(
+    page
+      .locator("div")
+      .filter({ has: page.getByText("만난 사람", { exact: true }) })
+      .filter({ has: page.getByText("1명", { exact: true }) })
+      .first(),
+  ).toBeVisible();
   await expect(page.getByText("방금 만난 참가자")).toBeVisible();
   await expect(page.getByText("만남 기록")).toBeVisible();
 });
