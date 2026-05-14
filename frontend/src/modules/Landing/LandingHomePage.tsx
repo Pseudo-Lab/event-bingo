@@ -1,33 +1,9 @@
-import { useEffect, useState } from "react";
-import {
-  getPublicEventCatalog,
-  type PublicLandingEvent,
-} from "../../api/public_event_api";
 import LandingNavbar from "../../components/LandingNavbar";
 import EventCatalog from "./components/EventCatalog";
 import HeroSection from "./components/HeroSection";
 import LandingFooter from "./components/LandingFooter";
 
 const LandingHomePage = () => {
-  const [events, setEvents] = useState<PublicLandingEvent[]>([]);
-  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadEvents = async () => {
-      try {
-        const nextEvents = await getPublicEventCatalog();
-        if (!cancelled) setEvents(nextEvents);
-      } catch {
-        // silent
-      } finally {
-        if (!cancelled) setIsLoadingEvents(false);
-      }
-    };
-    void loadEvents();
-    return () => { cancelled = true; };
-  }, []);
-
   return (
     <div className="min-h-screen bg-[#f3f8f4] text-slate-900">
       <div
@@ -38,7 +14,7 @@ const LandingHomePage = () => {
 
       <main id="main-content">
         <HeroSection />
-        <EventCatalog events={events} isLoading={isLoadingEvents} />
+        <EventCatalog />
       </main>
 
       <LandingFooter />
