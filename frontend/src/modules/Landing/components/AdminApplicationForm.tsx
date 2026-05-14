@@ -6,6 +6,8 @@ type ApplicationFormState = {
   name: string;
   email: string;
   eventName: string;
+  expectedEventDate: string;
+  expectedAttendeeRange: string;
   eventPurpose: string;
 };
 
@@ -13,8 +15,17 @@ const initialFormState: ApplicationFormState = {
   name: "",
   email: "",
   eventName: "",
+  expectedEventDate: "",
+  expectedAttendeeRange: "",
   eventPurpose: "",
 };
+
+const ATTENDEE_RANGE_OPTIONS = [
+  { value: "50", label: "50명 이하" },
+  { value: "100", label: "51-100명" },
+  { value: "200", label: "101-200명" },
+  { value: "201", label: "201명 이상" },
+] as const;
 
 const AdminApplicationForm = () => {
   const [form, setForm] = useState<ApplicationFormState>(initialFormState);
@@ -29,6 +40,7 @@ const AdminApplicationForm = () => {
       setFormError("올바른 이메일 주소를 입력해 주세요."); return;
     }
     if (!form.eventName.trim()) { setFormError("행사명을 입력해 주세요."); return; }
+    if (!form.expectedAttendeeRange) { setFormError("예상 참가자 수를 선택해 주세요."); return; }
     try {
       setIsSubmitting(true);
       setFormError("");
@@ -37,10 +49,14 @@ const AdminApplicationForm = () => {
         name: form.name,
         email: form.email,
         eventName: form.eventName,
+        expectedEventDate: form.expectedEventDate
+          ? `${form.expectedEventDate}T09:00:00+09:00`
+          : undefined,
+        expectedAttendeeCount: Number(form.expectedAttendeeRange),
         eventPurpose: form.eventPurpose || "미입력",
       });
       setSubmitMessage(
-        "신청을 접수했습니다. 운영팀 검토 후 승인되면 입력한 이메일로 관리자 접속 방법을 안내드립니다."
+        "신청을 접수했습니다. 접수 확인 메일을 발송했습니다. 스팸 보관함도 확인해 주세요."
       );
       setForm(initialFormState);
     } catch (error) {
@@ -55,12 +71,12 @@ const AdminApplicationForm = () => {
       id="apply"
       className="bg-white/85 backdrop-blur rounded-[2rem] border border-white/70 shadow-soft p-7 sm:p-8 scroll-mt-24 lg:scroll-mt-28"
     >
-      <p className="text-sm font-semibold text-brand-700 mb-1">이벤트 관리자 신청</p>
+      <p className="text-sm font-semibold text-brand-700 mb-1">Bingo Networking 사용 신청</p>
       <h2 className="text-2xl font-bold text-slate-900 mb-1">
-        행사 운영 권한이 필요하신가요?
+        행사 네트워킹이 필요하신가요?
       </h2>
       <p className="text-sm text-slate-500 mb-6">
-        신청 검토 후 Google 로그인으로 사용할 관리자 계정을 발급해드립니다.
+        행사 정보와 예상 규모를 남겨주시면 검토 후 접속 방법을 안내해드립니다.
       </p>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
@@ -93,18 +109,53 @@ const AdminApplicationForm = () => {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="app-event" className="block text-xs font-semibold text-slate-700 mb-1">
+              행사명
+            </label>
+            <input
+              id="app-event"
+              type="text"
+              value={form.eventName}
+              onChange={(e) => setForm((p) => ({ ...p, eventName: e.target.value }))}
+              placeholder="2026 Bingo Networking Day"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent focus:shadow-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor="app-date" className="block text-xs font-semibold text-slate-700 mb-1">
+              예상 행사 날짜 (선택)
+            </label>
+            <input
+              id="app-date"
+              type="date"
+              value={form.expectedEventDate}
+              onChange={(e) => setForm((p) => ({ ...p, expectedEventDate: e.target.value }))}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent focus:shadow-sm"
+            />
+          </div>
+        </div>
+
         <div>
-          <label htmlFor="app-event" className="block text-xs font-semibold text-slate-700 mb-1">
-            행사명
+          <label htmlFor="app-attendees" className="block text-xs font-semibold text-slate-700 mb-1">
+            예상 참가자 수
           </label>
-          <input
-            id="app-event"
-            type="text"
-            value={form.eventName}
-            onChange={(e) => setForm((p) => ({ ...p, eventName: e.target.value }))}
-            placeholder="2026 Bingo Networking Day"
+          <select
+            id="app-attendees"
+            value={form.expectedAttendeeRange}
+            onChange={(e) => setForm((p) => ({ ...p, expectedAttendeeRange: e.target.value }))}
             className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent focus:shadow-sm"
-          />
+          >
+            <option value="" disabled>
+              예상 규모 선택
+            </option>
+            {ATTENDEE_RANGE_OPTIONS.map((option) => (
+              <option key={option.label} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -137,11 +188,11 @@ const AdminApplicationForm = () => {
           disabled={isSubmitting}
           className="w-full rounded-xl bg-brand-700 hover:bg-brand-800 active:scale-[0.98] disabled:opacity-60 text-white font-bold py-3 text-sm transition-all"
         >
-          {isSubmitting ? "접수 중..." : "관리자 권한 신청"}
+          {isSubmitting ? "접수 중..." : "사용 신청하기"}
         </button>
         <p className="text-center text-xs leading-5 text-slate-500">
-          승인되면 접속 방법을 이메일로 안내드립니다. 안내받은 Google 계정으로 로그인해 주세요. <br></br>
-          자세한 내용은{" "}
+          신청 접수와 등록 완료 안내는 입력한 이메일로 발송됩니다. 스팸 보관함도 확인해 주세요. <br></br>
+          개인정보 처리에 관한 자세한 내용은{" "}
           <Link
             to="/privacy"
             target="_blank"
@@ -150,7 +201,7 @@ const AdminApplicationForm = () => {
           >
             개인정보처리방침
           </Link>
-          을 확인해 주세요.
+          에서 확인할 수 있습니다.
         </p>
       </form>
     </div>
