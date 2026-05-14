@@ -70,8 +70,8 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
-      - name: Landing page smoke test
-        run: npm run e2e -- landing-page.spec.ts
+      - name: Public smoke tests
+        run: npm run e2e -- landing-page.spec.ts home.smoke.spec.ts public-entrypoints.smoke.spec.ts
 
       - name: Upload Playwright report
         if: failure()
