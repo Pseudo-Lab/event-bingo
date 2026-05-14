@@ -35,6 +35,11 @@ def resolve_public_event_status(event: Event) -> str:
     return "scheduled"
 
 
+def normalize_event_manager_request_purpose(event_purpose: str | None) -> str:
+    normalized_event_purpose = event_purpose.strip() if event_purpose else ""
+    return normalized_event_purpose or "미입력"
+
+
 @events_router.get(
     "",
     response_model=PublicEventListResponse,
@@ -79,7 +84,7 @@ async def create_event_manager_request(
         email=payload.email.strip().lower(),
         organization=payload.organization.strip() if payload.organization else None,
         event_name=payload.event_name.strip(),
-        event_purpose=payload.event_purpose.strip(),
+        event_purpose=normalize_event_manager_request_purpose(payload.event_purpose),
         expected_event_date=payload.expected_event_date,
         expected_attendee_count=payload.expected_attendee_count,
         notes=payload.notes.strip() if payload.notes else None,

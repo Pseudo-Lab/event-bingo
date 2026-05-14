@@ -64,7 +64,7 @@ class EventManagerRequestCreateRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=100)
     organization: Optional[str] = Field(default=None, max_length=120)
     event_name: str = Field(..., min_length=1, max_length=120)
-    event_purpose: str = Field(..., min_length=5, max_length=2000)
+    event_purpose: Optional[str] = Field(default=None, max_length=2000)
     expected_event_date: Optional[datetime] = None
     expected_attendee_count: Optional[int] = Field(default=None, ge=1, le=100000)
     notes: Optional[str] = Field(default=None, max_length=2000)
