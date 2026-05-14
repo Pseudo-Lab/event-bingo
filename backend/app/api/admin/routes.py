@@ -347,7 +347,7 @@ async def update_event_manager_request(
         message=(
             "신청을 승인했고 관리자 권한 안내 메일을 발송했습니다."
             if payload.status == "approved" and invite_result and invite_result.invite_email_sent
-            else "신청을 승인했습니다. 승인된 이메일의 Google 계정으로 관리자 로그인할 수 있습니다."
+            else "신청을 승인했습니다. 승인된 이메일로 Google 로그인하면 관리자 페이지에 접속할 수 있습니다."
             if payload.status == "approved" and invite_result
             else "이미 관리자 계정이 있어 신청 상태만 업데이트했습니다."
             if payload.status == "approved"
