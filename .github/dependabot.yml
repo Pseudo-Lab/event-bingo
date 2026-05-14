@@ -13,6 +13,10 @@ updates:
         update-types:
           - patch
           - minor
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: pip
     directory: /backend
@@ -27,6 +31,10 @@ updates:
         update-types:
           - patch
           - minor
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
@@ -41,3 +49,7 @@ updates:
         update-types:
           - patch
           - minor
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
