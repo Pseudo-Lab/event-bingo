@@ -58,7 +58,7 @@ jobs:
 
       - name: Build amd64 image (backend)
         if: matrix.component == 'backend'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
@@ -73,7 +73,7 @@ jobs:
 
       - name: Build amd64 image (frontend)
         if: matrix.component == 'frontend'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
@@ -134,7 +134,7 @@ jobs:
 
       - name: Build arm64 image (backend)
         if: matrix.component == 'backend'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
@@ -149,7 +149,7 @@ jobs:
 
       - name: Build arm64 image (frontend)
         if: matrix.component == 'frontend'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
