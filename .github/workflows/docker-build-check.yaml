@@ -1,0 +1,71 @@
+name: Docker Build Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/docker-build-check.yaml"
+      - "backend/**"
+      - "frontend/**"
+  workflow_dispatch:
+
+concurrency:
+  group: docker-build-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  docker-build:
+    name: Docker Build (${{ matrix.component }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: backend
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+          - component: frontend
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        if: matrix.component == 'backend'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: false
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=docker-build-check-${{ matrix.component }}
+          cache-to: type=gha,scope=docker-build-check-${{ matrix.component }},mode=max
+
+      - name: Build frontend image
+        if: matrix.component == 'frontend'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: false
+          provenance: false
+          sbom: false
+          build-args: |
+            VITE_API_URL=http://127.0.0.1:8000
+            VITE_SUPABASE_URL=http://127.0.0.1:54321
+            VITE_SUPABASE_ANON_KEY=test-anon-key
+            VITE_GOOGLE_CLIENT_ID=test-google-client-id
+          cache-from: type=gha,scope=docker-build-check-${{ matrix.component }}
+          cache-to: type=gha,scope=docker-build-check-${{ matrix.component }},mode=max
