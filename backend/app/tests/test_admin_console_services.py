@@ -15,7 +15,7 @@ from api.admin.console_services import (
     validate_event_manager_request_transition,
     validate_event_schedule,
 )
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from models.admin import AdminRole
 from models.event_manager_request import EventManagerRequestStatus
 
@@ -70,6 +70,42 @@ def test_build_access_granted_email_sets_event_bingo_sender_and_reply_to(
     assert message["Reply-To"] == "devfactory.ops@gmail.com"
     assert "DevFactory 운영팀입니다." in message.get_content()
     assert "devfactory.ops@gmail.com" in message.get_content()
+
+
+def test_build_manager_request_received_email_sets_receipt_copy(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(console_services, "ADMIN_SMTP_FROM_NAME", "DevFactory 운영팀")
+    monkeypatch.setattr(console_services, "ADMIN_SMTP_FROM_EMAIL", "support@example.com")
+    monkeypatch.setattr(console_services, "ADMIN_SMTP_REPLY_TO", "devfactory.ops@gmail.com")
+
+    message = console_services._build_manager_request_received_email(
+        "홍길동",
+        "네트워킹 데이",
+        datetime(2026, 6, 1, tzinfo=timezone.utc),
+        100,
+    )
+
+    assert message["Subject"] == "[Event Bingo] 사용 신청이 접수되었습니다"
+    assert message["Reply-To"] == "devfactory.ops@gmail.com"
+    assert "Event Bingo 사용 신청이 접수되었습니다." in message.get_content()
+    assert "신청 행사명: 네트워킹 데이" in message.get_content()
+    assert "예상 행사 일자: 2026-06-01" in message.get_content()
+    assert "예상 참가자 수: 51-100명" in message.get_content()
+    assert "운영팀 검토 후 승인되면" in message.get_content()
+    assert "동일한 Google 계정이 필요합니다." in message.get_content()
+
+
+def test_build_manager_request_received_email_uses_placeholder_for_missing_optional_values():
+    message = console_services._build_manager_request_received_email(
+        "홍길동",
+        "네트워킹 데이",
+        None,
+        None,
+    )
+
+    assert "예상 행사 일자: 미입력" in message.get_content()
+    assert "예상 참가자 수: 미입력" in message.get_content()
 
 
 def test_validate_event_manager_request_transition_allows_pending_review():

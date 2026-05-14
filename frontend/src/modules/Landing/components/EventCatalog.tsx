@@ -36,7 +36,7 @@ const EventCatalog = () => {
             }}
             className="inline-flex items-center gap-2 rounded-full bg-brand-700 hover:bg-brand-800 active:scale-[0.97] text-white px-6 py-3 text-sm font-semibold transition-all"
           >
-            사용 신청하기 <span aria-hidden="true">&rarr;</span>
+            신청하기 <span aria-hidden="true">&rarr;</span>
           </a>
         </div>
       </div>

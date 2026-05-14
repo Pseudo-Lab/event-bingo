@@ -159,6 +159,7 @@ Use template: `docs/templates/agent-handoff.md`
 ## PR Collaboration Checklist
 - Source documents referenced
 - Impact trigger checked and justified
+- PR title and body written in Korean unless the reviewer explicitly requests another language
 - Korean mirror sync completed for changed English guides
 - Test evidence attached
 - Handoff note attached using template
@@ -173,7 +174,6 @@ Use template: `docs/templates/agent-handoff.md`
 - Korean mirrors must be updated in the same change set.
 - Sync pair for this document:
 - `docs/reference/agent-collaboration.md` <-> `docs/reference/agent-collaboration.ko.md`
-
 
 
 

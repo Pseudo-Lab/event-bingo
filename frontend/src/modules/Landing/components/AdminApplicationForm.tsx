@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { submitEventManagerApplication } from "../../../api/public_event_api";
+import { Dialog } from "../../../components/ui/dialog";
 
 type ApplicationFormState = {
   name: string;
@@ -56,7 +57,7 @@ const AdminApplicationForm = () => {
         eventPurpose: form.eventPurpose || "미입력",
       });
       setSubmitMessage(
-        "신청을 접수했습니다. 접수 확인 메일을 발송했습니다. 스팸 보관함도 확인해 주세요."
+        "입력하신 이메일로 접수 확인 메일을 발송했습니다."
       );
       setForm(initialFormState);
     } catch (error) {
@@ -69,9 +70,9 @@ const AdminApplicationForm = () => {
   return (
     <div
       id="apply"
-      className="bg-white/85 backdrop-blur rounded-[2rem] border border-white/70 shadow-soft p-7 sm:p-8 scroll-mt-24 lg:scroll-mt-28"
+      className="bg-white/85 backdrop-blur rounded-[2rem] border border-white/70 shadow-soft px-6 pt-6 pb-4 sm:px-7 sm:pt-7 sm:pb-5 scroll-mt-24 lg:scroll-mt-28"
     >
-      <p className="text-sm font-semibold text-brand-700 mb-1">Bingo Networking 사용 신청</p>
+      <p className="text-sm font-semibold text-brand-700 mb-1">Bingo Networking 신청</p>
       <h2 className="text-2xl font-bold text-slate-900 mb-1">
         행사 네트워킹이 필요하신가요?
       </h2>
@@ -83,7 +84,7 @@ const AdminApplicationForm = () => {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="app-name" className="block text-xs font-semibold text-slate-700 mb-1">
-              이름
+              이름 <span className="text-sm font-bold text-red-600" aria-hidden="true">*</span>
             </label>
             <input
               id="app-name"
@@ -96,7 +97,7 @@ const AdminApplicationForm = () => {
           </div>
           <div>
             <label htmlFor="app-email" className="block text-xs font-semibold text-slate-700 mb-1">
-              Google 로그인에 사용할 이메일
+              Google 로그인에 사용할 이메일 <span className="text-sm font-bold text-red-600" aria-hidden="true">*</span>
             </label>
             <input
               id="app-email"
@@ -112,7 +113,7 @@ const AdminApplicationForm = () => {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="app-event" className="block text-xs font-semibold text-slate-700 mb-1">
-              행사명
+              행사명 <span className="text-sm font-bold text-red-600" aria-hidden="true">*</span>
             </label>
             <input
               id="app-event"
@@ -125,7 +126,7 @@ const AdminApplicationForm = () => {
           </div>
           <div>
             <label htmlFor="app-date" className="block text-xs font-semibold text-slate-700 mb-1">
-              예상 행사 날짜 (선택)
+              예상 행사 날짜
             </label>
             <input
               id="app-date"
@@ -139,7 +140,7 @@ const AdminApplicationForm = () => {
 
         <div>
           <label htmlFor="app-attendees" className="block text-xs font-semibold text-slate-700 mb-1">
-            예상 참가자 수
+            예상 참가자 수 <span className="text-sm font-bold text-red-600" aria-hidden="true">*</span>
           </label>
           <select
             id="app-attendees"
@@ -160,7 +161,7 @@ const AdminApplicationForm = () => {
 
         <div>
           <label htmlFor="app-purpose" className="block text-xs font-semibold text-slate-700 mb-1">
-            행사 목적 (선택)
+            행사 목적
           </label>
           <textarea
             id="app-purpose"
@@ -177,33 +178,53 @@ const AdminApplicationForm = () => {
             {formError}
           </p>
         )}
-        {submitMessage && (
-          <p role="status" className="text-sm font-semibold text-brand-700">
-            {submitMessage}
-          </p>
-        )}
-
         <button
           type="submit"
           disabled={isSubmitting}
           className="w-full rounded-xl bg-brand-700 hover:bg-brand-800 active:scale-[0.98] disabled:opacity-60 text-white font-bold py-3 text-sm transition-all"
         >
-          {isSubmitting ? "접수 중..." : "사용 신청하기"}
+          {isSubmitting ? "신청 중..." : "신청하기"}
         </button>
-        <p className="text-center text-xs leading-5 text-slate-500">
-          신청 접수와 등록 완료 안내는 입력한 이메일로 발송됩니다. 스팸 보관함도 확인해 주세요. <br></br>
-          개인정보 처리에 관한 자세한 내용은{" "}
-          <Link
-            to="/privacy"
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-brand-700 underline-offset-2 hover:underline"
-          >
-            개인정보처리방침
-          </Link>
-          에서 확인할 수 있습니다.
+        <p className="-mt-4 text-center text-xs leading-5 text-slate-500">
+          <span className="block">신청 접수 및 승인 안내는 입력하신 이메일로 발송됩니다.</span>
+          <span className="block">신청을 제출하면 개인정보 수집 및 이용에 동의한 것으로 간주됩니다.</span>
+          <span className="block">
+            자세한 내용은{" "}
+            <Link
+              to="/privacy"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-brand-700 underline-offset-2 hover:underline"
+            >
+              개인정보처리방침
+            </Link>
+            에서 확인할 수 있습니다.
+          </span>
         </p>
       </form>
+      <Dialog
+        open={Boolean(submitMessage)}
+        onClose={() => setSubmitMessage("")}
+        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-soft"
+      >
+        <div className="space-y-5 text-center">
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold text-slate-900">신청이 접수되었습니다</h3>
+            <p role="status" className="text-sm leading-6 text-slate-600">
+              {submitMessage}
+              <br />
+              메일이 보이지 않으면 스팸 보관함을 확인하거나 devfactory.ops@gmail.com으로 문의해 주세요.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="w-full rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-800"
+            onClick={() => setSubmitMessage("")}
+          >
+            확인
+          </button>
+        </div>
+      </Dialog>
     </div>
   );
 };

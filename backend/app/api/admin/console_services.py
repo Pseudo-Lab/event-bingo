@@ -225,17 +225,62 @@ def _build_access_granted_email(name: str, console_url: str) -> EmailMessage:
     return message
 
 
-def send_admin_access_granted_email(
-    *,
-    recipient_email: str,
-    recipient_name: str,
-    console_url: str,
-) -> bool:
+def format_manager_request_email_date(value: datetime | None) -> str:
+    if value is None:
+        return "미입력"
+    return normalize_kst_datetime(value).strftime("%Y-%m-%d")
+
+
+def format_manager_request_attendee_count(value: int | None) -> str:
+    if value is None:
+        return "미입력"
+    attendee_range_labels = {
+        50: "50명 이하",
+        100: "51-100명",
+        200: "101-200명",
+        201: "201명 이상",
+    }
+    if value in attendee_range_labels:
+        return attendee_range_labels[value]
+    return f"{value}명"
+
+
+def _build_manager_request_received_email(
+    name: str,
+    event_name: str,
+    expected_event_date: datetime | None,
+    expected_attendee_count: int | None,
+) -> EmailMessage:
+    message = EmailMessage()
+    message["Subject"] = "[Event Bingo] 사용 신청이 접수되었습니다"
+    message["From"] = formataddr((ADMIN_SMTP_FROM_NAME, ADMIN_SMTP_FROM_EMAIL or "no-reply@example.com"))
+    if ADMIN_SMTP_REPLY_TO:
+        message["Reply-To"] = ADMIN_SMTP_REPLY_TO
+    message.set_content(
+        "\n".join(
+            [
+                f"{name}님, 안녕하세요.",
+                "",
+                "DevFactory 운영팀입니다.",
+                "Event Bingo 사용 신청이 접수되었습니다.",
+                "",
+                f"신청 행사명: {event_name}",
+                f"예상 행사 일자: {format_manager_request_email_date(expected_event_date)}",
+                f"예상 참가자 수: {format_manager_request_attendee_count(expected_attendee_count)}",
+                "",
+                "운영팀 검토 후 승인되면 입력하신 이메일로 관리자 접속 방법을 안내드립니다.",
+                "관리자 접속에는 신청 시 입력한 이메일과 동일한 Google 계정이 필요합니다.",
+                "",
+                f"문의가 있으면 {ADMIN_SMTP_REPLY_TO or ADMIN_SMTP_FROM_EMAIL}으로 회신해 주세요.",
+            ]
+        )
+    )
+    return message
+
+
+def _send_email_message(message: EmailMessage) -> bool:
     if not ADMIN_SMTP_HOST or not ADMIN_SMTP_FROM_EMAIL:
         return False
-
-    message = _build_access_granted_email(recipient_name, console_url)
-    message["To"] = recipient_email
 
     try:
         smtp_cls = smtplib.SMTP_SSL if ADMIN_SMTP_USE_SSL else smtplib.SMTP
@@ -247,8 +292,37 @@ def send_admin_access_granted_email(
             server.send_message(message)
         return True
     except Exception as error:  # pragma: no cover - external integration
-        print(f"Failed to send admin access granted email: {error}")
+        print(f"Failed to send email: {error}")
         return False
+
+
+def send_event_manager_request_received_email(
+    *,
+    recipient_email: str,
+    recipient_name: str,
+    event_name: str,
+    expected_event_date: datetime | None = None,
+    expected_attendee_count: int | None = None,
+) -> bool:
+    message = _build_manager_request_received_email(
+        recipient_name,
+        event_name,
+        expected_event_date,
+        expected_attendee_count,
+    )
+    message["To"] = recipient_email
+    return _send_email_message(message)
+
+
+def send_admin_access_granted_email(
+    *,
+    recipient_email: str,
+    recipient_name: str,
+    console_url: str,
+) -> bool:
+    message = _build_access_granted_email(recipient_name, console_url)
+    message["To"] = recipient_email
+    return _send_email_message(message)
 
 
 async def serialize_event_manager_request(
