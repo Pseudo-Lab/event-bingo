@@ -182,6 +182,19 @@
 - Revisit legal entity, tax invoice, privacy/legal review, processor list, support SLA, monitoring, incident process, and data retention enforcement.
 - Consider corporation only when commercial/legal pressure justifies it.
 
+## Email / Notification Operations Note
+- Current pilot path:
+- Use `devfactory.ops@gmail.com` as the unified support, operations, reply-to, and SMTP sender address.
+- Keep `From` and `Reply-To` separately configurable in application runtime settings so the sender can move to a verified domain later without code changes.
+- Avoid relying on a personal email address for public-facing operations.
+
+- Future external-pilot path:
+- For broader pilots or repeated external events, move transactional email to a verified-domain provider such as Resend, Brevo, SendGrid, or Amazon SES.
+- Domain-authenticated sending should include SPF, DKIM, DMARC, and return-path or bounce handling.
+- Resend was evaluated as a lightweight future option for transactional sending.
+- Resend inbound/receiving is not needed unless the service later needs a `support@...` mailbox, webhook-based inbound processing, or a dedicated support workflow.
+- Keep marketing/bulk email separate from transactional messages such as admin approval, login, and event-operation notices.
+
 ## General Research Backlog
 - Timing:
 - Keep this as a parked research topic until after service P0/P1 and admin/report flows have been exercised with real or realistic events.
