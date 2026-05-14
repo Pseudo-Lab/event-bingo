@@ -1,5 +1,4 @@
 import AdminApplicationForm from "./AdminApplicationForm";
-import { scrollToHashTarget } from "../utils/scrollToHashTarget";
 
 const HeroSection = () => (
   <section className="relative border-b border-slate-100 overflow-hidden">
@@ -25,14 +24,10 @@ const HeroSection = () => (
           운영자는 결과와 참여 현황을 한 화면에서 관리합니다.
         </p>
         <a
-          href="#events"
-          onClick={(event) => {
-            event.preventDefault();
-            scrollToHashTarget("#events");
-          }}
+          href="/experience"
           className="inline-flex items-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-700 active:scale-[0.97] text-white px-6 py-3 text-sm font-bold transition-all"
         >
-          이벤트 사례 보기 <span aria-hidden="true">&rarr;</span>
+          데모 체험하기 <span aria-hidden="true">&rarr;</span>
         </a>
       </div>
 

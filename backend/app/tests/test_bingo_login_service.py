@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from api.auth.services.bingo_login import RegisterBingoUser
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_register_bingo_user_allows_blank_name_for_google_bridge(
     monkeypatch: pytest.MonkeyPatch,
 ):

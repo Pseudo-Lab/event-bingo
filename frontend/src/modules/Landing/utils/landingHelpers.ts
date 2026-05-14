@@ -1,5 +1,3 @@
-import type { PublicLandingEvent } from "../../../api/public_event_api";
-
 /* ── Date Formatting ─────────────────────────────────────── */
 
 export const formatLandingDate = (value: string) => {
@@ -14,16 +12,14 @@ export const formatLandingDate = (value: string) => {
   }
 };
 
-export const formatPosterDate = (dateStr: string) => {
+export const formatEventCaseDate = (dateStr: string) => {
   const d = new Date(dateStr);
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   const dow = days[d.getDay()];
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${y}.${m}.${dd} (${dow}) ${hh}:${mm}`;
+  return `${y}.${m}.${dd} (${dow})`;
 };
 
 /* ── Poster Themes ───────────────────────────────────────── */
@@ -37,27 +33,43 @@ export const POSTER_THEMES = [
 
 export type PosterTheme = (typeof POSTER_THEMES)[number];
 
-/* ── Poster Meta (keyword-based fallback) ────────────────── */
+/* ── Fixed Event Cases ───────────────────────────────────── */
 
-export type PosterMeta = {
-  tagline: string;
+export type EventCase = {
+  id: string;
+  name: string;
+  startAt: string;
+  place: string;
   tags: string[];
-  desc: string;
 };
 
-export const generatePosterMeta = (event: PublicLandingEvent): PosterMeta => {
-  const n = event.name.toLowerCase();
-  if (n.includes("networking") || n.includes("네트워킹")) {
-    return { tagline: "연결로 시작하는 성장", tags: ["네트워킹", "컨퍼런스"], desc: "개발자와 함께 만드는 연결의 하루" };
-  }
-  if (n.includes("community") || n.includes("커뮤니티") || n.includes("meetup") || n.includes("밋업")) {
-    return { tagline: "함께 성장하는 커뮤니티", tags: ["커뮤니티", "밋업"], desc: "함께 성장하는 개발자 커뮤니티" };
-  }
-  if (n.includes("tech") || n.includes("talk") || n.includes("토크") || n.includes("세미나")) {
-    return { tagline: "기술로 연결되는 우리", tags: ["토크", "세미나"], desc: "기술과 사람을 잇는 토크 세션" };
-  }
-  if (n.includes("ai") || n.includes("data") || n.includes("데이터")) {
-    return { tagline: "데이터와 AI의 미래", tags: ["AI", "데이터"], desc: "AI와 데이터 분야의 네트워킹" };
-  }
-  return { tagline: "빙고로 시작하는 만남", tags: ["네트워킹", "빙고"], desc: `${event.boardSize}x${event.boardSize} 빙고로 만드는 새로운 연결` };
-};
+export const EVENT_CASES: EventCase[] = [
+  {
+    id: "3rd-product-dna-open-forum",
+    name: "2025 Product DNA Open Forum",
+    startAt: "2025-10-25T00:00:00+09:00",
+    place: "한빛미디어 리더스홀",
+    tags: ["인과추론", "프로덕트 분석", "데이터 분석가"],
+  },
+  {
+    id: "korea-business-experimentation-symposium-2025",
+    name: "Korea Business Experimentation Symposium 2025",
+    startAt: "2025-07-12T00:00:00+09:00",
+    place: "고려대학교 LG-POSCO 경영관",
+    tags: ["비즈니스 실험", "데이터 분석", "연구자"],
+  },
+  {
+    id: "10th-pseudocon",
+    name: "PseudoCon 2025",
+    startAt: "2025-05-17T00:00:00+09:00",
+    place: "서울창업허브 공덕 10층",
+    tags: ["AI/DS", "오픈소스", "개발자"],
+  },
+  {
+    id: "8th-pseudocon",
+    name: "8th PseudoCon",
+    startAt: "2024-06-15T00:00:00+09:00",
+    place: "마이크로소프트 광화문 본사 13층",
+    tags: ["AI 엔지니어", "연구개발자", "GenAI"],
+  },
+];

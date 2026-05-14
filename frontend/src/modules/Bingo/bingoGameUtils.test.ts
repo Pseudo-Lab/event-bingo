@@ -8,9 +8,11 @@ import {
   buildIncomingKeywordAlert,
   buildPreviewBoard,
   buildExchangeHistory,
+  getPendingKeywordsForBoard,
   getBingoMissionProgressPercent,
   getCompletedLines,
   getLatestIncomingBatch,
+  mergeInteractionRecords,
 } from "./bingoGameUtils";
 
 describe("getLatestIncomingBatch", () => {
@@ -136,6 +138,21 @@ describe("buildIncomingKeywordAlert", () => {
   });
 });
 
+describe("getPendingKeywordsForBoard", () => {
+  const board: BingoCell[] = [
+    { id: 0, value: "AI", selected: 1, status: 1 },
+    { id: 1, value: "ML", selected: 1, status: 0 },
+    { id: 2, value: "Design", selected: 0, status: 0 },
+    { id: 3, value: "Infra", selected: 0, status: 1 },
+  ];
+
+  it("returns only unique incoming keywords that can still update the board", () => {
+    expect(
+      getPendingKeywordsForBoard(board, ["AI", "ML", "ML", "Infra", "Unknown"])
+    ).toEqual(["ML"]);
+  });
+});
+
 describe("getCompletedLines", () => {
   it("returns completed rows, columns, and diagonals", () => {
     const board: BingoCell[] = Array.from({ length: 9 }, (_, index) => ({
@@ -149,6 +166,68 @@ describe("getCompletedLines", () => {
       { type: "diagonal", index: 1 },
       { type: "diagonal", index: 2 },
     ]);
+  });
+});
+
+describe("mergeInteractionRecords", () => {
+  it("deduplicates polling deltas by interaction id and keeps latest records first", () => {
+    const currentRecords: InteractionRecord[] = [
+      {
+        interaction_id: 10,
+        send_user_id: 1,
+        receive_user_id: 2,
+        send_user_name: "나",
+        receive_user_name: "상대 A",
+        created_at: "2026-03-19T10:00:00.000Z",
+        word_id_list: "[\"AI\"]",
+      },
+      {
+        interaction_id: 11,
+        send_user_id: 3,
+        receive_user_id: 1,
+        send_user_name: "상대 B",
+        receive_user_name: "나",
+        created_at: "2026-03-19T10:01:00.000Z",
+        word_id_list: "[\"ML\"]",
+      },
+    ];
+    const incomingRecords: InteractionRecord[] = [
+      {
+        interaction_id: 11,
+        send_user_id: 3,
+        receive_user_id: 1,
+        send_user_name: "상대 B",
+        receive_user_name: "나",
+        created_at: "2026-03-19T10:01:00.000Z",
+        word_id_list: "[\"ML\"]",
+      },
+      {
+        interaction_id: 12,
+        send_user_id: 1,
+        receive_user_id: 4,
+        send_user_name: "나",
+        receive_user_name: "상대 C",
+        created_at: "2026-03-19T10:02:00.000Z",
+        word_id_list: "[\"Infra\"]",
+      },
+    ];
+
+    const result = mergeInteractionRecords(currentRecords, incomingRecords);
+
+    expect(result.map((record) => record.interaction_id)).toEqual([12, 11, 10]);
+  });
+
+  it("deduplicates records without ids by sender, receiver, timestamp, and keywords", () => {
+    const record: InteractionRecord = {
+      send_user_id: 5,
+      receive_user_id: 1,
+      send_user_name: "상대 D",
+      receive_user_name: "나",
+      created_at: "2026-03-19T10:03:00.000Z",
+      word_id_list: ["Design"],
+    };
+
+    expect(mergeInteractionRecords([record], [{ ...record }])).toHaveLength(1);
   });
 });
 
