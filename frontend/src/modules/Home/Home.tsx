@@ -33,6 +33,7 @@ import { isTestModeEnabled, syncTestModeFromUrl } from "../../utils/testMode";
 import bingoLoginCharacterIllustration from "../../assets/illustrations/bingo-login-character.svg";
 import topIllustration from "../../assets/illustrations/top.svg";
 import { Dialog } from "../../components/ui/dialog";
+import PublicFooter from "../../components/PublicFooter";
 import ConsentDialog from "./ConsentDialog";
 import {
   HOME_EVENT_DISPLAY_FALLBACKS,
@@ -780,38 +781,7 @@ const Home = () => {
         </section>
       </main>
 
-      <footer className="login-footer">
-        <div className="login-footer__inner">
-          <div className="login-footer__brand">
-            <p>DevFactory</p>
-            <span>커뮤니티와 행사를 연결하는 네트워킹 플랫폼</span>
-            <small>© 2023 DevFactory. All rights reserved.</small>
-          </div>
-
-          <div className="login-footer__navs">
-            <nav className="login-footer__links" aria-label="서비스">
-              <p>서비스</p>
-              <a href="/#events">이벤트 사례</a>
-              <a href="/#apply">관리자 신청</a>
-            </nav>
-
-            <nav className="login-footer__links" aria-label="정책">
-              <p>정책</p>
-              <Link to="/terms" target="_blank" rel="noreferrer">
-                이용약관
-              </Link>
-              <Link to="/privacy" target="_blank" rel="noreferrer">
-                개인정보처리방침
-              </Link>
-            </nav>
-
-            <div className="login-footer__links">
-              <p>문의</p>
-              <a href="mailto:soohyun.dev@gmail.com">soohyun.dev@gmail.com</a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
 
       <Dialog
         open={policyDialogOpen}
