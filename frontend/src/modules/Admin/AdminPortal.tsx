@@ -2675,13 +2675,25 @@ const AdminConsolePage = ({
                             </div>
                           </div>
 
-                          <div className="min-w-0 rounded-2xl bg-[#f7fbf2] px-4 py-3">
-                            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-                              행사 목적
-                            </p>
-                            <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-slate-600">
-                              {requestItem.eventPurpose}
-                            </p>
+                          <div className="min-w-0 space-y-3 rounded-2xl bg-[#f7fbf2] px-4 py-3">
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                                행사 목적
+                              </p>
+                              <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-slate-600">
+                                {requestItem.eventPurpose}
+                              </p>
+                            </div>
+                            {requestItem.notes ? (
+                              <div className="border-t border-lime-100 pt-3">
+                                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                                  요청 메모
+                                </p>
+                                <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-slate-600">
+                                  {requestItem.notes}
+                                </p>
+                              </div>
+                            ) : null}
                           </div>
 
                           <div className="text-sm font-semibold text-slate-500">
@@ -2704,6 +2716,11 @@ const AdminConsolePage = ({
                                 {requestItem.reviewedAt
                                   ? ` · ${formatAdminDate(requestItem.reviewedAt)}`
                                   : ""}
+                              </p>
+                            ) : null}
+                            {requestItem.reviewNote ? (
+                              <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">
+                                검토 메모: {requestItem.reviewNote}
                               </p>
                             ) : null}
                           </div>
