@@ -66,7 +66,7 @@ test("sends keywords from an existing bingo session", async ({ page }) => {
   await page.getByRole("button", { name: "보내기" }).click();
 
   await expect(page.locator(".bingo-toast__title")).toHaveText("키워드를 전송했어요");
-  await expect(page.getByText('"상대방"님에게 새로운 키워드를 전송했어요.')).toBeVisible();
+  await expect(page.getByText('"상대방"님에게 내 키워드를 전송했어요.')).toBeVisible();
   await expect(page.locator(".history-panel").first()).toContainText("상대방");
   await expect(page.getByLabel("상대방 이름 검색")).toHaveValue("");
 });
@@ -183,6 +183,7 @@ test("shows an error and allows retrying the exchange", async ({ page }) => {
           receiveUserId: 9,
           sendUserName: session.userName,
           receiveUserName: "상대방",
+          wordIdList: JSON.stringify(selectedValues),
           updatedWords: ["키워드 1", "키워드 2"],
         })
       ),
@@ -199,8 +200,9 @@ test("shows an error and allows retrying the exchange", async ({ page }) => {
 
   await page.getByRole("button", { name: "보내기" }).click();
 
-  await expect(page.locator(".bingo-toast__title")).toHaveText("새 키워드만 전송했어요");
-  await expect(page.getByText('"상대방"님이 이미 가진 키워드는 제외하고 새로운 키워드만 전송했어요.')).toBeVisible();
+  await expect(page.locator(".bingo-toast__title")).toHaveText("키워드를 전송했어요");
+  await expect(page.getByText('"상대방"님에게 내 키워드를 전송했어요.')).toBeVisible();
+  await expect(page.locator(".bingo-toast__keywords")).toContainText("키워드 3");
   await expect(page.locator(".history-panel").first()).toContainText("상대방");
   await expect(page.getByLabel("상대방 이름 검색")).toHaveValue("");
   expect(requestCount).toBe(2);

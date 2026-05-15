@@ -114,12 +114,13 @@ describe("buildIncomingKeywordAlert", () => {
     signature: "12:2026-03-19T10:00:01.000Z:AI|ML",
   };
 
-  it("returns an info alert when the receiver already has every keyword", () => {
+  it("returns all sent keywords when the receiver already has every keyword", () => {
     expect(buildIncomingKeywordAlert(incomingBatch, [])).toEqual({
-      message: "\"민지\"님이 보낸 키워드는 이미 모두 가지고 있어요.",
-      severity: "info",
+      message: "\"민지\"님이 키워드를 보내줬어요. 새로 추가된 키워드는 없어요.",
+      severity: "success",
       payload: {
-        title: "이미 키워드가 다 있어요",
+        title: "키워드를 받았어요",
+        keywords: ["AI", "ML"],
         label: "KEYWORD EXCHANGE",
       },
     });
@@ -131,6 +132,18 @@ describe("buildIncomingKeywordAlert", () => {
       severity: "success",
       payload: {
         title: "새 키워드를 받았어요",
+        keywords: ["AI", "ML"],
+        label: "KEYWORD EXCHANGE",
+      },
+    });
+  });
+
+  it("keeps all sent keywords visible when only new keywords update the board", () => {
+    expect(buildIncomingKeywordAlert(incomingBatch, ["AI"])).toEqual({
+      message: "\"민지\"님이 키워드를 보내줬어요. 받은 키워드를 보드에 반영했어요.",
+      severity: "success",
+      payload: {
+        title: "키워드를 받았어요",
         keywords: ["AI", "ML"],
         label: "KEYWORD EXCHANGE",
       },
