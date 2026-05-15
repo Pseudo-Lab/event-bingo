@@ -53,6 +53,7 @@ Last-Validated: 2026-03-22
 - what changed
 - how it was verified
 - next impact or follow-up if any
+- PR title and body must be written in Korean unless the reviewer explicitly requests another language.
 
 ## Domain Ownership And Merge Policy
 - BE domain: `backend/**`
@@ -113,4 +114,3 @@ Last-Validated: 2026-03-22
 - Product Owner defines scope, acceptance criteria, sequencing, and major risk mitigations.
 - Backend and Frontend implement in parallel when possible.
 - QA validates service-page scenarios first, then admin scenarios.
-
