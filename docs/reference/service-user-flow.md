@@ -40,6 +40,12 @@
 - Keep exchange events traceable with sender, receiver, event_id, timestamp.
 - Ensure board update and exchange history are consistent to prevent desync.
 
+## Development Test Mode
+- `?testMode=1` is a frontend-only helper for development and private preview checks.
+- Test mode may bypass event time locks and expose bingo board preview controls.
+- Production builds should ignore public URL test-mode activation unless an explicit non-production environment flag allows it.
+- Recommended follow-up: gate public query activation behind an environment flag such as `VITE_ALLOW_PUBLIC_TEST_MODE=true`, keep the production default false, and continue to keep backend admin test APIs behind admin authentication.
+
 ## Language And Sync Rule
 - English file is source-of-truth for implementation.
 - Keep Korean mirror `docs/reference/service-user-flow.ko.md` in sync on every update.
