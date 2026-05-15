@@ -487,14 +487,6 @@ export function BingoCelebrationDialog({
           >
             계속 진행하기
           </button>
-          <a
-            className="bingo-celebration__button bingo-celebration__button--secondary"
-            href="https://github.com/Pseudo-Lab/devfactory"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Devfactory Repo 보기
-          </a>
         </div>
       </div>
     </Dialog>
