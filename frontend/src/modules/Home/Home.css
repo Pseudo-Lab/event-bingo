@@ -293,6 +293,12 @@
   font-weight: 700;
   line-height: 1.5;
   text-align: center;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.login-required-checks__hint[data-visible="true"] {
+  opacity: 1;
 }
 
 .login-policy {

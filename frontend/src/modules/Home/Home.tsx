@@ -650,11 +650,13 @@ const Home = () => {
               onSuccess={handleGoogleBingoLogin}
               text="continue_with"
             />
-            {!canStartGoogleLogin ? (
-              <p className="login-required-checks__hint">
-                필수 항목을 확인한 뒤 Google 로그인을 진행할 수 있습니다.
-              </p>
-            ) : null}
+            <p
+              className="login-required-checks__hint"
+              data-visible={!canStartGoogleLogin}
+              aria-hidden={canStartGoogleLogin}
+            >
+              필수 항목을 확인한 뒤 Google 로그인을 진행할 수 있습니다.
+            </p>
           </div>
         </div>
       </div>
