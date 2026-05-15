@@ -14,7 +14,7 @@ const buildEventProfile = (overrides: Partial<EventProfile> = {}): EventProfile 
   startAt: "2026-10-09T13:30:00+09:00",
   endAt: "2026-10-09T16:30:00+09:00",
   place: "성수 이벤트홀",
-  eventTeam: "PseudoLab",
+  eventTeam: "행사 운영팀",
   boardSize: 5,
   exchangeKeywordCount: 3,
   bingoMissionCount: 3,
@@ -38,7 +38,7 @@ describe("resolveHomeEventSummary", () => {
     const display = resolveHomeEventSummary(buildEventProfile(), true);
 
     expect(display.eventName).toBe("DevFactory Summit 2026");
-    expect(display.eventTeam).toBe("PseudoLab");
+    expect(display.eventTeam).toBe("행사 운영팀");
     expect(display.date).toBe("2026년 10월 9일 13:30");
     expect(display.place).toBe("성수 이벤트홀");
   });

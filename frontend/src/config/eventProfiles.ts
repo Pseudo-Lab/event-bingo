@@ -29,11 +29,11 @@ const STORAGE_KEY = "event-bingo.event-profiles.v1";
 const DEFAULT_EVENT_PROFILE: EventProfile = {
   slug: "bingo-networking",
   title: "빙고 네트워킹",
-  subTitle: "가짜연구소 2026\nBingo Networking Day",
+  subTitle: "Bingo Networking Day",
   startAt: "2026-05-17T15:00:00+09:00",
   endAt: "2026-05-17T18:00:00+09:00",
   place: "서울 컨벤션 센터",
-  eventTeam: "PseudoLab",
+  eventTeam: "행사 운영팀",
   boardSize: DEFAULT_BOARD_SIZE as BoardSize,
   exchangeKeywordCount: DEFAULT_EXCHANGE_KEYWORD_COUNT,
   bingoMissionCount: DEFAULT_BINGO_MISSION_COUNT,

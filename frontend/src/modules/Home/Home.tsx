@@ -32,7 +32,6 @@ import { isTestModeEnabled, syncTestModeFromUrl } from "../../utils/testMode";
 import bingoLoginCharacterIllustration from "../../assets/illustrations/bingo-login-character.svg";
 import topIllustration from "../../assets/illustrations/top.svg";
 import { Dialog } from "../../components/ui/dialog";
-import PublicFooter from "../../components/PublicFooter";
 import ConsentDialog from "./ConsentDialog";
 import {
   HOME_EVENT_DISPLAY_FALLBACKS,
@@ -40,8 +39,6 @@ import {
 } from "./homeDisplay";
 import PublicEventStatePage from "../../components/PublicEventStatePage";
 import "./Home.css";
-
-const PSEUDOLAB_URL = "https://pseudo-lab.com/";
 
 const normalizeTesterCode = (value: string | undefined | null) => {
   return value?.trim().toUpperCase().replace(/\s/g, "") ?? "";
@@ -614,7 +611,7 @@ const Home = () => {
                   onChange={(event) => setTermsAccepted(event.target.checked)}
                 />
                 <span>
-                  [필수]{" "}
+                  <span className="login-required-check__prefix">[필수]</span>{" "}
                   <Link to="/terms" target="_blank" rel="noreferrer">
                     서비스 이용약관
                   </Link>
@@ -630,19 +627,19 @@ const Home = () => {
                   }
                 />
                 <span>
-                  [필수]{" "}
+                  <span className="login-required-check__prefix">[필수]</span>{" "}
+                  <Link to="/privacy" target="_blank" rel="noreferrer">
+                    개인정보처리방침
+                  </Link>{" "}
+                  및{" "}
                   <button
                     type="button"
                     className="login-required-check__link"
                     onClick={() => setPolicyDialogOpen(true)}
                   >
-                    행사 참가자 개인정보 처리 안내
-                  </button>{" "}
-                  및{" "}
-                  <Link to="/privacy" target="_blank" rel="noreferrer">
-                    플랫폼 개인정보처리방침
-                  </Link>
-                  을 확인했습니다
+                    행사별 개인정보 안내
+                  </button>
+                  를 확인했습니다
                 </span>
               </label>
             </div>
@@ -694,16 +691,6 @@ const Home = () => {
       <div className="login-page__mesh" aria-hidden="true" />
       <main className="login-shell">
         <header className="login-hero">
-          <div className="login-hero__topbar">
-            <a
-              className="login-hero__brand-link"
-              href={PSEUDOLAB_URL}
-              target="_blank"
-              rel="noreferrer"
-            >
-              PseudoLab
-            </a>
-          </div>
           <img
             className="login-hero__image"
             src={topIllustration}
@@ -805,8 +792,6 @@ const Home = () => {
         </section>
       </main>
 
-      <PublicFooter />
-
       <Dialog
         open={policyDialogOpen}
         onClose={() => setPolicyDialogOpen(false)}
@@ -816,7 +801,6 @@ const Home = () => {
           <ConsentDialog
             eventSlug={eventSlug ?? eventProfile.slug}
             eventName={eventSummary.eventName}
-            eventTeam={eventSummary.eventTeam}
             onClose={() => setPolicyDialogOpen(false)}
           />
         ) : null}

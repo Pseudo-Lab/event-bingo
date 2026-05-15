@@ -535,10 +535,6 @@
   width: 100%;
 }
 
-.bingo-game-header__pseudolab {
-  display: none;
-}
-
 .bingo-game-header__brand {
   display: inline-flex;
   align-items: center;
@@ -555,8 +551,7 @@
   height: auto;
 }
 
-.bingo-game-header__brand:focus-visible,
-.bingo-game-header__pseudolab:focus-visible {
+.bingo-game-header__brand:focus-visible {
   outline: 3px solid rgba(255, 255, 255, 0.4);
   outline-offset: 4px;
 }
@@ -782,20 +777,7 @@
 
 @media (min-width: 961px) {
   .bingo-game-header {
-    justify-content: space-between;
-  }
-
-  .bingo-game-header__pseudolab {
-    display: inline-flex;
-    align-items: center;
-    color: #f5fff9;
-    font-size: 1.2rem;
-    font-weight: 900;
-    letter-spacing: -0.04em;
-    text-decoration: none;
-    text-shadow:
-      0 2px 0 rgba(15, 88, 69, 0.2),
-      0 16px 28px rgba(15, 88, 69, 0.14);
+    justify-content: flex-end;
   }
 
   .bingo-game-header__brand {

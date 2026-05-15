@@ -56,18 +56,13 @@ test("landing page keeps the experience and admin entry points prominent", async
     page.getByText("신청 접수 및 승인 안내는 입력하신 이메일로 발송됩니다.", { exact: false })
   ).toBeVisible();
   await expect(
-    page.getByText("Google 로그인 시 이름, 이메일, Google 계정 식별자가", {
-      exact: false,
-    })
-  ).toBeVisible();
-  await expect(
     page.getByText("신청을 제출하면 개인정보 수집 및 이용에 동의한 것으로 간주됩니다.", { exact: false })
   ).toBeVisible();
   await expect(page.getByRole("link", { name: /데모 체험하기/ }).first()).toBeVisible();
   await expect(page.getByText("2025 Product DNA Open Forum").first()).toBeVisible();
   await expect(page.getByText("Korea Business Experimentation Symposium 2025").first()).toBeVisible();
-  await expect(page.getByText("PseudoCon 2025").first()).toBeVisible();
-  await expect(page.getByText("8th PseudoCon").first()).toBeVisible();
+  await expect(page.getByText("Networking Lab 2025").first()).toBeVisible();
+  await expect(page.getByText("Data Networking Day 2024").first()).toBeVisible();
 
   await page.getByLabel("이름").fill("홍길동");
   await page.getByLabel("Google 로그인에 사용할 이메일").fill("organizer@example.com");

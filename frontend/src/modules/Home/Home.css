@@ -34,34 +34,6 @@
   text-align: center;
 }
 
-.login-hero__topbar {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-}
-
-.login-hero__brand-link {
-  display: inline-flex;
-  align-items: center;
-  color: #f5fff9;
-  font-size: 1.2rem;
-  font-weight: 900;
-  letter-spacing: -0.04em;
-  text-decoration: none;
-  text-shadow:
-    0 2px 0 rgba(15, 88, 69, 0.2),
-    0 16px 28px rgba(15, 88, 69, 0.14);
-}
-
-.login-hero__brand-link:hover {
-  color: #f5fff9;
-}
-
-.login-hero__brand-link:focus-visible {
-  outline: 3px solid rgba(255, 255, 255, 0.4);
-  outline-offset: 4px;
-}
-
 .login-hero__image {
   display: block;
   width: min(100%, 20.375rem);
@@ -215,12 +187,6 @@
   }
 }
 
-@media (min-width: 961px) {
-  .login-hero__topbar {
-    justify-content: center;
-  }
-}
-
 .login-event-card__art {
   display: flex;
   align-items: flex-end;
@@ -298,6 +264,13 @@
   height: 1rem;
   margin-top: 0.18rem;
   accent-color: #2f9d7b;
+}
+
+.login-required-check__prefix,
+.login-required-check a,
+.login-required-check__link {
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .login-required-check a,
@@ -819,10 +792,6 @@
   .login-shell {
     width: min(100%, 22rem);
     padding-top: 1rem;
-  }
-
-  .login-hero__brand-link {
-    font-size: 1rem;
   }
 
   .login-hero__image {

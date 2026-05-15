@@ -126,7 +126,7 @@ async def create_event_manager_request(
 async def get_public_policy_template():
     return PublicPolicyTemplateResponse(
         ok=True,
-        message="공개 플랫폼 개인정보처리방침을 불러왔습니다.",
+        message="공개 개인정보처리방침을 불러왔습니다.",
         template=PublicPolicyTemplateItem(
             content=PolicyTemplate.render_platform_policy_content(DEFAULT_PLATFORM_POLICY_TEMPLATE),
             updated_at=PLATFORM_PRIVACY_POLICY_UPDATED_AT,

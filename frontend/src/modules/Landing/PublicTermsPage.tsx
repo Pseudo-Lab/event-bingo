@@ -6,7 +6,7 @@ const TERMS_SECTIONS = [
   {
     title: "운영 주체와 약관의 목적",
     body:
-      "DevFactory 서비스 운영팀은 가짜연구소에서 시작된 사이드프로젝트 팀으로, Bingo Networking 서비스를 운영합니다. 본 약관은 행사 참가자와 관리자 신청자, 행사 운영자가 서비스를 이용할 때 필요한 기본 조건과 책임 범위를 안내합니다.",
+      "DevFactory 서비스 운영팀은 Bingo Networking 서비스를 운영합니다. 본 약관은 행사 참가자와 관리자 신청자, 행사 운영자가 서비스를 이용할 때 필요한 기본 조건과 책임 범위를 안내합니다.",
   },
   {
     title: "서비스의 역할",
@@ -26,7 +26,7 @@ const TERMS_SECTIONS = [
   {
     title: "콘텐츠 및 데이터 처리",
     body:
-      "행사명, 참가자 표시 이름, 이름, 이메일 주소, 로그인 ID, Google/Supabase 식별자, 빙고 키워드, 빙고 보드, 진행률, 키워드 교환 기록, 진행 결과, 후기와 평점, 관리자 이름, 관리자 이메일, 권한, 세션 정보 같은 데이터는 행사 운영과 서비스 제공을 위해 처리될 수 있습니다. 관리자 도구에서는 행사 운영과 리포트 제공을 위해 참가자 이름, 이메일, 후기, 선택 키워드, 상호작용 기록 등이 CSV로 내보내질 수 있습니다. 개인정보 처리 기준은 플랫폼 개인정보처리방침과 행사별 참가자 개인정보 처리 안내를 따릅니다.",
+      "행사명, 참가자 표시 이름, 이름, 이메일 주소, 로그인 ID, Google/Supabase 식별자, 빙고 키워드, 빙고 보드, 진행률, 키워드 교환 기록, 진행 결과, 후기와 평점, 관리자 이름, 관리자 이메일, 권한, 세션 정보 같은 데이터는 행사 운영과 서비스 제공을 위해 처리될 수 있습니다. 관리자 도구에서는 행사 운영과 리포트 제공을 위해 참가자 이름, 이메일, 후기, 선택 키워드, 상호작용 기록 등이 CSV로 내보내질 수 있습니다. 개인정보 처리 기준은 Bingo Networking 개인정보처리방침과 행사별 참가자 개인정보 처리 안내를 따릅니다.",
   },
   {
     title: "서비스 변경 및 접근 제한",
@@ -55,11 +55,6 @@ const PublicTermsPage = () => {
       description="Bingo Networking 서비스 이용 기준과 사용자 책임을 안내합니다."
     >
       <div className="space-y-4">
-        <div className="rounded-[1.5rem] border border-brand-100 bg-brand-50 px-5 py-4 text-sm leading-7 text-brand-900">
-          DevFactory는 정식 회사가 아닌 사이드프로젝트 팀으로 시작했으며, 현재는 실제
-          행사에서 사용할 수 있는 네트워킹 서비스를 운영하고 있습니다.
-        </div>
-
         {TERMS_SECTIONS.map((section, index) => (
           <article
             key={section.title}
