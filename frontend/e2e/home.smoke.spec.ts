@@ -8,6 +8,11 @@ test("public legal pages render readable policy text", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "1. 개인정보 처리 주체 및 적용 범위" })
   ).toBeVisible();
+  await expect(
+    page.getByText("서비스 운영팀은 Google 사용자 데이터를 광고, 판매, 신용평가", {
+      exact: false,
+    })
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: /1\. 1\./ })).toHaveCount(0);
   await expect(page.getByText("계정 생성·수정 시각")).toBeVisible();
   await expect(page.getByText("최근 접속 시각")).toHaveCount(0);
@@ -26,10 +31,46 @@ test("event home renders and opens the privacy notice dialog", async ({ page }) 
   await page.goto("/event/bingo-networking");
 
   await expect(page.getByRole("heading", { name: "Bingo Networking Event" })).toBeVisible();
-  await expect(page.getByText("로그인 전 확인")).toBeVisible();
-  await expect(page.getByRole("button", { name: "행사 참가자 안내" })).toBeVisible();
+  const loginForm = page.getByLabel("login form");
 
-  await page.getByRole("button", { name: "행사 참가자 안내" }).click();
+  await expect(loginForm.getByText("로그인 전 확인")).toBeVisible();
+  await expect(
+    loginForm.getByText("Google로 계속하면 Google 계정의 이름, 이메일 주소", {
+      exact: false,
+    })
+  ).toBeVisible();
+  const termsCheckbox = page.getByRole("checkbox", {
+    name: /서비스 이용약관에 동의합니다/,
+  });
+  const privacyCheckbox = page.getByRole("checkbox", {
+    name: /행사 참가자 개인정보 처리 안내 및 플랫폼 개인정보처리방침을 확인했습니다/,
+  });
+  const googleButtonHost = page
+    .locator(".login-google-panel__button-slot [aria-disabled]")
+    .first();
+
+  await expect(termsCheckbox).not.toBeChecked();
+  await expect(privacyCheckbox).not.toBeChecked();
+  await expect(googleButtonHost).toHaveAttribute("aria-disabled", "true");
+
+  await termsCheckbox.check();
+  await expect(googleButtonHost).toHaveAttribute("aria-disabled", "true");
+
+  await privacyCheckbox.check();
+  await expect(googleButtonHost).toHaveAttribute("aria-disabled", "false");
+  await expect(page.getByRole("link", { name: "서비스 이용약관" })).toHaveAttribute(
+    "href",
+    "/terms"
+  );
+  await expect(
+    page.getByRole("link", { name: "행사 참가자 개인정보 처리 안내" })
+  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "플랫폼 개인정보처리방침" })).toHaveAttribute(
+    "href",
+    "/privacy"
+  );
+
+  await page.getByRole("button", { name: "행사 참가자 개인정보 처리 안내" }).click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: "행사 참가자 개인정보 처리 안내" })).toBeVisible();
