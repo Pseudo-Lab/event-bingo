@@ -69,8 +69,6 @@ import {
 } from "./bingoSessionState";
 import "./BingoGame.css";
 
-const PSEUDOLAB_URL = "https://pseudo-lab.com/";
-
 const resolveParticipantEmail = (authSession: ReturnType<typeof getAuthSession>) => {
   const userEmail = normalizeAuthEmail(authSession?.userEmail);
   if (userEmail) {
@@ -1233,14 +1231,6 @@ const BingoGame = () => {
 
       <main className="bingo-game-shell">
         <header className="bingo-game-header">
-          <a
-            className="bingo-game-header__pseudolab"
-            href={PSEUDOLAB_URL}
-            target="_blank"
-            rel="noreferrer"
-          >
-            PseudoLab
-          </a>
           <button
             type="button"
             className="bingo-game-header__brand"

@@ -8,14 +8,12 @@ import { parseConsentTemplate, type ParsedConsentContent } from "../../utils/con
 type ConsentDialogProps = {
   eventSlug: string;
   eventName: string;
-  eventTeam: string;
   onClose: () => void;
 };
 
 const ConsentDialog: React.FC<ConsentDialogProps> = ({
   eventSlug,
   eventName,
-  eventTeam,
   onClose,
 }) => {
   const [content, setContent] = useState<ParsedConsentContent | null>(null);
@@ -48,8 +46,9 @@ const ConsentDialog: React.FC<ConsentDialogProps> = ({
         <p className="consent-sheet__label">개인정보 안내</p>
         <h2>{content?.title ?? "행사 참가자 개인정보 처리 안내"}</h2>
         <p className="consent-sheet__summary">
-          {eventName} 참가 흐름에서 어떤 정보를 어떤 목적으로 처리하는지 확인할 수 있습니다.
-          {eventTeam} 행사 운영 안내와 문의 맥락에서 제공되며, DevFactory 플랫폼
+          {eventName} 참가 흐름에서 어떤 정보를 어떤 목적으로 처리하는지 확인할 수
+          있습니다.{" "}
+          행사 운영 안내와 문의 맥락에서 제공되며, Bingo Networking 개인정보
           처리방침은 별도로 확인할 수 있습니다.
         </p>
       </div>
@@ -125,11 +124,11 @@ const ConsentDialog: React.FC<ConsentDialogProps> = ({
       </div>
 
       <div className="consent-sheet__footer">
-        <p className="consent-sheet__footer-copy">
-          {loadError
-            ? "새로고침 후 다시 시도하거나 전체 페이지에서 안내를 확인해 주세요."
-            : "이 안내는 로그인 후에도 다시 확인할 수 있습니다. 행사 운영에 필수적이지 않은 추가 활용이나 제3자 제공이 필요한 경우에는 별도 안내가 필요합니다."}
-        </p>
+        {loadError ? (
+          <p className="consent-sheet__footer-copy">
+            새로고침 후 다시 시도하거나 전체 페이지에서 안내를 확인해 주세요.
+          </p>
+        ) : null}
         {!loadError ? (
           <p className="consent-sheet__footer-links">
             <Link
@@ -137,11 +136,7 @@ const ConsentDialog: React.FC<ConsentDialogProps> = ({
               target="_blank"
               rel="noreferrer"
             >
-              행사 안내 전체 페이지
-            </Link>
-            <span aria-hidden="true">·</span>
-            <Link to="/privacy" target="_blank" rel="noreferrer">
-              플랫폼 처리방침
+              전체 안내 보기
             </Link>
           </p>
         ) : null}

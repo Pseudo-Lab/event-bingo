@@ -30,9 +30,9 @@ export const mockPrivacyTemplate = async (page: Page) => {
   await page.route("**/api/events/privacy-template", async (route) => {
     await fulfillJson(route, {
       ok: true,
-      message: "공개 플랫폼 개인정보처리방침을 불러왔습니다.",
+      message: "공개 개인정보처리방침을 불러왔습니다.",
       template: {
-        content: "# DevFactory 플랫폼 개인정보처리방침\n\n**가짜연구소 DevFactory** 플랫폼 방침입니다.",
+        content: "# Bingo Networking 개인정보처리방침\n\n**DevFactory 서비스 운영팀** 서비스 방침입니다.",
         updated_at: "2026-03-21T00:00:00+09:00",
       },
     });
@@ -46,10 +46,10 @@ export const mockPrivacyTemplate = async (page: Page) => {
       template: {
         event_slug: slug,
         event_name: "Bingo Networking Event",
-        event_team: "PseudoLab",
+      event_team: "행사 운영팀",
         contact_email: "event-team@example.com",
         content:
-          "# 행사 참가자 개인정보 처리 안내\n\n**PseudoLab** 행사 참가자 안내입니다.\n\n■ 1. 문의처\n- event-team@example.com\n\n1. 개인정보 문의",
+          "# 행사 참가자 개인정보 처리 안내\n\n**행사 운영팀** 행사 참가자 안내입니다.\n\n■ 1. 문의처\n- event-team@example.com\n\n1. 개인정보 문의",
         updated_at: "2026-03-21T00:00:00+09:00",
       },
     });
@@ -76,7 +76,7 @@ export const mockPublicEventProfile = async (
         slug: eventSlug,
         name: "Bingo Networking Event",
         location: "서울 컨벤션 센터",
-        event_team: "PseudoLab",
+      event_team: "행사 운영팀",
         start_at: startAt,
         end_at: endAt,
         board_size: 5,

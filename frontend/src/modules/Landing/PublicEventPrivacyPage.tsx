@@ -109,7 +109,7 @@ const PublicEventPrivacyPage = () => {
       />
 
       <main className="relative mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
-        <header className="flex flex-col gap-4 rounded-[2rem] border border-white/60 bg-white/70 px-7 py-6 shadow-soft backdrop-blur sm:flex-row sm:items-end sm:justify-between">
+        <header className="grid gap-4 rounded-[2rem] border border-white/60 bg-white/70 px-7 py-6 shadow-soft backdrop-blur lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div className="space-y-3">
             <p className="text-sm font-bold uppercase tracking-[0.26em] text-brand-700">
               Event Privacy
@@ -119,24 +119,18 @@ const PublicEventPrivacyPage = () => {
                 행사 참가자 개인정보 처리 안내
               </h1>
               <p className="max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                이 페이지는 특정 행사 참가자를 위한 안내입니다. 주최자와 문의처, 보관 기준,
-                플랫폼 처리 지원 범위를 함께 확인할 수 있습니다.
+                이 페이지는 특정 행사 참가자를 위한 안내입니다. 행사 운영팀과 문의처,
+                보관 기준, Bingo Networking 서비스 지원 범위를 함께 확인할 수 있습니다.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 lg:justify-end">
             <Link
               to={eventHomePath}
               className="inline-flex items-center justify-center rounded-full border border-brand-700 bg-white px-5 py-2.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50"
             >
-              행사 홈으로
-            </Link>
-            <Link
-              to="/privacy"
-              className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-            >
-              DevFactory 방침
+              행사 페이지로 돌아가기
             </Link>
           </div>
         </header>

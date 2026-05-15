@@ -4,7 +4,9 @@ import { mockPrivacyTemplate, mockPublicEventProfile } from "./support/bingoApi"
 test("public legal pages render readable policy text", async ({ page }) => {
   await page.goto("/privacy");
 
-  await expect(page.getByRole("heading", { name: "플랫폼 개인정보처리방침" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Bingo Networking 개인정보처리방침" })
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "1. 개인정보 처리 주체 및 적용 범위" })
   ).toBeVisible();
@@ -40,10 +42,10 @@ test("event home renders and opens the privacy notice dialog", async ({ page }) 
     })
   ).toBeVisible();
   const termsCheckbox = page.getByRole("checkbox", {
-    name: /서비스 이용약관에 동의합니다/,
+    name: /서비스 이용약관.*동의합니다/,
   });
   const privacyCheckbox = page.getByRole("checkbox", {
-    name: /행사 참가자 개인정보 처리 안내 및 플랫폼 개인정보처리방침을 확인했습니다/,
+    name: /개인정보처리방침.*행사별 개인정보 안내.*확인했습니다/,
   });
   const googleButtonHost = page
     .locator(".login-google-panel__button-slot [aria-disabled]")
@@ -65,16 +67,15 @@ test("event home renders and opens the privacy notice dialog", async ({ page }) 
   await expect(
     page.getByRole("link", { name: "행사 참가자 개인정보 처리 안내" })
   ).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "플랫폼 개인정보처리방침" })).toHaveAttribute(
-    "href",
-    "/privacy"
-  );
+  await expect(
+    page.getByRole("link", { name: "개인정보처리방침" })
+  ).toHaveAttribute("href", "/privacy");
 
-  await page.getByRole("button", { name: "행사 참가자 개인정보 처리 안내" }).click();
+  await page.getByRole("button", { name: "행사별 개인정보 안내" }).click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: "행사 참가자 개인정보 처리 안내" })).toBeVisible();
-  await expect(dialog.getByRole("link", { name: "플랫폼 처리방침" })).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "전체 안내 보기" })).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "1. 문의처" })).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "1. 1. 문의처" })).toHaveCount(0);
   await expect(dialog.locator(".consent-markdown__list--unordered")).toHaveCSS(

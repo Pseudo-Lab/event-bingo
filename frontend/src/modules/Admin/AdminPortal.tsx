@@ -3756,7 +3756,7 @@ const AdminConsolePage = ({
                 <>
                   <SectionHeader
                     title="개인정보 처리 안내"
-                    description="행사 참가자 안내 템플릿을 관리합니다. 플랫폼 개인정보처리방침은 프론트 고정 문서로 관리합니다."
+                    description="행사 참가자 안내 템플릿을 관리합니다. 서비스 개인정보처리방침은 프론트 고정 문서로 관리합니다."
                     layoutVariant={layoutVariant}
                     action={
                       canEditPolicyTemplate ? (
@@ -3827,7 +3827,7 @@ const AdminConsolePage = ({
                         <CardTitle>템플릿 안내</CardTitle>
                         <CardDescription>
                           저장 즉시 로그인 전 안내 모달과 행사별 개인정보 안내
-                          페이지에 반영됩니다. 플랫폼 개인정보처리방침은 프론트
+                          페이지에 반영됩니다. 서비스 개인정보처리방침은 프론트
                           고정 문서로 관리합니다.
                         </CardDescription>
                       </CardHeader>
@@ -3937,7 +3937,7 @@ const AdminConsolePage = ({
                         <CardHeader className="space-y-2 p-7 pb-0">
                           <CardTitle>미리보기</CardTitle>
                           <CardDescription>
-                            치환 변수는 미리보기에서 샘플 행사와 DevFactory 기준
+                            치환 변수는 미리보기에서 샘플 행사와 서비스 운영팀 기준
                             값으로 치환됩니다.
                           </CardDescription>
                         </CardHeader>
@@ -4186,7 +4186,7 @@ const AdminConsolePage = ({
                           eventTeam: event.target.value,
                         }))
                       }
-                      placeholder="PseudoLab"
+                      placeholder="행사 운영팀"
                       className="h-12 rounded-xl"
                     />
                   </div>

@@ -99,7 +99,7 @@ test("opens event modal and imports keywords from an existing event", async ({ p
   await page.getByRole("button", { name: "새 행사 등록" }).click();
 
   await page.getByLabel("행사 이름").fill("Festival Networking 2026");
-  await page.getByLabel("Event team").fill("PseudoLab");
+  await page.getByLabel("Event team").fill("행사 운영팀");
   await page.getByLabel("행사 위치").fill("서울 성수 XYZ홀");
   await page.getByLabel("날짜").fill("2026-05-17");
 

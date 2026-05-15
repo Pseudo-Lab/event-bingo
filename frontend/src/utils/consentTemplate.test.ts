@@ -9,11 +9,11 @@ describe("consentTemplate", () => {
   it("replaces placeholders with the provided variables", () => {
     expect(
       interpolateConsentTemplate("**{host}** / **{eventTeam}** / **{eventContactEmail}**", {
-        host: "가짜연구소",
-        eventTeam: "가짜연구소",
+        host: "DevFactory",
+        eventTeam: "행사 운영팀",
         eventContactEmail: "team@example.com",
       })
-    ).toBe("**가짜연구소** / **가짜연구소** / **team@example.com**");
+    ).toBe("**DevFactory** / **행사 운영팀** / **team@example.com**");
   });
 
   it("parses sectioned markdown into intro and numbered sections", () => {
