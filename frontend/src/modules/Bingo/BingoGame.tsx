@@ -845,12 +845,18 @@ const BingoGame = () => {
     const uniqueNewCells = [...new Set(newCells)];
 
     if (uniqueNewCells.length > 0) {
+      const hasReachedMissionGoal = bingoCount >= bingoMissionCount;
       setNewBingoCells(uniqueNewCells);
       setAnimatedCells(uniqueNewCells);
       setNewBingoFound(true);
-      showAlert("빙고 한 줄을 완성했습니다! 🎉");
 
-      if (!hasShownConfetti && bingoCount >= bingoMissionCount) {
+      if (hasReachedMissionGoal) {
+        handleCloseAlert();
+      } else {
+        showAlert("빙고 한 줄을 완성했습니다! 🎉");
+      }
+
+      if (!hasShownConfetti && hasReachedMissionGoal) {
         setShowConfetti(true);
         setHasShownConfetti(true);
       }
@@ -888,6 +894,7 @@ const BingoGame = () => {
     bingoMissionCount,
     boardSize,
     completedLines,
+    handleCloseAlert,
     hasShownConfetti,
     showAlert,
   ]);

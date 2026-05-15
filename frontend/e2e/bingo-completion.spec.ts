@@ -88,7 +88,6 @@ test("updates the board from incoming exchanges and celebrates when the bingo go
   await expect(page.locator(".bingo-board-cell.is-complete")).toHaveCount(15);
   await expect(page.locator(".bingo-board__line--core")).toHaveCount(3);
   await expect(page.locator(".bingo-confetti__piece")).toHaveCount(42);
-  await expect(page.locator(".bingo-toast__title")).toHaveText("완료되었어요");
-  await expect(page.locator(".bingo-toast__message")).toHaveText("빙고 한 줄을 완성했습니다! 🎉");
+  await expect(page.locator(".bingo-toast")).toHaveCount(0);
   await expect(page.locator(".history-panel").last()).toContainText("상대방");
 });
