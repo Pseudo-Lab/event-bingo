@@ -7,6 +7,11 @@
 - In scope:
 - Out of scope:
 
+## 작업공간
+- Worktree path:
+- Branch:
+- Base:
+
 ## 사용 입력
 - Source docs:
 - Additional constraints:
@@ -27,4 +32,3 @@
 ## 다음 담당자
 - Owner:
 - Expected next action:
-

@@ -23,6 +23,37 @@ Enable consistent delivery when different contributors use Codex, Claude, or Gem
 - Record assumptions explicitly in handoff notes.
 - Keep implementation deterministic and testable.
 
+## Workspace Isolation Policy
+Use `git worktree` as the default isolation mechanism for task work, even when only one agent or editor window is currently active. A second editor window or agent session may be opened later, and isolated worktrees prevent branch switches, generated files, dependency installs, and uncommitted edits from mixing in the same directory.
+
+Worktree isolation is a baseline workspace rule, not a collaboration mode. It does not enable Team Lead Mode, spawn agents, or imply multi-agent delegation by itself.
+
+Default workspace model:
+- Keep the repository root as the `main` sync and coordination workspace.
+- Create one linked worktree per agent window, role, or task before editing files.
+- Use one branch per worktree.
+- Assign each worktree a bounded write scope and one active file owner per file.
+- Do not run concurrent agents in the same working directory.
+
+Recommended setup from the repository root:
+```bash
+git fetch origin
+git switch main
+git pull --ff-only
+git worktree add ../workspace-bingo-<role-or-task> -b <type>/<task-id>-<short-slug> origin/main
+cd ../workspace-bingo-<role-or-task>
+```
+
+Operational rules:
+- Run `git worktree list` and `git status --short` before assigning or starting work.
+- If the root worktree has uncommitted user changes, leave them untouched and create task worktrees from `origin/main`.
+- Do not check out the same branch in more than one worktree.
+- Rebase or merge the task branch with `origin/main` before integration when `main` has moved.
+- For frontend or service worktrees, use distinct dev server ports when running multiple instances.
+- Remove completed local worktrees only after the branch is merged, pushed, or otherwise no longer needed: `git worktree remove ../workspace-bingo-<role-or-task>`.
+
+`git worktree` reduces local file contention but does not remove merge risk. File ownership, small write scopes, and integration review remain required when multiple branches touch the same files.
+
 ## Deployment Repository Boundary
 - This repository is the application repository.
 - k3s/ArgoCD GitOps manifests are managed in `https://github.com/Pseudo-Lab/DevFactory-Ops`.
@@ -49,12 +80,14 @@ Handoff notes may be skipped for low-risk, minor, single-domain changes when con
 ## Team Lead Mode
 Team Lead Mode is optional and must be used only when the user explicitly asks for team-style or multi-agent work.
 Do not enable Team Lead Mode automatically for small single-domain tasks.
+Do not treat `git worktree` usage as a Team Lead Mode trigger.
 
 The Team Lead agent owns coordination, not every implementation detail.
 Team Lead responsibilities:
 - Restate the task goal, in-scope work, out-of-scope work, and done checks.
 - Read only the minimal source documents needed for the task.
 - Inspect current worktree state before assigning work.
+- Create or verify separate task worktrees before delegating parallel edits.
 - Split work by role and file ownership.
 - Identify which tasks can safely run in parallel and which must stay sequential.
 - Assign sub-agents concrete bounded tasks with explicit ownership.
@@ -102,6 +135,7 @@ Sequential work is required when:
 ## Sub-Agent Reporting Contract
 Each sub-agent must report:
 - Role and assigned scope.
+- Worktree path and branch.
 - Files read.
 - Files changed.
 - Behavior changes.
@@ -174,8 +208,6 @@ Use template: `docs/templates/agent-handoff.md`
 - Korean mirrors must be updated in the same change set.
 - Sync pair for this document:
 - `docs/reference/agent-collaboration.md` <-> `docs/reference/agent-collaboration.ko.md`
-
-
 
 
 

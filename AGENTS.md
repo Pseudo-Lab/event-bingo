@@ -29,6 +29,11 @@ Last-Validated: 2026-03-22
 - Keep edits in small batches and verify after each batch to reduce context drift and merge risk.
 - Do not create a new doc by default for minor single-domain work; prefer code, commit, or PR context unless handoff or impact requires a durable record.
 
+## Workspace Isolation Policy
+- Use `git worktree` by default for task work. Treat the repository root as the `main` sync and coordination workspace; create a separate worktree per task, agent window, or role before editing files.
+- One task worktree should own one branch and one bounded write scope. Do not share the same working directory across concurrent sessions.
+- Worktree isolation is a baseline workspace rule. It does not enable Team Lead Mode, spawn agents, or imply multi-agent delegation by itself.
+
 ## Multi-Agent Compatibility Policy
 - Codex, Claude, and Gemini contributors follow the same source-priority and handoff format.
 - Handoff metadata using `docs/templates/agent-handoff.md` is required for impact-trigger tasks and strongly recommended for medium-or-larger scoped tasks.
@@ -38,6 +43,7 @@ Last-Validated: 2026-03-22
 
 ## Team Lead Mode
 - Use Team Lead Mode only when the user explicitly asks for team-style or multi-agent work.
+- `git worktree` usage alone is not a Team Lead Mode trigger.
 - In Team Lead Mode, one lead agent coordinates role assignment, file ownership, sequencing, sub-agent outputs, and final integration.
 - Follow the detailed Team Lead Mode rules in `docs/reference/agent-collaboration.md`.
 - Do not spawn or simulate a team for small single-domain tasks unless the user asks for it.
@@ -107,6 +113,4 @@ Last-Validated: 2026-03-22
 - Product Owner defines scope, acceptance criteria, sequencing, and major risk mitigations.
 - Backend and Frontend implement in parallel when possible.
 - QA validates service-page scenarios first, then admin scenarios.
-
-
 

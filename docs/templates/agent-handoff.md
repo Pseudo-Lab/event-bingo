@@ -7,6 +7,11 @@
 - In scope:
 - Out of scope:
 
+## Workspace
+- Worktree path:
+- Branch:
+- Base:
+
 ## Inputs Used
 - Source docs:
 - Additional constraints:
@@ -27,4 +32,3 @@
 ## Next Owner
 - Owner:
 - Expected next action:
-
