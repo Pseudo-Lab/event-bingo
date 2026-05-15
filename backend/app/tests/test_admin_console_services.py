@@ -5,6 +5,8 @@ from api.admin.console_services import (
     build_archive_participant_alias,
     build_admin_event_bingo_progress_query,
     build_admin_console_link,
+    can_view_event,
+    filter_visible_admin_events,
     is_event_personal_data_expired,
     normalize_event_keywords,
     resolve_participant_email,
@@ -33,6 +35,31 @@ def test_build_admin_event_bingo_progress_query_matches_event_and_user():
 
     assert "bingo_boards.user_id = event_attendees.user_id" in statement
     assert "bingo_boards.event_id = event_attendees.event_id" in statement
+
+
+def test_filter_visible_admin_events_allows_admin_to_see_all_events():
+    actor = type("AdminStub", (), {"id": 1, "role": AdminRole.ADMIN})()
+    events = [
+        type("EventStub", (), {"id": 10, "admin_id": 1})(),
+        type("EventStub", (), {"id": 20, "admin_id": 2})(),
+    ]
+
+    assert filter_visible_admin_events(actor, events) == events
+
+
+def test_filter_visible_admin_events_limits_event_manager_to_owned_events():
+    actor = type("AdminStub", (), {"id": 2, "role": AdminRole.EVENT_MANAGER})()
+    owned_event = type("EventStub", (), {"id": 20, "admin_id": 2})()
+    other_event = type("EventStub", (), {"id": 30, "admin_id": 3})()
+
+    assert filter_visible_admin_events(actor, [owned_event, other_event]) == [owned_event]
+
+
+def test_can_view_event_blocks_event_manager_from_other_owner_event():
+    actor = type("AdminStub", (), {"id": 2, "role": AdminRole.EVENT_MANAGER})()
+    event = type("EventStub", (), {"admin_id": 3})()
+
+    assert can_view_event(actor, event) is False
 
 
 def test_normalize_event_keywords_autofills_remaining_slots():

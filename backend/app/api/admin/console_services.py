@@ -150,7 +150,18 @@ async def serialize_policy_template(
 
 
 def can_edit_event(actor: Admin, event: Event) -> bool:
+    return can_view_event(actor, event)
+
+
+def can_view_event(actor: Admin, event: Event) -> bool:
     return actor.role == AdminRole.ADMIN or actor.id == event.admin_id
+
+
+def filter_visible_admin_events(actor: Admin, events: list[Event]) -> list[Event]:
+    if actor.role == AdminRole.ADMIN:
+        return events
+
+    return [event for event in events if event.admin_id == actor.id]
 
 
 def validate_event_schedule(start_at: datetime, end_at: datetime) -> None:

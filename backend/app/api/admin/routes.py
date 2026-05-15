@@ -31,7 +31,9 @@ from .console_services import (
     build_event_detail,
     build_event_rooms,
     can_edit_event,
+    can_view_event,
     ensure_admin_console_seed_data,
+    filter_visible_admin_events,
     kick_event_attendee,
     normalize_event_keywords,
     reset_event_runtime_data,
@@ -372,7 +374,7 @@ async def list_admin_events(
     from .schema import AdminEventSummary
 
     await ensure_admin_console_seed_data(db)
-    events = await Event.get_all(db)
+    events = filter_visible_admin_events(actor, await Event.get_all(db))
 
     if not events:
         return AdminEventListResponse(ok=True, message="이벤트 목록을 불러왔습니다.", events=[])
@@ -451,6 +453,12 @@ async def get_admin_event(
         event = await Event.get_by_id(db, event_id)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    if not can_view_event(actor, event):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="이 이벤트를 조회할 권한이 없습니다.",
+        )
 
     return AdminEventDetailResponse(
         ok=True,
@@ -584,6 +592,12 @@ async def list_admin_event_rooms(
         event = await Event.get_by_id(db, event_id)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    if not can_view_event(actor, event):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="이 이벤트를 조회할 권한이 없습니다.",
+        )
 
     rooms = await build_event_rooms(db, event)
     return AdminRoomListResponse(
