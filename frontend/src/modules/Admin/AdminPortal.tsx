@@ -63,8 +63,8 @@ import {
   setAdminSession,
 } from "../../utils/adminSession";
 import { clearLegacyLocalLoginStorage } from "../../utils/legacyAuthStorage";
-import adminTopIllustration from "../../assets/illustrations/admin_top.svg";
-import adminTitleIllustration from "../../assets/illustrations/title.svg";
+import adminLoginLogo from "../../assets/brand/admin-logo-login.svg";
+import adminSidebarLogo from "../../assets/brand/admin-logo-sidebar.svg";
 import type {
   AdminEventManagerRequest,
   AdminEvent,
@@ -99,6 +99,7 @@ import { interpolateConsentTemplate } from "../../utils/consentTemplate";
 
 type AdminSection = AdminConsoleSection;
 type EventDetailTab = "overview" | "dashboard" | "participants" | "share";
+type AdminLayoutVariant = "before" | "after";
 type SortDirection = "asc" | "desc";
 type SortState<Key extends string> = {
   key: Key;
@@ -132,6 +133,7 @@ const DETAIL_PARTICIPANTS_PER_PAGE = 8;
 const POLICY_PREVIEW_HOST = "샘플 행사 운영팀";
 const POLICY_PREVIEW_CONTACT_EMAIL = "event-team@example.com";
 const POLICY_PREVIEW_PLATFORM_HOST = "DevFactory 서비스 운영팀";
+const ADMIN_MOBILE_NOTICE_STORAGE_KEY = "bingo_admin_mobile_notice_dismissed";
 const POLICY_TEMPLATE_OPTIONS: Array<{
   key: AdminPolicyTemplateKey;
   label: string;
@@ -178,6 +180,17 @@ const getAbsolutePublicUrl = (path: string) => {
   }
 
   return new URL(path, window.location.origin).toString();
+};
+
+const shouldShowAdminMobileNotice = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return (
+    window.matchMedia("(max-width: 1279px)").matches &&
+    window.sessionStorage.getItem(ADMIN_MOBILE_NOTICE_STORAGE_KEY) !== "true"
+  );
 };
 const EVENT_KEYWORD_PRESET_OPTIONS = getEventKeywordPresetDefinitions();
 
@@ -657,13 +670,13 @@ const navigationItems: Array<{
 
 const AdminBrand = ({ compact = false }: { compact?: boolean }) => {
   return (
-    <div className={cn("text-center", compact && "text-left")}>
+    <div className="text-center">
       <img
-        src={compact ? adminTopIllustration : adminTitleIllustration}
+        src={compact ? adminSidebarLogo : adminLoginLogo}
         alt="Bingo Networking Admin"
         className={cn(
-          "mx-auto block h-auto w-[19.25rem] max-w-full",
-          compact && "mx-0 w-[9.75rem] max-w-[100%]",
+          "mx-auto block h-auto max-w-full",
+          compact ? "w-[19.25rem]" : "w-[23rem]",
         )}
       />
     </div>
@@ -674,15 +687,22 @@ const SectionHeader = ({
   title,
   description,
   action,
+  layoutVariant = "after",
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
+  layoutVariant?: AdminLayoutVariant;
 }) => {
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div className="space-y-1">
-        <h1 className="text-3xl font-black tracking-tight text-brand-800">
+        <h1
+          className={cn(
+            "font-black tracking-tight text-brand-800",
+            layoutVariant === "before" ? "text-3xl" : "text-2xl",
+          )}
+        >
           {title}
         </h1>
         {description ? (
@@ -1060,11 +1080,11 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-slate-100 px-5 py-10">
       <main className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-5xl items-center justify-center">
-        <div className="w-full max-w-xl space-y-10">
+        <div className="w-full max-w-xl space-y-0">
           <AdminBrand />
 
           {shouldUseGoogleAdminAuth ? (
-            <div className="space-y-5 rounded-[2rem] border border-white/60 bg-white/85 p-7 shadow-soft">
+            <div className="-mt-px space-y-5 rounded-[2rem] border border-white/60 bg-white/85 p-7 shadow-soft">
               <div className="space-y-2 text-center">
                 <h2 className="text-2xl font-black tracking-tight text-slate-900">
                   Google 계정으로 관리자 로그인
@@ -1094,7 +1114,7 @@ const LoginPage = () => {
               </div>
             </div>
           ) : (
-            <div className="space-y-5 rounded-[2rem] border border-amber-100 bg-amber-50/90 p-7 shadow-soft">
+            <div className="-mt-px space-y-5 rounded-[2rem] border border-amber-100 bg-amber-50/90 p-7 shadow-soft">
               <div className="space-y-2 text-center">
                 <h2 className="text-2xl font-black tracking-tight text-amber-900">
                   Google 관리자 로그인이 필요합니다
@@ -1121,9 +1141,11 @@ const LoginPage = () => {
 const AdminConsolePage = ({
   section,
   eventDetailTab,
+  layoutVariant = "after",
 }: {
   section: AdminSection;
   eventDetailTab?: EventDetailTab;
+  layoutVariant?: AdminLayoutVariant;
 }) => {
   const navigate = useNavigate();
   const { adminEventId } = useParams();
@@ -1202,11 +1224,44 @@ const AdminConsolePage = ({
     useState("");
   const [keywordRecommendationError, setKeywordRecommendationError] =
     useState("");
+  const [showMobileNotice, setShowMobileNotice] = useState(
+    shouldShowAdminMobileNotice,
+  );
   const isKeywordDraftComposingRef = useRef(false);
   const skipKeywordDraftBlurRef = useRef(false);
   const [eventForm, setEventForm] = useState<EventFormState>(() =>
     createEventFormState(initialSession?.email ?? ""),
   );
+
+  useEffect(() => {
+    document.body.classList.add("admin-console-mobile-preview");
+
+    return () => {
+      document.body.classList.remove("admin-console-mobile-preview");
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 1279px)");
+    const handleChange = () => {
+      setShowMobileNotice(
+        mediaQuery.matches &&
+          window.sessionStorage.getItem(ADMIN_MOBILE_NOTICE_STORAGE_KEY) !==
+            "true",
+      );
+    };
+
+    handleChange();
+    mediaQuery.addEventListener("change", handleChange);
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleChange);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1735,6 +1790,14 @@ const AdminConsolePage = ({
       await maybeGetSupabaseClient()?.auth.signOut();
     }
     navigate(getAdminPath(), { replace: true });
+  };
+
+  const handleDismissMobileNotice = () => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(ADMIN_MOBILE_NOTICE_STORAGE_KEY, "true");
+    }
+
+    setShowMobileNotice(false);
   };
 
   const openEventModal = (eventItem?: AdminEvent) => {
@@ -2268,27 +2331,40 @@ const AdminConsolePage = ({
   }
 
   return (
-    <div className="min-h-screen bg-brand-500 lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[17rem_minmax(0,1fr)]">
-      <aside className="sticky top-0 z-30 flex flex-col gap-3 bg-brand-500 px-4 py-3 text-white shadow-[0_12px_32px_rgba(15,23,42,0.16)] lg:static lg:justify-between lg:gap-6 lg:px-4 lg:py-7 lg:shadow-none">
-        <div>
-          <div className="flex items-center justify-between gap-3 lg:block">
-            <AdminBrand compact />
+    <div className="max-xl:h-[100dvh] max-xl:w-[1152px] max-xl:overflow-hidden xl:contents">
+    <div
+      className={cn(
+        "relative grid min-h-screen w-full min-w-[1280px] origin-top-left bg-brand-500 max-xl:h-[111.111dvh] max-xl:min-h-0 max-xl:scale-90",
+        layoutVariant === "before"
+          ? "grid-cols-[21rem_minmax(0,1fr)]"
+          : "grid-cols-[22.125rem_minmax(0,1fr)]",
+      )}
+    >
+      {showMobileNotice ? (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/45 px-4 py-6 xl:hidden">
+          <div className="w-full max-w-sm rounded-[1.5rem] border border-white/70 bg-white px-5 py-5 text-center shadow-[0_22px_60px_rgba(15,23,42,0.28)]">
+            <p className="text-lg font-black text-slate-900">
+              관리자 페이지는 모바일을 정식 지원하지 않습니다
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+              PC 환경에서 이용하는 것을 권장합니다. 모바일에서는 화면을 좌우로
+              이동해 PC 레이아웃을 확인할 수 있습니다.
+            </p>
             <Button
-              variant="ghost"
-              className="h-auto shrink-0 px-0 py-0 text-xs font-bold text-white hover:bg-transparent hover:text-white/90 lg:hidden"
-              onClick={() => void handleLogout()}
+              className="mt-5 w-full rounded-full bg-brand-700 hover:bg-brand-800"
+              onClick={handleDismissMobileNotice}
             >
-              <LogoutIcon />
-              <span>로그아웃</span>
+              확인하고 계속 보기
             </Button>
           </div>
+        </div>
+      ) : null}
 
-          <div className="my-3 h-px bg-white/20 lg:my-5 lg:bg-white/25" />
+      <aside className="flex flex-col justify-between gap-8 px-5 py-8 text-white">
+        <div>
+          <AdminBrand compact />
 
-          <nav
-            className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] lg:mx-0 lg:grid lg:overflow-visible lg:px-0 lg:pb-0"
-            aria-label="admin navigation"
-          >
+          <nav className="grid gap-2" aria-label="admin navigation">
             {navigationItems
               .filter(({ adminOnly }) => !adminOnly || session.role === "admin")
               .map(({ key, label, Icon }) => (
@@ -2296,7 +2372,7 @@ const AdminConsolePage = ({
                   key={key}
                   variant="ghost"
                   className={cn(
-                    "h-auto shrink-0 justify-start rounded-full px-3.5 py-2.5 text-left text-sm font-bold text-white/90 hover:bg-white/15 hover:text-white lg:w-full lg:rounded-2xl lg:py-3 lg:text-[0.95rem]",
+                    "h-auto w-full justify-start rounded-2xl px-5 py-4 text-left text-[1.05rem] font-bold text-white/90 hover:bg-white/15 hover:text-white",
                     section === key &&
                       "bg-white/30 text-brand-900 hover:bg-white/30",
                   )}
@@ -2317,7 +2393,7 @@ const AdminConsolePage = ({
               href="/"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-auto shrink-0 items-center justify-start gap-2.5 rounded-full px-3.5 py-2.5 text-sm font-bold text-white/80 ring-1 ring-white/20 transition-colors hover:bg-white/15 hover:text-white lg:mt-2 lg:w-full lg:rounded-2xl lg:py-3 lg:text-[0.95rem]"
+              className="mt-2 inline-flex h-auto w-full items-center justify-start gap-2.5 rounded-2xl px-5 py-4 text-[1.05rem] font-bold text-white/80 ring-1 ring-white/20 transition-colors hover:bg-white/15 hover:text-white"
             >
               <ExternalLinkIcon />
               <span>서비스 홈</span>
@@ -2325,22 +2401,20 @@ const AdminConsolePage = ({
           </nav>
         </div>
 
-        <div className="hidden w-full flex-col items-center gap-1.5 pb-1 text-center lg:flex">
-          <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/65 text-base font-black text-slate-500">
+        <div className="flex w-full flex-col items-center gap-2 pb-2 text-center">
+          <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-white/65 text-xl font-black text-slate-500">
             {session.name.trim().charAt(0)}
           </span>
-          <p className="max-w-full truncate text-xs font-medium text-white/95">
-            {session.email}
-          </p>
+          <p className="text-sm font-medium text-white/95">{session.email}</p>
           <Badge
             variant={session.role === "admin" ? "default" : "destructive"}
-            className="min-w-[3.25rem] justify-center bg-slate-900 px-2 py-1 text-[0.68rem] font-semibold"
+            className="min-w-[3.5rem] justify-center bg-slate-900 px-2 py-1 text-[0.72rem] font-semibold"
           >
             {getRoleLabel(session.role)}
           </Badge>
           <Button
             variant="ghost"
-            className="mt-1 h-auto px-0 py-0 text-xs font-bold text-white hover:bg-transparent hover:text-white/90"
+            className="mt-1 h-auto px-0 py-0 text-sm font-bold text-white hover:bg-transparent hover:text-white/90"
             onClick={() => void handleLogout()}
           >
             <LogoutIcon />
@@ -2349,12 +2423,28 @@ const AdminConsolePage = ({
         </div>
       </aside>
 
-      <main className="p-3 sm:p-5 lg:p-9 xl:p-10">
-        <Card className="flex min-h-[calc(100vh-7.5rem)] flex-col overflow-hidden rounded-[1.4rem] border-white/40 shadow-soft sm:rounded-[2rem] lg:h-[calc(100vh-4rem)] xl:h-[calc(100vh-6rem)]">
+      <main
+        className={cn(
+          layoutVariant === "before" ? "p-10" : "py-10 pl-0 pr-[66px]",
+        )}
+      >
+        <Card
+          className={cn(
+            "flex w-full flex-col overflow-hidden border-white/40 shadow-soft",
+            layoutVariant === "before"
+              ? "h-[calc(100vh-6rem)] rounded-[2rem] max-xl:h-[calc(100dvh-80px)]"
+              : "h-[calc(100vh-5rem)] rounded-[30px] max-xl:h-[calc(100dvh-80px)]",
+          )}
+        >
           <CardContent className="min-h-0 flex-1 p-0">
             <div
               ref={contentScrollRef}
-              className="min-h-0 h-full overflow-y-auto space-y-6 p-4 pr-3 sm:space-y-8 sm:p-8 sm:pr-6 md:p-9 md:pr-7 xl:p-10 xl:pr-8 [scrollbar-gutter:stable_both-edges]"
+              className={cn(
+                "min-h-0 h-full overflow-y-auto",
+                layoutVariant === "before"
+                  ? "space-y-8 p-10 pt-10 pr-8 [scrollbar-gutter:stable_both-edges]"
+                  : "space-y-6 px-12 pb-10 pt-16",
+              )}
             >
               {pageError ? (
                 <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">
@@ -2372,6 +2462,7 @@ const AdminConsolePage = ({
                   <SectionHeader
                     title="대시보드"
                     description="이벤트 현황과 현재 라우팅, 관리자 구성, 빙고 설정을 한 화면에서 빠르게 확인할 수 있습니다."
+                    layoutVariant={layoutVariant}
                   />
 
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -2510,6 +2601,7 @@ const AdminConsolePage = ({
                 <>
                   <SectionHeader
                     title="관리자"
+                    layoutVariant={layoutVariant}
                     action={
                       <Button
                         className="rounded-full px-5"
@@ -2615,6 +2707,7 @@ const AdminConsolePage = ({
                   <SectionHeader
                     title="신청 관리"
                     description="이벤트 관리자 권한 요청을 검토하고 승인 상태를 관리합니다."
+                    layoutVariant={layoutVariant}
                     action={
                       <div className="self-start rounded-full bg-brand-100 px-4 py-2 text-sm font-bold text-brand-800 md:self-auto">
                         승인 대기 {pendingApplicationCount}건
@@ -3654,6 +3747,7 @@ const AdminConsolePage = ({
                   <SectionHeader
                     title="개인정보 처리 안내"
                     description="행사 참가자 안내 템플릿을 관리합니다. 플랫폼 개인정보처리방침은 프론트 고정 문서로 관리합니다."
+                    layoutVariant={layoutVariant}
                     action={
                       canEditPolicyTemplate ? (
                         <div className="flex flex-wrap items-center gap-3">
@@ -4506,6 +4600,7 @@ const AdminConsolePage = ({
           </div>
         </div>
       ) : null}
+    </div>
     </div>
   );
 };

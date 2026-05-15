@@ -13,3 +13,18 @@
   flex: 1;
   min-height: 0;
 }
+
+@media (max-width: 1279px) {
+  body.admin-console-mobile-preview {
+    overflow-y: hidden;
+    background-color: #1aaa7c;
+  }
+
+  body.admin-console-mobile-preview #root,
+  body.admin-console-mobile-preview .app-shell,
+  body.admin-console-mobile-preview .app-main {
+    min-height: 0;
+    height: 100dvh;
+    overflow-y: hidden;
+  }
+}
