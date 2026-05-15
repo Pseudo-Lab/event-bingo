@@ -53,6 +53,7 @@ import {
   getCompletedLines,
   getDefaultAlertTitle,
   getBingoMissionProgressPercent,
+  getInteractionKeywords,
   getLatestIncomingBatch,
   getLatestInteractionId,
   getUniqueKeywords,
@@ -1086,33 +1087,18 @@ const BingoGame = () => {
       setOpponentId("");
       setOpponentQuery("");
 
-      const deliverableKeywords = getUniqueKeywords(exchangeResult.updatedWords);
+      const sentKeywords = getUniqueKeywords(
+        getInteractionKeywords(exchangeResult.interaction)
+      );
       const receiverName =
         exchangeResult.interaction.receive_user_name ?? `참가자 ${targetId}`;
 
-      if (deliverableKeywords.length > 0) {
-        showAlert(
-          deliverableKeywords.length === myKeywords.length
-            ? `"${receiverName}"님에게 새로운 키워드를 전송했어요.`
-            : `"${receiverName}"님이 이미 가진 키워드는 제외하고 새로운 키워드만 전송했어요.`,
-          "success",
-          {
-            title:
-              deliverableKeywords.length === myKeywords.length
-                ? "키워드를 전송했어요"
-                : "새 키워드만 전송했어요",
-            keywords: deliverableKeywords,
-            label: "KEYWORD EXCHANGE",
-          }
-        );
-        return;
-      }
-
       showAlert(
-        `"${receiverName}"님은 이미 내 키워드를 모두 가지고 있어요.`,
-        "info",
+        `"${receiverName}"님에게 내 키워드를 전송했어요.`,
+        "success",
         {
-          title: "이미 키워드가 다 있어요",
+          title: "키워드를 전송했어요",
+          keywords: sentKeywords,
           label: "KEYWORD EXCHANGE",
         }
       );

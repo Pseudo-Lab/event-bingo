@@ -124,10 +124,11 @@ export const buildIncomingKeywordAlert = (
 
   if (newlyUpdatedValues.length === 0) {
     return {
-      message: `"${displaySenderName}"님이 보낸 키워드는 이미 모두 가지고 있어요.`,
-      severity: "info",
+      message: `"${displaySenderName}"님이 키워드를 보내줬어요. 새로 추가된 키워드는 없어요.`,
+      severity: "success",
       payload: {
-        title: "이미 키워드가 다 있어요",
+        title: "키워드를 받았어요",
+        keywords: latestIncomingBatch.keywords,
         label: "KEYWORD EXCHANGE",
       },
     };
@@ -146,11 +147,11 @@ export const buildIncomingKeywordAlert = (
   }
 
   return {
-    message: `"${displaySenderName}"님이 보낸 키워드 중 새로운 항목만 반영했어요.`,
+    message: `"${displaySenderName}"님이 키워드를 보내줬어요. 받은 키워드를 보드에 반영했어요.`,
     severity: "success",
     payload: {
-      title: "새 키워드만 반영했어요",
-      keywords: newlyUpdatedValues,
+      title: "키워드를 받았어요",
+      keywords: latestIncomingBatch.keywords,
       label: "KEYWORD EXCHANGE",
     },
   };
