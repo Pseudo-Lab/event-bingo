@@ -28,8 +28,23 @@ const GoogleSignInButton = ({
 }: GoogleSignInButtonProps) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const disabledRef = useRef(disabled);
+  const onErrorRef = useRef(onError);
+  const onSuccessRef = useRef(onSuccess);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [buttonWidth, setButtonWidth] = useState(0);
+
+  useEffect(() => {
+    disabledRef.current = disabled;
+  }, [disabled]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
 
   useEffect(() => {
     const wrapperElement = wrapperRef.current;
@@ -86,23 +101,23 @@ const GoogleSignInButton = ({
 
         googleIdentityApi.initialize({
           callback: async ({ credential }) => {
-            if (disabled) {
+            if (disabledRef.current) {
               return;
             }
 
             if (!credential) {
-              onError?.("Google 인증 정보를 받지 못했습니다.");
+              onErrorRef.current?.("Google 인증 정보를 받지 못했습니다.");
               return;
             }
 
             try {
               setIsSubmitting(true);
-              await onSuccess({
+              await onSuccessRef.current({
                 credential,
                 nonce: rawNonce,
               });
             } catch (error) {
-              onError?.(
+              onErrorRef.current?.(
                 error instanceof Error ? error.message : "Google 로그인 처리 중 오류가 발생했습니다."
               );
             } finally {
@@ -130,7 +145,7 @@ const GoogleSignInButton = ({
           width: containerWidth,
         });
       } catch (error) {
-        onError?.(
+        onErrorRef.current?.(
           error instanceof Error ? error.message : "Google 로그인 버튼을 불러오지 못했습니다."
         );
       }
@@ -142,7 +157,7 @@ const GoogleSignInButton = ({
       cancelled = true;
       containerElement.innerHTML = "";
     };
-  }, [buttonWidth, context, disabled, onError, onSuccess, text]);
+  }, [buttonWidth, context, text]);
 
   return (
     <div ref={wrapperRef} className={cn("w-full max-w-full min-w-0 space-y-3", className)}>
@@ -150,7 +165,7 @@ const GoogleSignInButton = ({
         <div
           ref={containerRef}
           className={cn(
-            "min-h-[48px] w-full max-w-full min-w-0",
+            "h-[48px] w-full max-w-full min-w-0 overflow-hidden",
             (disabled || isSubmitting) && "pointer-events-none"
           )}
           aria-busy={isSubmitting}
