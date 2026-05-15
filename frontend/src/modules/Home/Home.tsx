@@ -11,7 +11,6 @@ import GoogleSignInButton from "../Auth/GoogleSignInButton";
 import {
   getEventBingoPath,
   getEventHomePath,
-  getEventPrivacyPath,
   withSearch,
 } from "../../config/eventProfiles";
 import { useEventProfile } from "../../hooks/useEventProfile";
@@ -149,6 +148,8 @@ const Home = () => {
   const [currentLoginId, setCurrentLoginId] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyNoticeConfirmed, setPrivacyNoticeConfirmed] = useState(false);
   const [googleAccountEmail, setGoogleAccountEmail] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
   const [alertOpen, setAlertOpen] = useState(false);
@@ -164,6 +165,7 @@ const Home = () => {
   const shouldUseGoogleAuth =
     !testModeEnabled && isSupabaseConfigured() && isGoogleIdentityConfigured();
   const hasParticipantName = participantName.trim().length > 0;
+  const canStartGoogleLogin = termsAccepted && privacyNoticeConfirmed;
   const eventSummary = useMemo(
     () => resolveHomeEventSummary(eventProfile, isEventProfileResolved),
     [eventProfile, isEventProfileResolved]
@@ -595,45 +597,67 @@ const Home = () => {
         <div className="login-policy">
           <p className="login-policy__eyebrow">로그인 전 확인</p>
           <p className="login-policy__summary">
-            Google 로그인 시 이름과 이메일 같은 기본 프로필 정보가 빙고 참가 정보와
-            연결될 수 있습니다. 수집 항목, 처리 목적, 보관 기준은 개인정보 처리 안내에서
-            확인할 수 있습니다.
+            Google로 계속하면 Google 계정의 이름, 이메일 주소, 계정 고유
+            식별자를 사용해 이 행사 참가 계정을 만듭니다. 행사 중 선택한
+            키워드, 빙고 보드, 진행률, 키워드 교환 기록은 빙고 진행과 행사
+            운영을 위해 사용됩니다.
           </p>
-          <div className="login-policy__actions">
-            <button
-              type="button"
-              className="login-consent__link"
-              onClick={() => setPolicyDialogOpen(true)}
-            >
-              행사 참가자 안내
-            </button>
-            <Link
-              to={getEventPrivacyPath(eventSlug)}
-              className="login-consent__link login-consent__link--secondary"
-              target="_blank"
-              rel="noreferrer"
-            >
-              행사 안내 전체 페이지
-            </Link>
-            <Link
-              to="/privacy"
-              className="login-consent__link login-consent__link--secondary"
-              target="_blank"
-              rel="noreferrer"
-            >
-              플랫폼 처리방침
-            </Link>
-          </div>
         </div>
 
         <div className="login-google-panel__button-wrap">
           <div className="login-google-panel__button-slot">
+            <div className="login-required-checks" aria-label="필수 확인 항목">
+              <label className="login-required-check">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(event) => setTermsAccepted(event.target.checked)}
+                />
+                <span>
+                  [필수]{" "}
+                  <Link to="/terms" target="_blank" rel="noreferrer">
+                    서비스 이용약관
+                  </Link>
+                  에 동의합니다
+                </span>
+              </label>
+              <label className="login-required-check">
+                <input
+                  type="checkbox"
+                  checked={privacyNoticeConfirmed}
+                  onChange={(event) =>
+                    setPrivacyNoticeConfirmed(event.target.checked)
+                  }
+                />
+                <span>
+                  [필수]{" "}
+                  <button
+                    type="button"
+                    className="login-required-check__link"
+                    onClick={() => setPolicyDialogOpen(true)}
+                  >
+                    행사 참가자 개인정보 처리 안내
+                  </button>{" "}
+                  및{" "}
+                  <Link to="/privacy" target="_blank" rel="noreferrer">
+                    플랫폼 개인정보처리방침
+                  </Link>
+                  을 확인했습니다
+                </span>
+              </label>
+            </div>
             <GoogleSignInButton
               context="use"
+              disabled={!canStartGoogleLogin}
               onError={(message) => openAlert(message)}
               onSuccess={handleGoogleBingoLogin}
               text="continue_with"
             />
+            {!canStartGoogleLogin ? (
+              <p className="login-required-checks__hint">
+                필수 항목을 확인한 뒤 Google 로그인을 진행할 수 있습니다.
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

@@ -56,6 +56,11 @@ test("landing page keeps the experience and admin entry points prominent", async
     page.getByText("신청 접수 및 승인 안내는 입력하신 이메일로 발송됩니다.", { exact: false })
   ).toBeVisible();
   await expect(
+    page.getByText("Google 로그인 시 이름, 이메일, Google 계정 식별자가", {
+      exact: false,
+    })
+  ).toBeVisible();
+  await expect(
     page.getByText("신청을 제출하면 개인정보 수집 및 이용에 동의한 것으로 간주됩니다.", { exact: false })
   ).toBeVisible();
   await expect(page.getByRole("link", { name: /데모 체험하기/ }).first()).toBeVisible();

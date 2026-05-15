@@ -18,6 +18,10 @@ const PublicFooter = () => (
         <p className="text-sm leading-6 text-slate-300">
           커뮤니티와 행사를 연결하는 네트워킹 플랫폼
         </p>
+        <p className="mt-3 text-xs font-semibold leading-5 text-slate-400">
+          Google 로그인 시 이름, 이메일, Google 계정 식별자가 Bingo Networking
+          참가자 또는 관리자 계정 연결에 사용될 수 있습니다.
+        </p>
         <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
           &copy; 2023 DevFactory. All rights reserved.
         </p>
