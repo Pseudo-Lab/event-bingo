@@ -187,8 +187,14 @@ const shouldShowAdminMobileNotice = () => {
     return false;
   }
 
+  const isNarrowViewport = window.matchMedia("(max-width: 1279px)").matches;
+  const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  const cannotHover = window.matchMedia("(hover: none)").matches;
+  const hasTouchPoints = window.navigator.maxTouchPoints > 0;
+
   return (
-    window.matchMedia("(max-width: 1279px)").matches &&
+    isNarrowViewport &&
+    (isCoarsePointer || cannotHover || hasTouchPoints) &&
     window.sessionStorage.getItem(ADMIN_MOBILE_NOTICE_STORAGE_KEY) !== "true"
   );
 };
@@ -1246,20 +1252,24 @@ const AdminConsolePage = ({
       return;
     }
 
-    const mediaQuery = window.matchMedia("(max-width: 1279px)");
+    const mediaQueries = [
+      window.matchMedia("(max-width: 1279px)"),
+      window.matchMedia("(pointer: coarse)"),
+      window.matchMedia("(hover: none)"),
+    ];
     const handleChange = () => {
-      setShowMobileNotice(
-        mediaQuery.matches &&
-          window.sessionStorage.getItem(ADMIN_MOBILE_NOTICE_STORAGE_KEY) !==
-            "true",
-      );
+      setShowMobileNotice(shouldShowAdminMobileNotice());
     };
 
     handleChange();
-    mediaQuery.addEventListener("change", handleChange);
+    mediaQueries.forEach((mediaQuery) => {
+      mediaQuery.addEventListener("change", handleChange);
+    });
 
     return () => {
-      mediaQuery.removeEventListener("change", handleChange);
+      mediaQueries.forEach((mediaQuery) => {
+        mediaQuery.removeEventListener("change", handleChange);
+      });
     };
   }, []);
 
