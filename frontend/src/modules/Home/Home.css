@@ -294,11 +294,13 @@
   line-height: 1.5;
   text-align: center;
   opacity: 0;
+  visibility: hidden;
   transition: opacity 0.16s ease;
 }
 
 .login-required-checks__hint[data-visible="true"] {
   opacity: 1;
+  visibility: visible;
 }
 
 .login-policy {
