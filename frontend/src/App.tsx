@@ -14,6 +14,7 @@ import {
   AdminEventOverviewPage,
   AdminEventParticipantsPage,
   AdminEventSettingsPage,
+  AdminEventSharePage,
   AdminMembersPage,
   AdminPoliciesPage,
   AdminRoutesLoginPage,
@@ -46,6 +47,7 @@ function AppRoutes() {
             path="/admin/events/:adminEventId/participants"
             element={<AdminEventParticipantsPage />}
           />
+          <Route path="/admin/events/:adminEventId/share" element={<AdminEventSharePage />} />
           <Route path="/admin/policies" element={<AdminPoliciesPage />} />
           <Route path="/event/:eventSlug" element={<Home />} />
           <Route path="/event/:eventSlug/privacy" element={<PublicEventPrivacyPage />} />
@@ -80,6 +82,10 @@ function AppRoutes() {
           />
           <Route
             path="/event/:eventSlug/admin/event-settings/:adminEventId/participants"
+            element={<Navigate to={getAdminPath("event-settings")} replace />}
+          />
+          <Route
+            path="/event/:eventSlug/admin/event-settings/:adminEventId/share"
             element={<Navigate to={getAdminPath("event-settings")} replace />}
           />
           <Route
