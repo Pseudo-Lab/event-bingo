@@ -6,6 +6,7 @@ import {
   getBingoBoard,
   getUserAllInteraction,
   searchBingoParticipants,
+  updateBingoDisplayName,
 } from "../../api/bingo_api.ts";
 import type { BingoParticipantItem } from "../../api/bingo_api.ts";
 import {
@@ -136,6 +137,7 @@ const BingoGame = () => {
   const [displayName, setDisplayName] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [nameSetupOpen, setNameSetupOpen] = useState(false);
+  const [nameSetupMode, setNameSetupMode] = useState<"new-board" | "existing-board">("new-board");
   const [nameInput, setNameInput] = useState("");
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const opponentInputRef = useRef<HTMLInputElement | null>(null);
@@ -503,7 +505,7 @@ const BingoGame = () => {
       }
 
       // 빙고 오픈 전이면 카운트다운만 표시 (API 호출 안 함)
-      if (!testModeEnabled && Date.now() < unlockTime) {
+      if (locked) {
         setIsBootstrapping(false);
         return;
       }
@@ -529,10 +531,16 @@ const BingoGame = () => {
             window.sessionStorage.setItem(getBoardReadyStorageKey(eventSlug, storedId), "1");
             setHasKnownBoardForEvent(true);
           }
-          if (boardResult.displayName) {
-            setDisplayName(boardResult.displayName);
-            setUsername(boardResult.displayName);
-            syncSessionDisplayName(boardResult.displayName);
+          const resolvedDisplayName = (boardResult.displayName ?? "").trim();
+          if (resolvedDisplayName) {
+            setDisplayName(resolvedDisplayName);
+            setUsername(resolvedDisplayName);
+            syncSessionDisplayName(resolvedDisplayName);
+          } else {
+            setDisplayName("");
+            setNameInput(storedName.trim() && storedName !== "사용자 이름" ? storedName : "");
+            setNameSetupMode("existing-board");
+            setNameSetupOpen(true);
           }
           setBingoBoard(boardData);
           bingoBoardRef.current = boardData;
@@ -576,6 +584,7 @@ const BingoGame = () => {
     };
 
     const enterSetupFlow = (storedName: string) => {
+      setNameSetupMode("new-board");
       const shuffledValues = shuffleArray(cellValues);
       const initialBoard: BingoCell[] = Array(boardCellCount)
         .fill(null)
@@ -599,11 +608,11 @@ const BingoGame = () => {
     eventHomePath,
     eventSlug,
     isEventProfileAvailable,
+    locked,
     navigate,
     showAlert,
     syncSessionDisplayName,
     testModeEnabled,
-    unlockTime,
   ]);
 
   useEffect(() => {
@@ -981,14 +990,36 @@ const BingoGame = () => {
     const trimmed = nameInput.trim();
     if (trimmed.length === 0) {
       showAlert("이름을 입력해주세요.", "warning");
-      return;
+      return false;
     }
 
-    // 이름은 보드 생성 시 함께 전달되므로 여기서는 로컬 상태만 설정
+    const storedId = getAuthSession()?.userId;
+    if (nameSetupMode === "existing-board") {
+      if (!storedId || !eventSlug) {
+        showAlert("로그인 정보가 없습니다.", "error");
+        return false;
+      }
+
+      const result = await updateBingoDisplayName(storedId, eventSlug, trimmed);
+      if (!result.ok) {
+        showAlert(result.message || "이름 저장 중 문제가 발생했습니다.", "error");
+        return false;
+      }
+
+      const nextName = (result.display_name ?? trimmed).trim();
+      setUsername(nextName);
+      setDisplayName(nextName);
+      syncSessionDisplayName(nextName);
+      setNameInput(nextName);
+      return true;
+    }
+
+    // 새 보드는 보드 생성 시 display_name을 함께 전달한다.
     setUsername(trimmed);
     setDisplayName(trimmed);
     syncSessionDisplayName(trimmed);
     setNameInput(trimmed);
+    return true;
   };
 
   const handleExchange = async () => {
@@ -1129,16 +1160,20 @@ const BingoGame = () => {
               <button
                 type="button"
                 className="keyword-setup-submit"
-                onClick={() => {
-                  handleSaveName();
-                  if (nameInput.trim().length > 0) {
-                    setNameSetupOpen(false);
+                onClick={async () => {
+                  const saved = await handleSaveName();
+                  if (!saved) {
+                    return;
+                  }
+
+                  setNameSetupOpen(false);
+                  if (nameSetupMode === "new-board") {
                     setInitialSetupOpen(true);
                   }
                 }}
                 disabled={nameInput.trim().length === 0}
               >
-                다음
+                {nameSetupMode === "existing-board" ? "저장" : "다음"}
               </button>
             </div>
           </section>

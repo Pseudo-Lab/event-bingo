@@ -97,7 +97,27 @@ test.describe("mobile touch", () => {
 
     await openExchangePage({ page });
     await page.getByLabel("상대방 이름 검색").tap();
-    await selectOpponent(page);
+    await page.getByLabel("상대방 이름 검색").fill("상대");
+    const resultButton = page.getByRole("button", { name: "상대방" });
+    await expect(resultButton).toBeVisible();
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const result = Array.from(document.querySelectorAll("button")).find(
+            (button) => button.textContent?.trim() === "상대방"
+          );
+          if (!result) {
+            return "";
+          }
+
+          const rect = result.getBoundingClientRect();
+          return document
+            .elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+            ?.textContent?.trim();
+        })
+      )
+      .toBe("상대방");
+    await resultButton.tap();
     await page.getByRole("button", { name: "보내기" }).tap();
 
     await expect(page.locator(".bingo-toast__title")).toHaveText("키워드를 전송했어요");

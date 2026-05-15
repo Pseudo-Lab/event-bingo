@@ -58,10 +58,14 @@ export const mockPrivacyTemplate = async (page: Page) => {
 
 export const mockPublicEventProfile = async (
   page: Page,
-  eventSlug = "bingo-networking"
+  eventSlug = "bingo-networking",
+  options: {
+    startAt?: string;
+    endAt?: string;
+  } = {}
 ) => {
-  const startAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const endAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const startAt = options.startAt ?? new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const endAt = options.endAt ?? new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
   await page.route(`**/api/events/${eventSlug}`, async (route) => {
     await fulfillJson(route, {
@@ -240,12 +244,14 @@ export const mockEmptyBoardBootstrap = async (page: Page, userId: number) => {
 export const mockBoardBootstrap = async ({
   page,
   userId,
+  displayName = "테스터",
   selectedValues,
   activeValues = [],
   interactions = [],
 }: {
   page: Page;
   userId: number;
+  displayName?: string;
   selectedValues: string[];
   activeValues?: string[];
   interactions?: JsonBody[];
@@ -255,6 +261,7 @@ export const mockBoardBootstrap = async ({
       ok: true,
       message: "ok",
       user_id: userId,
+      display_name: displayName,
       board_data: buildBoardData({
         selectedValues,
         activeValues,

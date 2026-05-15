@@ -58,3 +58,21 @@ test("opens name setup first and completes initial keyword setup", async ({ page
   ).length;
   expect(selectedCount).toBe(3);
 });
+
+test("opens name setup after waiting on the countdown screen", async ({ page }) => {
+  const startAt = new Date(Date.now() + 1000).toISOString();
+  const endAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+  await mockPublicEventProfile(page, "bingo-networking", { startAt, endAt });
+  await seedBingoSession(page, {
+    userId: 7,
+    userName: "구글 닉네임",
+    loginId: "ABCD12",
+  });
+  await mockEmptyBoardBootstrap(page, 7);
+
+  await page.goto("/event/bingo-networking/bingo");
+
+  await expect(page.getByRole("heading", { name: "빙고 오픈까지 조금만 기다려 주세요" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "이름 설정" })).toBeVisible({ timeout: 4000 });
+});
