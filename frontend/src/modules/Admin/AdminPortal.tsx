@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import QRCode from "qrcode";
 import ReactMarkdown from "react-markdown";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -89,7 +90,7 @@ import {
 import { interpolateConsentTemplate } from "../../utils/consentTemplate";
 
 type AdminSection = AdminConsoleSection;
-type EventDetailTab = "overview" | "dashboard" | "participants";
+type EventDetailTab = "overview" | "dashboard" | "participants" | "share";
 
 type EventFormState = {
   id?: number;
@@ -140,6 +141,7 @@ const EVENT_DETAIL_TABS: Array<{ key: EventDetailTab; label: string }> = [
   { key: "overview", label: "개요" },
   { key: "dashboard", label: "대시보드" },
   { key: "participants", label: "참가자" },
+  { key: "share", label: "공유" },
 ];
 const canUseGoogleAdminAuth = () => isSupabaseConfigured();
 const getAdminOAuthRedirectUrl = () => {
@@ -148,6 +150,14 @@ const getAdminOAuthRedirectUrl = () => {
   }
 
   return new URL(getAdminPath(), window.location.origin).toString();
+};
+
+const getAbsolutePublicUrl = (path: string) => {
+  if (typeof window === "undefined") {
+    return path;
+  }
+
+  return new URL(path, window.location.origin).toString();
 };
 const EVENT_KEYWORD_PRESET_OPTIONS = getEventKeywordPresetDefinitions();
 
@@ -587,6 +597,128 @@ const EventProgress = ({
       <div className="whitespace-nowrap text-right">
         <span className="text-xl font-black tracking-tight text-slate-800">{progress}%</span>
         <span className="ml-2 text-sm text-slate-400">({current}/{total})</span>
+      </div>
+    </div>
+  );
+};
+
+const EventQrShareCard = ({
+  eventName,
+  shareUrl,
+}: {
+  eventName: string;
+  shareUrl: string;
+}) => {
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [feedback, setFeedback] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+    setFeedback("");
+    setQrDataUrl("");
+
+    void QRCode.toDataURL(shareUrl, {
+      errorCorrectionLevel: "M",
+      margin: 2,
+      scale: 8,
+      color: {
+        dark: "#0f172a",
+        light: "#ffffff",
+      },
+    })
+      .then((nextDataUrl) => {
+        if (isMounted) {
+          setQrDataUrl(nextDataUrl);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setFeedback("QR 코드를 생성하지 못했습니다. URL을 직접 공유해 주세요.");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [shareUrl]);
+
+  const handleCopyUrl = async () => {
+    if (!navigator.clipboard) {
+      setFeedback("브라우저에서 클립보드를 지원하지 않습니다. URL을 직접 복사해 주세요.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setFeedback("이벤트 URL을 복사했습니다.");
+    } catch {
+      setFeedback("URL을 복사하지 못했습니다. 직접 선택해 복사해 주세요.");
+    }
+  };
+
+  return (
+    <div className="rounded-[1.5rem] bg-[#f7fbf2] p-6">
+      <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] items-start gap-4 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-5 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6">
+        <div className="flex justify-start">
+          <div className="flex h-[7.5rem] w-[7.5rem] items-center justify-center rounded-[1.25rem] bg-white p-2.5 shadow-[0_16px_40px_rgba(15,23,42,0.08)] ring-1 ring-slate-100 sm:h-40 sm:w-40 sm:p-3 lg:h-64 lg:w-64 lg:rounded-[1.5rem] lg:p-4">
+            {qrDataUrl ? (
+              <img src={qrDataUrl} alt={`${eventName} 참가 QR 코드`} className="h-full w-full" />
+            ) : (
+              <span className="text-sm font-semibold text-slate-400">QR 생성 중</span>
+            )}
+          </div>
+        </div>
+
+        <div className="min-w-0 space-y-5">
+          <div>
+            <p className="text-lg font-black text-brand-700 sm:text-xl">참가 링크 공유</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+              현장에서 QR을 바로 보여주거나, 이미지와 URL을 저장해 참가자에게 공유할 수 있습니다.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Event URL
+            </p>
+            <code className="block break-all rounded-2xl bg-white px-4 py-3 text-sm font-semibold leading-6 text-brand-700 ring-1 ring-slate-100">
+              {shareUrl}
+            </code>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {qrDataUrl ? (
+              <a
+                href={qrDataUrl}
+                download={`${eventName.replace(/[^a-z0-9가-힣_-]+/gi, "-")}-qr.png`}
+                aria-label={`${eventName} 참가 QR PNG 저장`}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-brand-700 px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+              >
+                QR 저장
+              </a>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full px-5"
+              onClick={() => void handleCopyUrl()}
+            >
+              URL 복사
+            </Button>
+          </div>
+
+          {feedback ? (
+            <p className="text-sm font-semibold text-brand-700" role="status" aria-live="polite">
+              {feedback}
+            </p>
+          ) : null}
+
+          <div className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-500 ring-1 ring-slate-100 max-sm:hidden">
+            <p>· QR은 참가자가 스캔하면 이벤트 홈으로 이동합니다.</p>
+            <p>· 행사장 화면에는 이 탭을 열어 QR을 바로 보여줄 수 있습니다.</p>
+            <p>· 인쇄물이나 안내 메시지에는 QR 저장 또는 URL 복사를 사용하세요.</p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1715,6 +1847,9 @@ const AdminConsolePage = ({
   const selectedEventHomePath = selectedEvent
     ? selectedEvent.publicPath || getEventHomePath(selectedEvent.slug)
     : "";
+  const selectedEventShareUrl = selectedEventHomePath
+    ? getAbsolutePublicUrl(selectedEventHomePath)
+    : "";
   const selectedEventTimeRange = selectedEvent
     ? getTimeRangeLabel(selectedEvent.startAt, selectedEvent.endAt)
     : "";
@@ -2307,6 +2442,13 @@ const AdminConsolePage = ({
                           </div>
                         </div>
                       </div>
+                    ) : null}
+
+                    {eventDetailTab === "share" ? (
+                      <EventQrShareCard
+                        eventName={selectedEvent.name}
+                        shareUrl={selectedEventShareUrl}
+                      />
                     ) : null}
 
                     {eventDetailTab === "dashboard" ? (
@@ -3525,5 +3667,8 @@ export const AdminEventDashboardPage = () => (
 );
 export const AdminEventParticipantsPage = () => (
   <AdminConsolePage section="event-settings" eventDetailTab="participants" />
+);
+export const AdminEventSharePage = () => (
+  <AdminConsolePage section="event-settings" eventDetailTab="share" />
 );
 export const AdminPoliciesPage = () => <AdminConsolePage section="policies" />;
