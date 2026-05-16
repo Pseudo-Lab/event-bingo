@@ -177,7 +177,7 @@ class AdminEventUpsertRequest(BaseModel):
     start_at: datetime
     end_at: datetime
     admin_email: str = Field(..., min_length=3, max_length=100)
-    board_size: Literal[3, 5]
+    board_size: Literal[3, 4, 5]
     bingo_mission_count: int = Field(..., ge=1, le=5)
     keywords: list[str] = Field(default_factory=list)
     game_mode: Literal["individual", "team"] = "individual"

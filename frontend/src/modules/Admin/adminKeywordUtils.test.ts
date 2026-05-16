@@ -12,6 +12,7 @@ import {
 describe("adminKeywordUtils", () => {
   it("resolves the required keyword count from board size", () => {
     expect(getKeywordGoalCount("3")).toBe(9);
+    expect(getKeywordGoalCount("4")).toBe(16);
     expect(getKeywordGoalCount(5)).toBe(25);
   });
 
@@ -70,6 +71,7 @@ describe("adminKeywordUtils", () => {
   it("builds preset keywords to match the selected board size", () => {
     const techKeywords = buildEventKeywordPresetKeywords("tech", "3");
     const communityKeywords = buildEventKeywordPresetKeywords("community", "5");
+    const makerKeywords = buildEventKeywordPresetKeywords("maker", "4");
 
     expect(techKeywords).toHaveLength(9);
     expect(techKeywords).toEqual([
@@ -85,5 +87,7 @@ describe("adminKeywordUtils", () => {
     ]);
     expect(communityKeywords).toHaveLength(25);
     expect(communityKeywords).toContain("새로운인연");
+    expect(makerKeywords).toHaveLength(16);
+    expect(makerKeywords).toContain("문제발견");
   });
 });

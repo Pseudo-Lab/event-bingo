@@ -1,6 +1,6 @@
 import { buildBoardKeywordPool, normalizeKeywords } from "../../config/bingoConfig";
 
-export type AdminKeywordBoardSize = 3 | 5 | "3" | "5";
+export type AdminKeywordBoardSize = 3 | 4 | 5 | "3" | "4" | "5";
 export type EventKeywordPresetId = "business" | "community" | "tech" | "maker";
 
 export type EventKeywordPresetDefinition = {
@@ -10,8 +10,13 @@ export type EventKeywordPresetDefinition = {
   keywords: string[];
 };
 
+const SUPPORTED_BOARD_SIZES = [3, 4, 5] as const;
+
 const toBoardSize = (boardSize: AdminKeywordBoardSize) => {
-  return Number(boardSize) === 3 ? 3 : 5;
+  const numericBoardSize = Number(boardSize);
+  return SUPPORTED_BOARD_SIZES.includes(numericBoardSize as 3 | 4 | 5)
+    ? (numericBoardSize as 3 | 4 | 5)
+    : 5;
 };
 
 const EVENT_KEYWORD_PRESETS: EventKeywordPresetDefinition[] = [

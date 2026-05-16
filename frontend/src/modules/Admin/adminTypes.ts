@@ -97,7 +97,7 @@ export type AdminEvent = {
   location: string;
   eventTeam: string;
   adminEmail: string;
-  boardSize: 3 | 5;
+  boardSize: 3 | 4 | 5;
   bingoMissionCount: number;
   keywords: string[];
   participantCount: number;

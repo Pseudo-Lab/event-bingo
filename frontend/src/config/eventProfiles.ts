@@ -6,7 +6,7 @@ import {
 } from "./bingoConfig";
 import { bingoKeywords } from "./bingoKeywords";
 
-export type BoardSize = 3 | 5;
+export type BoardSize = 3 | 4 | 5;
 
 export type EventProfile = {
   slug: string;
@@ -68,8 +68,13 @@ const toPositiveInteger = (value: unknown, fallback: number) => {
   return Math.round(numericValue);
 };
 
+const SUPPORTED_BOARD_SIZES = [3, 4, 5] as const;
+
 const toBoardSize = (value: unknown, fallback: BoardSize): BoardSize => {
-  return Number(value) === 3 ? 3 : fallback === 3 ? 3 : 5;
+  const numericValue = Number(value);
+  return SUPPORTED_BOARD_SIZES.includes(numericValue as BoardSize)
+    ? (numericValue as BoardSize)
+    : fallback;
 };
 
 const readOverrides = (): Record<string, EventProfileOverrides> => {

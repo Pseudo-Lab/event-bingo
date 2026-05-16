@@ -114,7 +114,7 @@ type EventFormState = {
   name: string;
   location: string;
   eventTeam: string;
-  boardSize: "3" | "5";
+  boardSize: "3" | "4" | "5";
   bingoMissionCount: string;
   keywords: string[];
   keywordDraft: string;
@@ -499,7 +499,7 @@ const createEventFormState = (
       name: eventItem.name,
       location: eventItem.location,
       eventTeam: eventItem.eventTeam,
-      boardSize: String(eventItem.boardSize) as "3" | "5",
+      boardSize: String(eventItem.boardSize) as "3" | "4" | "5",
       bingoMissionCount: String(eventItem.bingoMissionCount),
       keywords: [...eventItem.keywords],
       keywordDraft: "",
@@ -2264,7 +2264,7 @@ const AdminConsolePage = ({
             startAt,
             endAt,
             adminEmail: eventForm.adminEmail,
-            boardSize: Number(eventForm.boardSize) === 3 ? 3 : 5,
+            boardSize: Number(eventForm.boardSize) as 3 | 4 | 5,
             bingoMissionCount: Number(eventForm.bingoMissionCount),
             keywords: keywordsForSave,
           })
@@ -2275,7 +2275,7 @@ const AdminConsolePage = ({
             startAt,
             endAt,
             adminEmail: eventForm.adminEmail,
-            boardSize: Number(eventForm.boardSize) === 3 ? 3 : 5,
+            boardSize: Number(eventForm.boardSize) as 3 | 4 | 5,
             bingoMissionCount: Number(eventForm.bingoMissionCount),
             keywords: keywordsForSave,
           });
@@ -4275,8 +4275,8 @@ const AdminConsolePage = ({
 
                 <div className="space-y-2">
                   <Label>빙고 크기</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(["3", "5"] as const).map((size) => (
+                  <div className="grid grid-cols-3 gap-3">
+                    {(["3", "4", "5"] as const).map((size) => (
                       <Button
                         key={size}
                         variant={
@@ -4289,10 +4289,7 @@ const AdminConsolePage = ({
                         )}
                         onClick={() =>
                           setEventForm((previousValue) => {
-                            const nextGoal =
-                              size === "3"
-                                ? "3"
-                                : previousValue.bingoMissionCount;
+                            const nextGoal = previousValue.bingoMissionCount;
                             const nextKeywords = selectedKeywordPresetId
                               ? buildEventKeywordPresetKeywords(
                                   selectedKeywordPresetId,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getActiveEventSlugFromLocation,
   getAdminPath,
@@ -10,6 +10,10 @@ import {
 } from "./eventProfiles";
 
 describe("eventProfiles", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("normalizes event slugs for routing", () => {
     expect(normalizeEventSlug("Spring Networking 2026")).toBe("spring-networking-2026");
     expect(getEventHomePath("Spring Networking 2026")).toBe("/event/spring-networking-2026");
@@ -40,5 +44,31 @@ describe("eventProfiles", () => {
     expect(profile.subTitle).toContain("Global Connect 2027");
     expect(profile.boardSize).toBe(5);
     expect(profile.keywords).toHaveLength(25);
+  });
+  it("accepts 4x4 event profile overrides", () => {
+    const storage = new Map<string, string>();
+    storage.set(
+      "event-bingo.event-profiles.v1",
+      JSON.stringify({
+        "four-by-four-demo": {
+          boardSize: 4,
+          bingoMissionCount: 4,
+          keywords: ["AI", "디자인"],
+        },
+      }),
+    );
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        removeItem: (key: string) => storage.delete(key),
+        setItem: (key: string, value: string) => storage.set(key, value),
+      },
+    });
+
+    const profile = resolveEventProfile("four-by-four-demo");
+
+    expect(profile.boardSize).toBe(4);
+    expect(profile.bingoMissionCount).toBe(4);
+    expect(profile.keywords).toHaveLength(16);
   });
 });

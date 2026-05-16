@@ -71,7 +71,7 @@
 ### P0
 - Supabase client setup
 - waiting room sync UI
-- variable bingo grid (3x3 and 5x5)
+- variable bingo grid (3x3, 4x4, and 5x5)
 - apply existing bingo design to service page first
 - login to keyword-select to game-screen primary flow
 
