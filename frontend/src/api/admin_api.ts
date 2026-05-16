@@ -143,7 +143,7 @@ type AdminEventPayload = {
   start_at: string;
   end_at: string;
   admin_email: string;
-  board_size: 3 | 5;
+  board_size: 3 | 4 | 5;
   bingo_mission_count: number;
   keywords: string[];
   participant_count: number;
@@ -182,7 +182,7 @@ export type AdminEventUpsertInput = {
   startAt: string;
   endAt: string;
   adminEmail: string;
-  boardSize: 3 | 5;
+  boardSize: 3 | 4 | 5;
   bingoMissionCount: number;
   keywords: string[];
 };

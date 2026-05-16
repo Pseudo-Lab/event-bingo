@@ -16,7 +16,7 @@ export type PublicLandingEvent = {
   slug: string;
   name: string;
   startAt: string;
-  boardSize: 3 | 5;
+  boardSize: 3 | 4 | 5;
   bingoMissionCount: number;
   status: "scheduled" | "in_progress" | "ended";
 };
@@ -40,7 +40,7 @@ type PublicEventPayload = {
   event_team: string;
   start_at: string;
   end_at: string;
-  board_size: 3 | 5;
+  board_size: 3 | 4 | 5;
   bingo_mission_count: number;
   keywords: string[];
 };
@@ -87,7 +87,7 @@ type PublicEventListPayload = ApiResponseBase & {
     slug: string;
     name: string;
     start_at: string;
-    board_size: 3 | 5;
+    board_size: 3 | 4 | 5;
     bingo_mission_count: number;
     status: "scheduled" | "in_progress" | "ended";
   }> | null;
@@ -179,7 +179,7 @@ const mergeEventProfile = (
   fallbackProfile: EventProfile,
   payload: PublicEventPayload
 ): EventProfile => {
-  const boardSize = payload.board_size === 3 ? 3 : 5;
+  const boardSize = [3, 4, 5].includes(payload.board_size) ? payload.board_size : 5;
   const boardCellCount = boardSize * boardSize;
 
   return {
