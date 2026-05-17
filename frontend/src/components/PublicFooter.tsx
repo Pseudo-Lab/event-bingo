@@ -12,10 +12,7 @@ const PublicFooter = () => {
   <footer ref={footerRef} className="relative z-10 border-t border-white/10 bg-slate-950 text-white">
     <div className="mx-auto grid max-w-7xl gap-8 px-5 py-8 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto] md:gap-10 md:py-10 lg:px-10">
       <div className="max-w-sm">
-        <div className="mb-3 flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-700">
-            <span className="text-xs font-black text-white">B</span>
-          </div>
+        <div className="mb-3 flex items-center">
           <p className="text-xl font-black tracking-tight text-slate-50">
             Bingo <span className="text-mint-200">Networking</span>
           </p>
