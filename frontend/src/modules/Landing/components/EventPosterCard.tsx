@@ -1,4 +1,5 @@
 import {
+  EVENT_CASE_ATTENDEE_SCALE_LABELS,
   type EventCase,
   formatEventCaseDate,
   POSTER_THEMES,
@@ -26,19 +27,21 @@ const EventPosterCard = ({ event, index }: EventPosterCardProps) => {
 
   return (
     <article
-      className="animate-soft-rise group flex h-full flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-soft transition-shadow duration-300 hover:shadow-lg"
-      style={{ animationDelay: `${index * 70}ms` }}
+      className="group flex h-full flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-soft transition-shadow duration-300 hover:shadow-lg"
     >
       {/* Poster */}
       <div className={`relative flex min-h-[18rem] flex-1 flex-col justify-between overflow-hidden bg-gradient-to-br ${theme.bg} px-6 py-6`}>
-        <div aria-hidden="true">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
           <PosterDecoration accent={theme.accent} />
         </div>
         <div className="relative z-10 flex flex-col items-start">
-          <div className="flex min-h-24 items-start">
+          <div className="flex min-h-32 flex-col items-start gap-2">
             <h3 className={`text-xl font-bold leading-tight tracking-tight ${theme.text}`}>
               {event.name}
             </h3>
+            <p className={`text-sm font-bold leading-5 ${theme.sub}`}>
+              {EVENT_CASE_ATTENDEE_SCALE_LABELS[event.attendeeScale]}
+            </p>
           </div>
         </div>
         <div className="relative z-10">
