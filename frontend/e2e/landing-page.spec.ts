@@ -63,6 +63,9 @@ test("landing page keeps the experience and admin entry points prominent", async
   await expect(page.getByText("Korea Business Experimentation Symposium 2025").first()).toBeVisible();
   await expect(page.getByText("PseudoCon 2025").first()).toBeVisible();
   await expect(page.getByText("8th PseudoCon").first()).toBeVisible();
+  await expect(page.getByText("100명 규모").first()).toBeVisible();
+  await expect(page.getByText("200명 규모").first()).toBeVisible();
+  await expect(page.getByText("200명+ 규모").first()).toBeVisible();
 
   await page.getByLabel("이름").fill("홍길동");
   await page.getByLabel("Google 로그인에 사용할 이메일").fill("organizer@example.com");
