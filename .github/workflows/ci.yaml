@@ -111,6 +111,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest
 
+      - name: Check Alembic has a single head
+        run: |
+          set -euo pipefail
+
+          heads="$(alembic heads)"
+          echo "$heads"
+
+          head_count="$(printf '%s\n' "$heads" | sed '/^$/d' | wc -l | tr -d ' ')"
+          if [ "$head_count" != "1" ]; then
+            echo "::error::Expected exactly one Alembic head, found $head_count."
+            echo "::error::If multiple independent migration heads are intentional, add an explicit merge revision."
+            exit 1
+          fi
+
       - name: Unit tests
         env:
           PYTHONPATH: app
