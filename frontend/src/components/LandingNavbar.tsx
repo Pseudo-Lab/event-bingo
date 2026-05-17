@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 import { getAdminPath } from "../config/eventProfiles";
+import { useSiteAnalytics } from "../modules/Landing/siteAnalytics";
 
 const LandingNavbar = () => {
+  const { track } = useSiteAnalytics();
+
   return (
     <>
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:text-brand-700 focus:font-bold">
@@ -19,6 +22,13 @@ const LandingNavbar = () => {
           </a>
           <Link
             to={getAdminPath()}
+            onClick={() =>
+              track("admin_login_clicked", {
+                section_id: "nav",
+                cta_id: "nav_admin_login",
+                cta_destination: getAdminPath(),
+              })
+            }
             className="inline-flex rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-sm font-bold px-3 py-2 transition-colors sm:px-4"
           >
             관리자 로그인

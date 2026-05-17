@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { submitEventManagerApplication } from "../../../api/public_event_api";
 import { Dialog } from "../../../components/ui/dialog";
+import { useSiteAnalytics, useSiteSectionExposure } from "../siteAnalytics";
 
 type ApplicationFormState = {
   name: string;
@@ -28,20 +29,89 @@ const ATTENDEE_RANGE_OPTIONS = [
   { value: "201", label: "201명 이상" },
 ] as const;
 
+const getFilledFieldCount = (form: ApplicationFormState) =>
+  Object.values(form).filter((value) => value.trim().length > 0).length;
+
 const AdminApplicationForm = () => {
   const [form, setForm] = useState<ApplicationFormState>(initialFormState);
   const [formError, setFormError] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const applyRef = useSiteSectionExposure<HTMLDivElement>("apply", 2);
+  const { track } = useSiteAnalytics();
+  const hasTrackedFormViewRef = useRef(false);
+  const hasTrackedFormStartRef = useRef(false);
+  const formStartedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const element = applyRef.current;
+    if (!element || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.35 && !hasTrackedFormViewRef.current) {
+          hasTrackedFormViewRef.current = true;
+          track("application_form_viewed", { section_id: "apply" });
+          observer.disconnect();
+        }
+      },
+      { threshold: [0.35, 0.6] }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [applyRef, track]);
+
+  const updateFormField = (field: keyof ApplicationFormState, value: string) => {
+    setForm((previousForm) => {
+      const nextForm = { ...previousForm, [field]: value };
+      if (!hasTrackedFormStartRef.current) {
+        hasTrackedFormStartRef.current = true;
+        formStartedAtRef.current = Date.now();
+        track("application_form_started", {
+          field_id: field,
+          filled_field_count: getFilledFieldCount(nextForm),
+        });
+      }
+      return nextForm;
+    });
+  };
+
+  const trackValidationFailure = (fieldId: string, validationErrorType: string) => {
+    track("application_validation_failed", {
+      field_id: fieldId,
+      validation_error_type: validationErrorType,
+    });
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!form.name.trim()) { setFormError("이름을 입력해 주세요."); return; }
+    const filledFieldCount = getFilledFieldCount(form);
+    track("application_submit_clicked", {
+      filled_field_count: filledFieldCount,
+      has_expected_date: Boolean(form.expectedEventDate),
+      has_attendee_range: Boolean(form.expectedAttendeeRange),
+      has_purpose: Boolean(form.eventPurpose.trim()),
+    });
+
+    if (!form.name.trim()) {
+      trackValidationFailure("name", "required");
+      setFormError("이름을 입력해 주세요."); return;
+    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim().toLowerCase())) {
+      trackValidationFailure("email", "invalid_email");
       setFormError("올바른 이메일 주소를 입력해 주세요."); return;
     }
-    if (!form.eventName.trim()) { setFormError("행사명을 입력해 주세요."); return; }
-    if (!form.expectedAttendeeRange) { setFormError("예상 참가자 수를 선택해 주세요."); return; }
+    if (!form.eventName.trim()) {
+      trackValidationFailure("eventName", "required");
+      setFormError("행사명을 입력해 주세요."); return;
+    }
+    if (!form.expectedAttendeeRange) {
+      trackValidationFailure("expectedAttendeeRange", "required");
+      setFormError("예상 참가자 수를 선택해 주세요."); return;
+    }
     try {
       setIsSubmitting(true);
       setFormError("");
@@ -59,6 +129,10 @@ const AdminApplicationForm = () => {
       setSubmitMessage(
         "입력하신 이메일로 접수 확인 메일을 발송했습니다."
       );
+      track("application_submitted", {
+        elapsed_ms_from_form_start: formStartedAtRef.current ? Date.now() - formStartedAtRef.current : 0,
+        filled_field_count: filledFieldCount,
+      });
       setForm(initialFormState);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "신청을 접수하지 못했습니다.");
@@ -69,6 +143,7 @@ const AdminApplicationForm = () => {
 
   return (
     <div
+      ref={applyRef}
       id="apply"
       className="bg-white/85 backdrop-blur rounded-[2rem] border border-white/70 shadow-soft px-6 pt-6 pb-4 sm:px-7 sm:pt-7 sm:pb-5 scroll-mt-24 lg:scroll-mt-28"
     >
@@ -90,7 +165,7 @@ const AdminApplicationForm = () => {
               id="app-name"
               type="text"
               value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              onChange={(e) => updateFormField("name", e.target.value)}
               placeholder="홍길동"
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent focus:shadow-sm"
             />
@@ -103,7 +178,7 @@ const AdminApplicationForm = () => {
               id="app-email"
               type="email"
               value={form.email}
-              onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+              onChange={(e) => updateFormField("email", e.target.value)}
               placeholder="organizer@example.com"
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent focus:shadow-sm"
             />
@@ -119,7 +194,7 @@ const AdminApplicationForm = () => {
               id="app-event"
               type="text"
               value={form.eventName}
-              onChange={(e) => setForm((p) => ({ ...p, eventName: e.target.value }))}
+              onChange={(e) => updateFormField("eventName", e.target.value)}
               placeholder="2026 Bingo Networking Day"
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent focus:shadow-sm"
             />
@@ -132,7 +207,7 @@ const AdminApplicationForm = () => {
               id="app-date"
               type="date"
               value={form.expectedEventDate}
-              onChange={(e) => setForm((p) => ({ ...p, expectedEventDate: e.target.value }))}
+              onChange={(e) => updateFormField("expectedEventDate", e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent focus:shadow-sm"
             />
           </div>
@@ -145,7 +220,7 @@ const AdminApplicationForm = () => {
           <select
             id="app-attendees"
             value={form.expectedAttendeeRange}
-            onChange={(e) => setForm((p) => ({ ...p, expectedAttendeeRange: e.target.value }))}
+            onChange={(e) => updateFormField("expectedAttendeeRange", e.target.value)}
             className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent focus:shadow-sm"
           >
             <option value="" disabled>
@@ -166,7 +241,7 @@ const AdminApplicationForm = () => {
           <textarea
             id="app-purpose"
             value={form.eventPurpose}
-            onChange={(e) => setForm((p) => ({ ...p, eventPurpose: e.target.value }))}
+            onChange={(e) => updateFormField("eventPurpose", e.target.value)}
             rows={2}
             placeholder="예: 참가자 간 아이스브레이킹, 기술 네트워킹, 후원사 부스 유입 유도 등"
             className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent focus:shadow-sm resize-none"
