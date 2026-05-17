@@ -550,6 +550,8 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     : nextStep?.senderId === "guest"
       ? "키워드 받기"
       : "보내기";
+  const shouldShowSendGuide =
+    isGameRoute && completedStepCount === 0 && nextStep?.senderId === "host";
   const doneGivenCount = exchangeSteps.filter(
     (step, index) => step.senderId === "host" && index < completedStepCount
   ).length;
@@ -771,12 +773,22 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                   </div>
                 ) : (
                   <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] rounded-[31px] border-[1.5px] border-[#076945] bg-white p-[4px]">
+                    {shouldShowSendGuide ? (
+                      <div className="absolute -top-[57px] left-[8px] rounded-[18px] border border-[#ddff57]/70 bg-[#fffde8] px-[18px] py-[10px] text-[16px] font-black leading-[20px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
+                        먼저 '보내기'를 눌러 키워드를 전달해보세요.
+                        <span className="absolute bottom-[-8px] right-[48px] h-[16px] w-[16px] rotate-45 border-b border-r border-[#ddff57]/70 bg-[#fffde8]" />
+                      </div>
+                    ) : null}
                     <p className="min-w-0 flex-1 px-[21px] py-[13px] text-[21px] font-black leading-none tracking-[-0.04em] text-slate-300">
                       {actionInputLabel}
                     </p>
                     <Button
                       type="button"
-                      className="h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                      className={
+                        shouldShowSendGuide
+                          ? "h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18)] hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                          : "h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                      }
                       disabled={isComplete}
                       onClick={handleNext}
                     >
