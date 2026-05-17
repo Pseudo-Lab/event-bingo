@@ -19,6 +19,7 @@ import {
   createDemoPlayExchangeSteps,
   getDemoPlayBoardVariantIndex,
 } from "./demoPlayUtils";
+import { createAnalyticsId, SiteAnalyticsScope, useSiteAnalytics } from "./siteAnalytics";
 
 type DemoPlayState = {
   board: BingoCell[];
@@ -419,10 +420,11 @@ const DemoBoard = ({
   );
 };
 
-const DemoPlayPage = () => {
+const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { track } = useSiteAnalytics();
   const isGameRoute = location.pathname.endsWith("/game");
   const selectedKeywordsFromQuery = useMemo(() => {
     const keywords = searchParams.get("keywords") ?? "";
@@ -450,6 +452,9 @@ const DemoPlayPage = () => {
     keywords: [] as string[],
   });
   const [isGoalOverlayVisible, setIsGoalOverlayVisible] = useState(true);
+  const hasTrackedReadyRef = useRef(false);
+  const hasTrackedGoalRef = useRef(false);
+  const gameStartedAtRef = useRef(Date.now());
 
   useEffect(() => {
     return () => {
@@ -467,11 +472,25 @@ const DemoPlayPage = () => {
     setSendAlert((currentAlert) => ({ ...currentAlert, open: false }));
     setReceiveBoardAlert((currentAlert) => ({ ...currentAlert, open: false }));
     setIsGoalOverlayVisible(true);
+    hasTrackedReadyRef.current = false;
+    hasTrackedGoalRef.current = false;
+    gameStartedAtRef.current = Date.now();
     if (alertTimeoutRef.current) {
       window.clearTimeout(alertTimeoutRef.current);
       alertTimeoutRef.current = null;
     }
   }, [activeKeywordKey, boardVariantIndex, isGameRoute]);
+
+  useEffect(() => {
+    if (isGameRoute || draftKeywords.length < DEMO_PLAY_MIN_SELECTED_KEYWORDS || hasTrackedReadyRef.current) {
+      return;
+    }
+
+    hasTrackedReadyRef.current = true;
+    track("demo_keyword_selection_ready", {
+      selected_count: draftKeywords.length,
+    });
+  }, [draftKeywords.length, isGameRoute, track]);
 
   const baseBoard = useMemo(
     () =>
@@ -502,12 +521,22 @@ const DemoPlayPage = () => {
     }
 
     setIsGoalOverlayVisible(true);
+    if (!hasTrackedGoalRef.current) {
+      hasTrackedGoalRef.current = true;
+      track("demo_goal_completed", {
+        total_steps: exchangeSteps.length,
+        final_completed_line_count: demoState.completedLines.length,
+        elapsed_ms_from_game_view: Date.now() - gameStartedAtRef.current,
+        demo_run_id: demoRunId,
+        board_layout_variant_id: boardVariantIndex,
+      });
+    }
     const goalOverlayTimer = window.setTimeout(() => {
       setIsGoalOverlayVisible(false);
     }, DEMO_GOAL_OVERLAY_DURATION_MS);
 
     return () => window.clearTimeout(goalOverlayTimer);
-  }, [isComplete]);
+  }, [boardVariantIndex, demoRunId, demoState.completedLines.length, exchangeSteps.length, isComplete, track]);
 
   const nextStep = exchangeSteps[completedStepCount] ?? null;
   const canStart = draftKeywords.length >= DEMO_PLAY_MIN_SELECTED_KEYWORDS;
@@ -559,6 +588,9 @@ const DemoPlayPage = () => {
     if (!canStart) {
       return;
     }
+    track("demo_start_clicked", {
+      selected_count: draftKeywords.length,
+    });
     const keywordQuery = draftKeywords.map(encodeURIComponent).join(",");
     navigate(`/demo/play/game?keywords=${keywordQuery}`);
   };
@@ -591,6 +623,31 @@ const DemoPlayPage = () => {
         setReceiveBoardAlert((currentAlert) => ({ ...currentAlert, open: false }));
         alertTimeoutRef.current = null;
       }, nextStep.senderId === "host" ? DEMO_SEND_ALERT_DURATION_MS : DEMO_RECEIVE_ALERT_DURATION_MS);
+
+      const nextDemoState = buildDemoState(
+        baseBoard,
+        exchangeSteps,
+        Math.min(completedStepCount + 1, exchangeSteps.length)
+      );
+      const nextMetParticipantCount = new Set(
+        exchangeSteps
+          .slice(0, completedStepCount + 1)
+          .map((step) => (step.senderId === "host" ? step.receiverName : step.senderName))
+      ).size;
+      track("demo_exchange_advanced", {
+        step_index: completedStepCount,
+        step_id: nextStep.id,
+        action_type: nextStep.senderId === "host" ? "send" : "receive",
+        sent_keyword_count: nextStep.sentKeywords.length,
+        matched_keyword_count: nextStep.hostReceivedKeywords.length,
+        completed_line_count_after: nextDemoState.completedLines.length,
+        new_line_count: Math.max(
+          0,
+          nextDemoState.completedLines.length - demoState.completedLines.length
+        ),
+        met_participant_count: nextMetParticipantCount,
+        demo_run_id: demoRunId,
+      });
     }
     setCompletedStepCount((currentCount) =>
       Math.min(currentCount + 1, exchangeSteps.length)
@@ -598,6 +655,16 @@ const DemoPlayPage = () => {
   };
 
   const handleReplay = () => {
+    track(
+      "demo_replay_clicked",
+      {
+        completed_step_count: completedStepCount,
+        completed_line_count: demoState.completedLines.length,
+        elapsed_ms_from_game_view: Date.now() - gameStartedAtRef.current,
+        demo_run_id: demoRunId,
+      },
+      { beacon: true }
+    );
     window.location.reload();
   };
 
@@ -610,7 +677,10 @@ const DemoPlayPage = () => {
     }
   };
 
-  if (isGameRoute && selectedKeywordsFromQuery.length < DEMO_PLAY_MIN_SELECTED_KEYWORDS) {
+  const isInvalidGameEntry =
+    isGameRoute && selectedKeywordsFromQuery.length < DEMO_PLAY_MIN_SELECTED_KEYWORDS;
+
+  if (isInvalidGameEntry) {
     return <Navigate to="/demo/play" replace />;
   }
 
@@ -827,6 +897,55 @@ const DemoPlayPage = () => {
         </p>
       </main>
     </PcDesignStage>
+  );
+};
+
+const DemoPlayPage = () => {
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const isGameRoute = location.pathname.endsWith("/game");
+  const selectedKeywordCount = (searchParams.get("keywords") ?? "")
+    .split(",")
+    .map((keyword) => keyword.trim())
+    .filter(Boolean)
+    .filter((keyword, index, list) => list.indexOf(keyword) === index)
+    .slice(0, DEMO_PLAY_MAX_SELECTED_KEYWORDS).length;
+  const route = isGameRoute ? "/demo/play/game" : "/demo/play";
+  const demoRunRef = useRef({ locationKey: location.key, demoRunId: createAnalyticsId() });
+  if (demoRunRef.current.locationKey !== location.key) {
+    demoRunRef.current = { locationKey: location.key, demoRunId: createAnalyticsId() };
+  }
+  const demoRunId = demoRunRef.current.demoRunId;
+  const isInvalidGameEntry = isGameRoute && selectedKeywordCount < DEMO_PLAY_MIN_SELECTED_KEYWORDS;
+  const pageEventName =
+    isInvalidGameEntry
+      ? "demo_invalid_game_entry_redirected"
+      : isGameRoute
+        ? "demo_game_viewed"
+        : "demo_keyword_selection_viewed";
+  const pageProperties = isInvalidGameEntry
+    ? {
+        reason: selectedKeywordCount === 0 ? "missing_keywords" : "insufficient_keywords",
+        keyword_count: selectedKeywordCount,
+      }
+    : isGameRoute
+    ? {
+        demo_run_id: demoRunId,
+        selected_count: selectedKeywordCount,
+      }
+    : {
+        preselected_count: selectedKeywordCount,
+        source_route: "direct_or_previous",
+      };
+
+  return (
+    <SiteAnalyticsScope
+      route={route}
+      pageEventName={pageEventName}
+      pageProperties={pageProperties}
+    >
+      <DemoPlayPageContent demoRunId={demoRunId} />
+    </SiteAnalyticsScope>
   );
 };
 

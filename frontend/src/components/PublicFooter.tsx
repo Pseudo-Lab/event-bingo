@@ -1,10 +1,15 @@
 import { Link } from "react-router-dom";
+import { useSiteAnalytics, useSiteSectionExposure } from "../modules/Landing/siteAnalytics";
 
 const linkClassName =
   "inline-flex min-h-8 items-center rounded-lg text-sm font-bold leading-5 text-slate-300 transition-colors hover:text-mint-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mint-200";
 
-const PublicFooter = () => (
-  <footer className="relative z-10 border-t border-white/10 bg-slate-950 text-white">
+const PublicFooter = () => {
+  const footerRef = useSiteSectionExposure<HTMLElement>("footer", 3);
+  const { track } = useSiteAnalytics();
+
+  return (
+  <footer ref={footerRef} className="relative z-10 border-t border-white/10 bg-slate-950 text-white">
     <div className="mx-auto grid max-w-7xl gap-8 px-5 py-8 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto] md:gap-10 md:py-10 lg:px-10">
       <div className="max-w-sm">
         <div className="mb-3 flex items-center gap-2">
@@ -26,10 +31,34 @@ const PublicFooter = () => (
       <div className="grid grid-cols-1 gap-x-5 gap-y-6 text-sm sm:grid-cols-2 md:min-w-[22rem] md:gap-8">
         <nav aria-label="정책" className="grid content-start gap-1">
           <p className="text-sm font-black text-slate-100">정책</p>
-          <Link to="/terms" target="_blank" rel="noreferrer" className={linkClassName}>
+          <Link
+            to="/terms"
+            target="_blank"
+            rel="noreferrer"
+            className={linkClassName}
+            onClick={() =>
+              track("homepage_cta_clicked", {
+                cta_id: "footer_terms",
+                cta_destination: "/terms",
+                section_id: "footer",
+              })
+            }
+          >
             이용약관
           </Link>
-          <Link to="/privacy" target="_blank" rel="noreferrer" className={linkClassName}>
+          <Link
+            to="/privacy"
+            target="_blank"
+            rel="noreferrer"
+            className={linkClassName}
+            onClick={() =>
+              track("homepage_cta_clicked", {
+                cta_id: "footer_privacy",
+                cta_destination: "/privacy",
+                section_id: "footer",
+              })
+            }
+          >
             개인정보처리방침
           </Link>
         </nav>
@@ -43,6 +72,7 @@ const PublicFooter = () => (
       </div>
     </div>
   </footer>
-);
+  );
+};
 
 export default PublicFooter;

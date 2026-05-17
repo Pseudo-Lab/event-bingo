@@ -7,3 +7,4 @@ from models.event_manager_request import EventManagerRequest, EventManagerReques
 from models.room import Room
 from models.team import Team, TeamColor
 from models.event_attendee import EventAttendee
+from models.site_analytics_event import SiteAnalyticsEvent

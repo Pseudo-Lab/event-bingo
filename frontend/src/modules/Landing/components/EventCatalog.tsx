@@ -1,10 +1,18 @@
 import EventPosterCard from "./EventPosterCard";
 import { EVENT_CASES } from "../utils/landingHelpers";
 import { scrollToHashTarget } from "../utils/scrollToHashTarget";
+import { useSiteAnalytics, useSiteSectionExposure } from "../siteAnalytics";
 
 const EventCatalog = () => {
+  const eventsRef = useSiteSectionExposure<HTMLElement>("events", 1);
+  const { track } = useSiteAnalytics();
+
   return (
-    <section id="events" className="relative scroll-mt-16 pb-16 pt-14 lg:pb-20 lg:pt-16">
+    <section
+      ref={eventsRef}
+      id="events"
+      className="relative scroll-mt-16 pb-16 pt-14 lg:pb-20 lg:pt-16"
+    >
       <div className="mx-auto max-w-7xl px-6 lg:px-10">
         <div className="animate-soft-rise mb-12 text-center">
           <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand-700 mb-3">
@@ -32,6 +40,11 @@ const EventCatalog = () => {
             href="#apply"
             onClick={(event) => {
               event.preventDefault();
+              track("homepage_cta_clicked", {
+                cta_id: "event_case_apply",
+                cta_destination: "#apply",
+                section_id: "events",
+              });
               scrollToHashTarget("#apply");
             }}
             className="inline-flex items-center gap-2 rounded-full bg-brand-700 hover:bg-brand-800 active:scale-[0.97] text-white px-6 py-3 text-sm font-semibold transition-all"
