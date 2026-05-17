@@ -1,9 +1,10 @@
 import "./App.css";
-import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Home from "./modules/Home/Home.tsx";
 import BingoGame from "./modules/Bingo/BingoGame.tsx";
 import LandingHomePage from "./modules/Landing/LandingHomePage.tsx";
 import DemoExperiencePage from "./modules/Landing/DemoExperiencePage.tsx";
+import DemoPlayPage from "./modules/Landing/DemoPlayPage.tsx";
 import PublicPrivacyPage from "./modules/Landing/PublicPrivacyPage.tsx";
 import PublicEventPrivacyPage from "./modules/Landing/PublicEventPrivacyPage.tsx";
 import PublicTermsPage from "./modules/Landing/PublicTermsPage.tsx";
@@ -19,7 +20,7 @@ import {
   AdminPoliciesPage,
   AdminRoutesLoginPage,
 } from "./modules/Admin/AdminPortal";
-import { getAdminPath, getEventBingoPath, getEventHomePath } from "./config/eventProfiles";
+import { getAdminPath } from "./config/eventProfiles";
 
 function AppRoutes() {
   return (
@@ -29,6 +30,8 @@ function AppRoutes() {
           <Route path="/" element={<LandingHomePage />} />
           <Route path="/event" element={<Navigate to="/" replace />} />
           <Route path="/experience" element={<DemoExperiencePage />} />
+          <Route path="/demo/play/game" element={<DemoPlayPage />} />
+          <Route path="/demo/play" element={<DemoPlayPage />} />
           <Route path="/terms" element={<PublicTermsPage />} />
           <Route path="/privacy" element={<PublicPrivacyPage />} />
           <Route path="/bingo" element={<DemoExperiencePage />} />
@@ -92,22 +95,11 @@ function AppRoutes() {
             path="/event/:eventSlug/admin/policies"
             element={<Navigate to={getAdminPath("policies")} replace />}
           />
-          <Route path="/:eventSlug/bingo" element={<LegacyEventBingoRedirect />} />
-          <Route path="/:eventSlug" element={<LegacyEventHomeRedirect />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
   );
-}
-
-function LegacyEventHomeRedirect() {
-  const { eventSlug } = useParams();
-  return <Navigate to={getEventHomePath(eventSlug)} replace />;
-}
-
-function LegacyEventBingoRedirect() {
-  const { eventSlug } = useParams();
-  return <Navigate to={getEventBingoPath(eventSlug)} replace />;
 }
 
 function App() {

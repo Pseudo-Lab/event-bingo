@@ -1305,6 +1305,148 @@
     0 0 16px rgba(232, 255, 127, 0.56);
 }
 
+.demo-play-board .bingo-board-shell {
+  box-sizing: border-box;
+  width: 675px;
+  height: 683px;
+  margin: 0;
+  padding: 34px;
+  border-radius: 40px;
+  background: #78cfb1;
+  box-shadow:
+    inset 0 2px 0 rgba(236, 255, 239, 0.35),
+    inset 0 -12px 18px rgba(24, 160, 126, 0.18);
+}
+
+.demo-play-board .bingo-board-shell__inner {
+  box-sizing: border-box;
+  width: 607px;
+  height: 615px;
+  padding: 27px 21px 26px;
+  border-radius: 30px;
+  background: #f5fbcc;
+  box-shadow:
+    inset 0 0 0 1px rgba(245, 255, 164, 0.65),
+    inset 0 12px 26px rgba(255, 255, 255, 0.28),
+    0 0 18px rgba(226, 255, 167, 0.25);
+}
+
+.demo-play-board .bingo-board__lines {
+  inset: 27px 21px 26px;
+  width: calc(100% - 42px);
+  height: calc(100% - 53px);
+}
+
+.demo-play-board .bingo-board__line--grid {
+  stroke: rgba(40, 215, 145, 0.2);
+  stroke-width: 10;
+}
+
+.demo-play-board .bingo-board__line--glow {
+  stroke: rgba(63, 213, 170, 0.26);
+  stroke-width: 16;
+}
+
+.demo-play-board .bingo-board__line--core {
+  stroke: #28d791;
+  stroke-width: 10;
+}
+
+.demo-play-board .bingo-board-grid {
+  gap: 20px;
+}
+
+.demo-play-board .bingo-board-cell {
+  --cell-bg-start: #4fc399;
+  --cell-bg-end: #4fc399;
+  --cell-label-color: #076945;
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 8px 14px rgba(24, 114, 88, 0.16);
+}
+
+.demo-play-board .bingo-board-cell::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 52%);
+}
+
+.demo-play-board .bingo-board-cell.is-placeholder {
+  --cell-bg-start: #aaebb7;
+  --cell-bg-end: #aaebb7;
+  --cell-label-color: rgba(7, 105, 69, 0.76);
+}
+
+.demo-play-board .bingo-board-cell.is-received,
+.demo-play-board .bingo-board-cell.is-complete {
+  --cell-bg-start: #4fc399;
+  --cell-bg-end: #4fc399;
+  --cell-label-color: #076945;
+  box-shadow:
+    inset 0 0 0 1px #118f4e,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 8px 14px rgba(24, 114, 88, 0.16);
+}
+
+.demo-play-board .bingo-board-cell__label,
+.demo-play-board .bingo-board-cell.is-placeholder .bingo-board-cell__label,
+.demo-play-board .bingo-board-cell.is-complete .bingo-board-cell__label {
+  max-width: 88%;
+  color: var(--cell-label-color);
+  font-size: 20px;
+  line-height: 1.08;
+  letter-spacing: -0.05em;
+}
+
+.demo-play-board .bingo-board-cell__art {
+  inset: -3%;
+}
+
+.demo-play-board .bingo-board-cell.is-complete {
+  --cell-gap-scale: 0.92;
+  --cell-fill-scale: 0.88;
+  --cell-outline-scale: 1.08;
+}
+
+.demo-play-board .bingo-board-cell.is-latest {
+  filter:
+    drop-shadow(0 0 0.75rem rgba(221, 255, 87, 0.58))
+    drop-shadow(0 0 1.25rem rgba(0, 144, 91, 0.28));
+}
+
+.demo-play-board .bingo-board-cell.is-new,
+.demo-play-board .bingo-board-cell.is-animated {
+  animation: demoBingoCellPop 1.25s ease-in-out infinite;
+}
+
+.demo-play-history-list {
+  scrollbar-color: rgba(79, 195, 155, 0.4) transparent;
+  scrollbar-width: thin;
+}
+
+.demo-play-history-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.demo-play-history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.demo-play-history-list::-webkit-scrollbar-thumb {
+  border-radius: 2px;
+  background: rgba(79, 195, 155, 0.4);
+}
+
+@keyframes demoBingoCellPop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.07);
+  }
+}
+
 .bingo-history-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
