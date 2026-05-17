@@ -19,11 +19,22 @@ test("demo experience starts without login and records a sample encounter", asyn
   await expect(page.getByText("키워드를 보내면 기록이 여기에 쌓입니다.")).toBeVisible();
   await expect(page.getByText("받은 키워드가 생기면 기록이 표시됩니다.")).toBeVisible();
 
-  await page.getByRole("button", { name: "보내기" }).click();
+  const sendButton = page.getByRole("button", { name: "보내기" });
+  await expect(sendButton).toHaveCSS("background-color", "rgb(79, 195, 153)");
+
+  await sendButton.click();
+  await page.mouse.move(0, 0);
   await expect(page.getByText("내 키워드를 보냈어요")).toBeVisible();
   await expect(page.getByText("김철수 님").first()).toBeVisible();
 
-  await page.getByRole("button", { name: "키워드 받기" }).click();
+  const receiveButton = page.getByRole("button", { name: "키워드 받기" });
+  await expect(receiveButton).toHaveCSS("background-color", "rgb(221, 255, 87)");
+  await expect(page.getByRole("button", { name: "다시 체험하기" })).toHaveCSS(
+    "background-color",
+    "rgb(221, 255, 87)",
+  );
+
+  await receiveButton.click();
   await expect(page.getByText("김민수 님에게")).toBeVisible();
   await expect(page.getByText("키워드를 받았어요")).toBeVisible();
 });

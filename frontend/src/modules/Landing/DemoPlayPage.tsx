@@ -217,7 +217,7 @@ const KeywordSelector = ({
 
       <Button
         type="button"
-        className="mt-[31px] h-[65px] w-[600px] rounded-[32.5px] bg-[#4fc399] text-[22px] font-black tracking-[-0.04em] hover:bg-[#28d791] disabled:bg-[#a7c4c8] disabled:opacity-100"
+        className="mt-[31px] h-[65px] w-[600px] rounded-[32.5px] !bg-[#4fc399] text-[22px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
         disabled={!canStart}
         onClick={onStart}
       >
@@ -692,7 +692,7 @@ const DemoPlayPage = () => {
                     </div>
                     <Button
                       type="button"
-                      className="h-[52px] w-[118px] rounded-[26px] bg-[#ddff57] text-[17px] font-black tracking-[-0.04em] text-[#076945] hover:bg-[#e8ff86] disabled:bg-[#a7c4c8] disabled:opacity-100"
+                      className="h-[52px] w-[118px] rounded-[26px] !bg-[#ddff57] text-[17px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
                       disabled={isComplete}
                       onClick={handleNext}
                     >
@@ -706,7 +706,7 @@ const DemoPlayPage = () => {
                     </p>
                     <Button
                       type="button"
-                      className="h-[52px] w-[118px] rounded-[26px] bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] hover:bg-[#28d791] disabled:bg-[#a7c4c8] disabled:opacity-100"
+                      className="h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
                       disabled={isComplete}
                       onClick={handleNext}
                     >
@@ -724,7 +724,7 @@ const DemoPlayPage = () => {
                   <Button
                     type="button"
                     variant="ghost"
-                    className="absolute right-[23px] top-[24px] h-[42px] rounded-full border border-[#076945]/20 bg-[#ddff57] px-[18px] text-[17px] font-black tracking-[-0.04em] text-[#076945] shadow-[0_8px_18px_rgba(7,105,69,0.18)] hover:bg-[#e8ff86] hover:text-[#076945]"
+                    className="absolute right-[23px] top-[24px] h-[42px] rounded-full border border-[#076945]/20 !bg-[#ddff57] px-[18px] text-[17px] font-black tracking-[-0.04em] !text-[#076945] shadow-[0_8px_18px_rgba(7,105,69,0.18)] hover:!bg-[#e8ff86] hover:!text-[#076945]"
                     onClick={handleReplay}
                   >
                     다시 체험하기
