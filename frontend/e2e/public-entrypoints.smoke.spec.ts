@@ -5,34 +5,27 @@ test("demo experience starts without login and records a sample encounter", asyn
 }) => {
   await page.goto("/experience");
 
-  await expect(
-    page.getByRole("heading", {
-      name: "로그인 없이 빙고 흐름을 빠르게 체험해 보세요",
-    }),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/demo\/play$/);
+  await expect(page.getByRole("heading", { name: "관심사 선택" })).toBeVisible();
 
   await page.getByRole("button", { name: "AI", exact: true }).click();
   await page.getByRole("button", { name: "디자인", exact: true }).click();
   await page.getByRole("button", { name: "프로덕트", exact: true }).click();
-  await page.getByRole("button", { name: "데모 빙고 시작" }).click();
+  await page.getByRole("button", { name: "빙고 시작하기" }).click();
 
-  await expect(
-    page.getByRole("heading", { name: "보드가 채워지는 흐름을 관찰해 보세요" }),
-  ).toBeVisible();
-  await expect(page.getByText("아직 만남 기록이 없습니다.")).toBeVisible();
+  await expect(page).toHaveURL(/\/demo\/play\/game\?keywords=/);
+  await expect(page.getByText("빙고 완성률")).toBeVisible();
+  await expect(page.getByText("만난 참가자")).toBeVisible();
+  await expect(page.getByText("키워드를 보내면 기록이 여기에 쌓입니다.")).toBeVisible();
+  await expect(page.getByText("받은 키워드가 생기면 기록이 표시됩니다.")).toBeVisible();
 
-  await page.getByRole("button", { name: "랜덤 유저 만나기" }).click();
+  await page.getByRole("button", { name: "보내기" }).click();
+  await expect(page.getByText("내 키워드를 보냈어요")).toBeVisible();
+  await expect(page.getByText("김철수 님").first()).toBeVisible();
 
-  await expect(page.getByText("아직 만남 기록이 없습니다.")).toHaveCount(0);
-  await expect(
-    page
-      .locator("div")
-      .filter({ has: page.getByText("만난 사람", { exact: true }) })
-      .filter({ has: page.getByText("1명", { exact: true }) })
-      .first(),
-  ).toBeVisible();
-  await expect(page.getByText("방금 만난 참가자")).toBeVisible();
-  await expect(page.getByText("만남 기록")).toBeVisible();
+  await page.getByRole("button", { name: "키워드 받기" }).click();
+  await expect(page.getByText("김민수 님에게")).toBeVisible();
+  await expect(page.getByText("키워드를 받았어요")).toBeVisible();
 });
 
 test("admin login entrypoint renders Google login guidance", async ({
