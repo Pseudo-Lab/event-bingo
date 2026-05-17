@@ -19,7 +19,7 @@ const PublicFooter = () => (
           커뮤니티와 행사를 연결하는 네트워킹 플랫폼
         </p>
         <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
-          &copy; 2023 DevFactory. All rights reserved.
+          &copy; 2023 DevFactory.
         </p>
       </div>
 

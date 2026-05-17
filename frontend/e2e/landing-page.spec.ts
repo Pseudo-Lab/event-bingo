@@ -61,8 +61,8 @@ test("landing page keeps the experience and admin entry points prominent", async
   await expect(page.getByRole("link", { name: /데모 체험하기/ }).first()).toBeVisible();
   await expect(page.getByText("2025 Product DNA Open Forum").first()).toBeVisible();
   await expect(page.getByText("Korea Business Experimentation Symposium 2025").first()).toBeVisible();
-  await expect(page.getByText("Networking Lab 2025").first()).toBeVisible();
-  await expect(page.getByText("Data Networking Day 2024").first()).toBeVisible();
+  await expect(page.getByText("PseudoCon 2025").first()).toBeVisible();
+  await expect(page.getByText("8th PseudoCon").first()).toBeVisible();
 
   await page.getByLabel("이름").fill("홍길동");
   await page.getByLabel("Google 로그인에 사용할 이메일").fill("organizer@example.com");

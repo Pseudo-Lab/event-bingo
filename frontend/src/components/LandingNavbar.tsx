@@ -12,10 +12,7 @@ const LandingNavbar = () => {
         className="sticky top-0 z-50 border-b border-white/70 bg-white/80 backdrop-blur"
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-10">
-          <a href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80" aria-label="홈으로">
-            <div className="w-7 h-7 rounded-lg bg-brand-700 flex items-center justify-center">
-              <span className="text-white text-xs font-black">B</span>
-            </div>
+          <a href="/" className="flex items-center transition-opacity hover:opacity-80" aria-label="홈으로">
             <span className="font-black text-lg tracking-tight text-slate-900">
               Bingo <span className="text-brand-700">Networking</span>
             </span>

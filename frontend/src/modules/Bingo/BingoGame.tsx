@@ -1410,7 +1410,7 @@ const BingoGame = () => {
           >
             처음으로 돌아가기
           </button>
-          <p>Copyright © 2023 DevFactory</p>
+          <p>© 2023 DevFactory.</p>
         </div>
       </main>
 
