@@ -258,34 +258,34 @@ const MobileKeywordSelector = ({
   canStart: boolean;
   onStart: () => void;
 }) => (
-  <main className="min-h-screen bg-[#4fc39b] px-5 pb-7 pt-6 text-slate-950">
+  <main className="flex h-[100dvh] flex-col overflow-hidden bg-[#4fc39b] px-5 pb-4 pt-5 text-slate-950">
     <div className="flex items-center justify-between gap-3">
       <Link to="/" aria-label="Bingo Networking 홈으로 이동" className="block">
-        <img src={bingoNetworkingWordmark} alt="Bingo Networking" className="h-auto w-[156px]" />
+        <img src={bingoNetworkingWordmark} alt="Bingo Networking" className="h-auto w-[148px]" />
       </Link>
       <DemoBadgeLink className="h-[30px] px-3 text-[12px]" />
     </div>
 
-    <section className="mt-10">
-      <p className="text-[40px] leading-none text-[#9cee69]">✦</p>
-      <h1 className="mt-2 text-[42px] font-black leading-none tracking-[-0.07em] text-[#076945]">
+    <section className="mt-7">
+      <p className="text-[30px] leading-none text-[#9cee69]">✦</p>
+      <h1 className="mt-1 text-[36px] font-black leading-none tracking-[-0.07em] text-[#076945]">
         관심사 선택
       </h1>
-      <p className="mt-4 text-[17px] font-black leading-[25px] tracking-[-0.04em] text-white/90">
+      <p className="mt-3 text-[15px] font-black leading-[22px] tracking-[-0.04em] text-white/90">
         행사장에서 나를 표현할 키워드 3개를 골라주세요.
       </p>
     </section>
 
-    <section className="mt-7 rounded-[22px] bg-white p-4 shadow-soft">
-      <div className="grid grid-cols-2 gap-2.5">
-        {DEMO_PLAY_KEYWORDS.slice(0, 16).map((keyword) => {
+    <section className="mt-5 rounded-[22px] bg-white p-3 shadow-soft">
+      <div className="grid grid-cols-2 gap-2">
+        {DEMO_PLAY_KEYWORDS.slice(0, 12).map((keyword) => {
           const isSelected = selectedKeywords.includes(keyword);
 
           return (
             <button
               key={keyword}
               type="button"
-              className={`h-[48px] rounded-[24px] border px-3 text-[16px] font-black tracking-[-0.04em] transition ${
+              className={`h-[40px] rounded-[20px] border px-3 text-[14px] font-black tracking-[-0.04em] transition ${
                 isSelected
                   ? "border-[#4fc39a] bg-[#28d791] text-white shadow-[0_8px_16px_rgba(40,215,145,0.22)]"
                   : "border-[#4fc399] bg-white text-[#4fc399]"
@@ -299,21 +299,21 @@ const MobileKeywordSelector = ({
       </div>
     </section>
 
-    <div className="sticky bottom-0 -mx-5 mt-6 border-t border-white/20 bg-[#4fc39b]/95 px-5 pb-[max(18px,env(safe-area-inset-bottom))] pt-4 backdrop-blur">
-      <div className="mb-3 flex items-center justify-between text-[15px] font-black tracking-[-0.04em] text-[#076945]">
+    <div className="-mx-5 mt-auto border-t border-white/20 bg-[#4fc39b]/95 px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+      <div className="mb-2 flex items-center justify-between text-[14px] font-black tracking-[-0.04em] text-[#076945]">
         <span>선택한 키워드</span>
         <span>{selectedKeywords.length}/{DEMO_PLAY_MIN_SELECTED_KEYWORDS}</span>
       </div>
       <Button
         type="button"
-        className="h-[56px] w-full rounded-[28px] !bg-[#076945] text-[18px] font-black tracking-[-0.04em] !text-white hover:!bg-[#00905b] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+        className="h-[48px] w-full rounded-[24px] !bg-[#076945] text-[16px] font-black tracking-[-0.04em] !text-white hover:!bg-[#00905b] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
         disabled={!canStart}
         onClick={onStart}
       >
         빙고 시작하기
       </Button>
       {!canStart ? (
-        <p className="mt-2 text-center text-[14px] font-black text-[#076945]/75">
+        <p className="mt-2 text-center text-[13px] font-black text-[#076945]/75">
           키워드는 {DEMO_PLAY_MIN_SELECTED_KEYWORDS}개 선택해야 합니다.
         </p>
       ) : null}
