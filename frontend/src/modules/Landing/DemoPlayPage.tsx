@@ -35,6 +35,8 @@ const DEMO_SEND_ALERT_DURATION_MS = 750;
 const DEMO_RECEIVE_ALERT_DURATION_MS = 1300;
 const DEMO_GOAL_OVERLAY_DURATION_MS = 2000;
 
+type DemoGuidanceMode = "send" | "receive";
+
 const useViewportScale = (canvasHeight: number, fitWidthOnly = false) => {
   const [viewport, setViewport] = useState(() => ({
     width: typeof window === "undefined" ? PC_CANVAS_WIDTH : window.innerWidth,
@@ -322,6 +324,43 @@ const DemoSendOverlay = ({
   );
 };
 
+const DemoGuidanceSpotlight = ({ mode }: { mode: DemoGuidanceMode }) => {
+  const target =
+    mode === "send"
+      ? { left: 216, top: 341, width: 342, height: 78 }
+      : { left: 421, top: 345, width: 132, height: 66 };
+  const padding = 18;
+  const left = target.left - padding;
+  const top = target.top - padding;
+  const right = PC_CANVAS_WIDTH - target.left - target.width - padding;
+  const bottom = PC_GAME_CANVAS_HEIGHT - target.top - target.height - padding;
+
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-20">
+      <div className="absolute left-0 top-0 w-full bg-slate-950/45" style={{ height: top }} />
+      <div className="absolute left-0 bg-slate-950/45" style={{ top, width: left, height: target.height + padding * 2 }} />
+      <div className="absolute right-0 bg-slate-950/45" style={{ top, width: right, height: target.height + padding * 2 }} />
+      <div className="absolute bottom-0 left-0 w-full bg-slate-950/45" style={{ height: bottom }} />
+      <div
+        className="absolute rounded-[39px] ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_999px_rgba(15,23,42,0.08),0_0_34px_rgba(221,255,87,0.58)]"
+        style={{
+          left,
+          top,
+          width: target.width + padding * 2,
+          height: target.height + padding * 2,
+        }}
+      />
+    </div>
+  );
+};
+
+const DemoGuidanceCallout = () => (
+  <div className="pointer-events-none absolute left-[244px] top-[268px] z-30 rounded-[18px] border border-[#ddff57]/70 bg-[#fffde8] px-[20px] py-[12px] text-[17px] font-black leading-[22px] tracking-[-0.04em] text-[#076945] shadow-[0_18px_36px_rgba(7,105,69,0.22)]">
+    먼저 상대에게 내 키워드를 보내보세요.
+    <span className="absolute bottom-[-8px] right-[50px] h-[16px] w-[16px] rotate-45 border-b border-r border-[#ddff57]/70 bg-[#fffde8]" />
+  </div>
+);
+
 const DemoBoard = ({
   board,
   completedLines,
@@ -550,8 +589,14 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     : nextStep?.senderId === "guest"
       ? "키워드 받기"
       : "보내기";
-  const shouldShowSendGuide =
-    isGameRoute && completedStepCount === 0 && nextStep?.senderId === "host";
+  const guidanceMode: DemoGuidanceMode | null =
+    isGameRoute && completedStepCount === 0 && nextStep?.senderId === "host"
+      ? "send"
+      : isGameRoute && completedStepCount === 1 && nextStep?.senderId === "guest"
+        ? "receive"
+        : null;
+  const shouldShowSendGuide = guidanceMode === "send";
+  const shouldShowReceiveGuide = guidanceMode === "receive";
   const doneGivenCount = exchangeSteps.filter(
     (step, index) => step.senderId === "host" && index < completedStepCount
   ).length;
@@ -728,6 +773,8 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
           receiverName={sendAlert.receiverName}
           onClose={handleCloseSendAlert}
         />
+        {guidanceMode ? <DemoGuidanceSpotlight mode={guidanceMode} /> : null}
+        {shouldShowSendGuide ? <DemoGuidanceCallout /> : null}
 
         <section
           data-demo-game-layout="true"
@@ -764,7 +811,11 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                     </div>
                     <Button
                       type="button"
-                      className="h-[52px] w-[118px] rounded-[26px] !bg-[#ddff57] text-[17px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                      className={
+                        shouldShowReceiveGuide
+                          ? "relative z-30 h-[52px] w-[118px] rounded-[26px] !bg-[#ddff57] text-[17px] font-black tracking-[-0.04em] !text-[#076945] ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18)] hover:!bg-[#e8ff86] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                          : "h-[52px] w-[118px] rounded-[26px] !bg-[#ddff57] text-[17px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                      }
                       disabled={isComplete}
                       onClick={handleNext}
                     >
@@ -773,12 +824,6 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                   </div>
                 ) : (
                   <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] rounded-[31px] border-[1.5px] border-[#076945] bg-white p-[4px]">
-                    {shouldShowSendGuide ? (
-                      <div className="absolute -top-[57px] left-[8px] rounded-[18px] border border-[#ddff57]/70 bg-[#fffde8] px-[18px] py-[10px] text-[16px] font-black leading-[20px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
-                        먼저 '보내기'를 눌러 키워드를 전달해보세요.
-                        <span className="absolute bottom-[-8px] right-[48px] h-[16px] w-[16px] rotate-45 border-b border-r border-[#ddff57]/70 bg-[#fffde8]" />
-                      </div>
-                    ) : null}
                     <p className="min-w-0 flex-1 px-[21px] py-[13px] text-[21px] font-black leading-none tracking-[-0.04em] text-slate-300">
                       {actionInputLabel}
                     </p>
