@@ -57,11 +57,7 @@ const useViewportScale = (canvasHeight: number, fitWidthOnly = false) => {
   }, []);
 
   if (fitWidthOnly) {
-    return Math.min(
-      1,
-      viewport.width / PC_CANVAS_WIDTH,
-      viewport.height / PC_CANVAS_HEIGHT
-    );
+    return Math.min(1, viewport.width / PC_CANVAS_WIDTH);
   }
 
   return Math.min(viewport.width / PC_CANVAS_WIDTH, viewport.height / canvasHeight);
@@ -756,7 +752,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   }
 
   return (
-    <PcDesignStage canvasHeight={PC_GAME_CANVAS_HEIGHT}>
+    <PcDesignStage canvasHeight={PC_GAME_CANVAS_HEIGHT} scrollable>
       <main
         id="main-content"
         className="relative h-[1080px] w-[1920px] bg-[#4fc39b] text-slate-950"
