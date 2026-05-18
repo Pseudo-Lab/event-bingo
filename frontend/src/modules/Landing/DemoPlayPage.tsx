@@ -63,6 +63,22 @@ const useViewportScale = (canvasHeight: number, fitWidthOnly = false) => {
   return Math.min(viewport.width / PC_CANVAS_WIDTH, viewport.height / canvasHeight);
 };
 
+const useIsMobileViewport = () => {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window === "undefined" ? false : window.innerWidth < 768
+  );
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return isMobile;
+};
+
 const PcDesignStage = ({
   children,
   canvasHeight = PC_CANVAS_HEIGHT,
@@ -229,6 +245,80 @@ const KeywordSelector = ({
       ) : null}
     </div>
   </section>
+);
+
+const MobileKeywordSelector = ({
+  selectedKeywords,
+  onToggleKeyword,
+  canStart,
+  onStart,
+}: {
+  selectedKeywords: string[];
+  onToggleKeyword: (keyword: string) => void;
+  canStart: boolean;
+  onStart: () => void;
+}) => (
+  <main className="min-h-screen bg-[#4fc39b] px-5 pb-7 pt-6 text-slate-950">
+    <div className="flex items-center justify-between gap-3">
+      <Link to="/" aria-label="Bingo Networking 홈으로 이동" className="block">
+        <img src={bingoNetworkingWordmark} alt="Bingo Networking" className="h-auto w-[156px]" />
+      </Link>
+      <DemoBadgeLink className="h-[30px] px-3 text-[12px]" />
+    </div>
+
+    <section className="mt-10">
+      <p className="text-[40px] leading-none text-[#9cee69]">✦</p>
+      <h1 className="mt-2 text-[42px] font-black leading-none tracking-[-0.07em] text-[#076945]">
+        관심사 선택
+      </h1>
+      <p className="mt-4 text-[17px] font-black leading-[25px] tracking-[-0.04em] text-white/90">
+        행사장에서 나를 표현할 키워드 3개를 골라주세요.
+      </p>
+    </section>
+
+    <section className="mt-7 rounded-[22px] bg-white p-4 shadow-soft">
+      <div className="grid grid-cols-2 gap-2.5">
+        {DEMO_PLAY_KEYWORDS.slice(0, 16).map((keyword) => {
+          const isSelected = selectedKeywords.includes(keyword);
+
+          return (
+            <button
+              key={keyword}
+              type="button"
+              className={`h-[48px] rounded-[24px] border px-3 text-[16px] font-black tracking-[-0.04em] transition ${
+                isSelected
+                  ? "border-[#4fc39a] bg-[#28d791] text-white shadow-[0_8px_16px_rgba(40,215,145,0.22)]"
+                  : "border-[#4fc399] bg-white text-[#4fc399]"
+              }`}
+              onClick={() => onToggleKeyword(keyword)}
+            >
+              {keyword}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+
+    <div className="sticky bottom-0 -mx-5 mt-6 border-t border-white/20 bg-[#4fc39b]/95 px-5 pb-[max(18px,env(safe-area-inset-bottom))] pt-4 backdrop-blur">
+      <div className="mb-3 flex items-center justify-between text-[15px] font-black tracking-[-0.04em] text-[#076945]">
+        <span>선택한 키워드</span>
+        <span>{selectedKeywords.length}/{DEMO_PLAY_MIN_SELECTED_KEYWORDS}</span>
+      </div>
+      <Button
+        type="button"
+        className="h-[56px] w-full rounded-[28px] !bg-[#076945] text-[18px] font-black tracking-[-0.04em] !text-white hover:!bg-[#00905b] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+        disabled={!canStart}
+        onClick={onStart}
+      >
+        빙고 시작하기
+      </Button>
+      {!canStart ? (
+        <p className="mt-2 text-center text-[14px] font-black text-[#076945]/75">
+          키워드는 {DEMO_PLAY_MIN_SELECTED_KEYWORDS}개 선택해야 합니다.
+        </p>
+      ) : null}
+    </div>
+  </main>
 );
 
 const ExchangeCard = ({
@@ -455,12 +545,217 @@ const DemoBoard = ({
   );
 };
 
+const MobileDemoGame = ({
+  demoState,
+  nextStep,
+  completedStepCount,
+  isComplete,
+  actionInputLabel,
+  actionButtonLabel,
+  guidanceMode,
+  metParticipantCount,
+  doneGivenCount,
+  doneReceivedCount,
+  onNext,
+  onReplay,
+}: {
+  demoState: DemoPlayState;
+  nextStep: DemoPlayExchangeStep | null;
+  completedStepCount: number;
+  isComplete: boolean;
+  actionInputLabel: string;
+  actionButtonLabel: string;
+  guidanceMode: DemoGuidanceMode | null;
+  metParticipantCount: number;
+  doneGivenCount: number;
+  doneReceivedCount: number;
+  onNext: () => void;
+  onReplay: () => void;
+}) => {
+  const completedCellIndexes = useMemo(
+    () => getCompletedCellIndexes(demoState.completedLines),
+    [demoState.completedLines]
+  );
+  const latestKeywordSet = useMemo(
+    () => new Set(demoState.latestReceivedKeywords),
+    [demoState.latestReceivedKeywords]
+  );
+  const progressRate = Math.min(
+    100,
+    Math.round((demoState.completedLines.length / DEMO_PLAY_GOAL_LINES) * 100)
+  );
+  const isSendGuide = guidanceMode === "send";
+  const isReceiveGuide = guidanceMode === "receive";
+
+  return (
+    <main className="min-h-screen bg-[#4fc39b] px-4 pb-[150px] pt-5 text-slate-950">
+      {guidanceMode ? (
+        <div className="pointer-events-none fixed inset-0 z-20 bg-slate-950/46" aria-hidden="true" />
+      ) : null}
+
+      <div className="relative z-10 flex items-center justify-between gap-3">
+        <Link to="/" aria-label="Bingo Networking 홈으로 이동" className="block">
+          <img src={bingoNetworkingWordmark} alt="Bingo Networking" className="h-auto w-[148px]" />
+        </Link>
+        <DemoBadgeLink className="h-[29px] px-3 text-[12px]" />
+      </div>
+
+      <section className="relative z-10 mt-5 rounded-[22px] bg-white p-4 shadow-soft">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[15px] font-black tracking-[-0.04em] text-[#076945]/75">
+              홍길동 님
+            </p>
+            <h1 className="mt-2 text-[28px] font-black leading-[34px] tracking-[-0.07em] text-[#076945]">
+              빙고를 채우며
+              <br />
+              소통해봐요!
+            </h1>
+          </div>
+          <div className="rounded-full bg-[#00905b] px-3 py-1.5 text-[13px] font-black text-white">
+            {progressRate}%
+          </div>
+        </div>
+
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#076945]/15">
+          <div className="h-full rounded-full bg-[#00905b]" style={{ width: `${progressRate}%` }} />
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-3 text-[14px] font-black tracking-[-0.04em] text-[#076945]">
+          <div className="rounded-[14px] bg-[#f5fbcc] px-3 py-2">
+            <dt>수집한 키워드</dt>
+            <dd>{demoState.board.filter((cell) => cell.status === 1).length}/24</dd>
+          </div>
+          <div className="rounded-[14px] bg-[#f5fbcc] px-3 py-2">
+            <dt>만난 참가자</dt>
+            <dd>{metParticipantCount}명</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="relative z-10 mt-4 rounded-[24px] bg-[#f5fbcc] p-3 shadow-soft">
+        <div className="grid grid-cols-5 gap-1.5">
+          {demoState.board.map((cell, index) => {
+            const isCollected = cell.status === 1;
+            const isLatest = latestKeywordSet.has(cell.value);
+            const isCompleted = completedCellIndexes.has(index);
+
+            return (
+              <div
+                key={cell.id}
+                className={`flex aspect-square items-center justify-center rounded-[12px] border px-1 text-center text-[11px] font-black leading-[13px] tracking-[-0.04em] ${
+                  isCollected
+                    ? "border-[#ddff57] bg-[#00905b] text-[#ddff57]"
+                    : "border-[#076945]/14 bg-white text-[#076945]"
+                } ${isLatest ? "ring-2 ring-[#ff5757]" : ""} ${isCompleted ? "shadow-[inset_0_0_0_2px_rgba(221,255,87,0.9)]" : ""}`}
+              >
+                {cell.value}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="relative z-10 mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-[18px] bg-[#076945] p-4 text-white shadow-soft">
+          <h2 className="text-[16px] font-black tracking-[-0.04em]">
+            내가 준 사람 <span className="text-[#ff5757]">{doneGivenCount}</span>
+          </h2>
+          <p className="mt-3 text-[13px] font-black leading-[19px] tracking-[-0.04em] text-white/60">
+            {doneGivenCount > 0 ? "키워드를 보냈어요." : "보낸 기록이 여기에 쌓입니다."}
+          </p>
+        </div>
+        <div className="rounded-[18px] bg-[#076945] p-4 text-white shadow-soft">
+          <h2 className="text-[16px] font-black tracking-[-0.04em]">
+            나에게 보낸 사람 <span className="text-[#ff5757]">{doneReceivedCount}</span>
+          </h2>
+          <p className="mt-3 text-[13px] font-black leading-[19px] tracking-[-0.04em] text-white/60">
+            {doneReceivedCount > 0 ? "받은 키워드가 표시됩니다." : "받은 기록이 여기에 쌓입니다."}
+          </p>
+        </div>
+      </section>
+
+      {isComplete ? (
+        <section className="relative z-10 mt-4 rounded-[22px] bg-[#076945] px-5 py-6 text-center text-white shadow-soft">
+          <p className="text-[34px] font-black text-[#ddff57]">✦</p>
+          <p className="mt-2 text-[25px] font-black tracking-[-0.07em]">목표 달성!</p>
+          <Button
+            type="button"
+            className="mt-4 h-[48px] rounded-[24px] !bg-[#ddff57] px-6 text-[16px] font-black !text-[#076945]"
+            onClick={onReplay}
+          >
+            다시 체험하기
+          </Button>
+        </section>
+      ) : null}
+
+      <div
+        className={`fixed inset-x-0 bottom-0 z-30 border-t border-white/20 bg-[#4fc39b]/96 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-4 backdrop-blur ${
+          guidanceMode ? "shadow-[0_-18px_48px_rgba(221,255,87,0.25)]" : ""
+        }`}
+      >
+        {isSendGuide ? (
+          <div className="mb-3 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
+            먼저 상대에게 내 키워드를 보내보세요.
+          </div>
+        ) : null}
+        {isReceiveGuide ? (
+          <div className="mb-3 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
+            이제 상대가 보낸 키워드를 받아보세요.
+          </div>
+        ) : null}
+
+        {nextStep?.senderId === "guest" ? (
+          <div className="flex h-[58px] items-center rounded-[29px] border-[1.5px] border-[#ddff57] bg-[#f5fbcc] p-1">
+            <div className="min-w-0 flex-1 px-4">
+              <p className="text-[12px] font-black leading-none tracking-[-0.04em] text-[#00905b]">
+                {nextStep.senderName} 님이 보냈어요
+              </p>
+              <p className="mt-1.5 truncate text-[15px] font-black leading-none tracking-[-0.04em] text-[#076945]">
+                {nextStep.sentKeywords.join(", ")}
+              </p>
+            </div>
+            <Button
+              type="button"
+              className={`h-[50px] w-[116px] rounded-[25px] !bg-[#ddff57] text-[16px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86] ${
+                isReceiveGuide ? "ring-[5px] ring-[#ddff57]/70" : ""
+              }`}
+              disabled={isComplete}
+              onClick={onNext}
+            >
+              {actionButtonLabel}
+            </Button>
+          </div>
+        ) : (
+          <div className={`flex h-[58px] rounded-[29px] border-[1.5px] border-[#076945] bg-white p-1 ${isSendGuide ? "ring-[5px] ring-[#ddff57]/70" : ""}`}>
+            <p className="min-w-0 flex-1 px-4 py-[14px] text-[17px] font-black leading-none tracking-[-0.04em] text-slate-300">
+              {actionInputLabel}
+            </p>
+            <Button
+              type="button"
+              className="h-[50px] w-[100px] rounded-[25px] !bg-[#4fc399] text-[17px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791]"
+              disabled={isComplete}
+              onClick={onNext}
+            >
+              {actionButtonLabel}
+            </Button>
+          </div>
+        )}
+
+        <p className="mt-2 text-center text-[12px] font-black tracking-[-0.04em] text-[#076945]/65">
+          {Math.min(completedStepCount + 1, 4)} / 4 단계
+        </p>
+      </div>
+    </main>
+  );
+};
+
 const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { track } = useSiteAnalytics();
   const isGameRoute = location.pathname.endsWith("/game");
+  const isMobileViewport = useIsMobileViewport();
   const selectedKeywordsFromQuery = useMemo(() => {
     const keywords = searchParams.get("keywords") ?? "";
     return keywords
@@ -728,6 +1023,17 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   }
 
   if (!isGameRoute) {
+    if (isMobileViewport) {
+      return (
+        <MobileKeywordSelector
+          selectedKeywords={draftKeywords}
+          onToggleKeyword={handleToggleKeyword}
+          canStart={canStart}
+          onStart={handleStart}
+        />
+      );
+    }
+
     return (
       <PcDesignStage>
         <main className="relative h-[1080px] w-[1920px] bg-[#4fc39b]">
@@ -748,6 +1054,25 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
           </p>
         </main>
       </PcDesignStage>
+    );
+  }
+
+  if (isMobileViewport) {
+    return (
+      <MobileDemoGame
+        demoState={demoState}
+        nextStep={nextStep}
+        completedStepCount={completedStepCount}
+        isComplete={isComplete}
+        actionInputLabel={actionInputLabel}
+        actionButtonLabel={actionButtonLabel}
+        guidanceMode={guidanceMode}
+        metParticipantCount={metParticipantCount}
+        doneGivenCount={doneGivenCount}
+        doneReceivedCount={doneReceivedCount}
+        onNext={handleNext}
+        onReplay={handleReplay}
+      />
     );
   }
 
