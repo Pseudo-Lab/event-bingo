@@ -548,7 +548,6 @@ const DemoBoard = ({
 const MobileDemoGame = ({
   demoState,
   nextStep,
-  completedStepCount,
   isComplete,
   actionInputLabel,
   actionButtonLabel,
@@ -556,6 +555,7 @@ const MobileDemoGame = ({
   metParticipantCount,
   doneGivenCount,
   doneReceivedCount,
+  selectedKeywords,
   onNext,
   onReplay,
 }: {
@@ -569,17 +569,10 @@ const MobileDemoGame = ({
   metParticipantCount: number;
   doneGivenCount: number;
   doneReceivedCount: number;
+  selectedKeywords: string[];
   onNext: () => void;
   onReplay: () => void;
 }) => {
-  const completedCellIndexes = useMemo(
-    () => getCompletedCellIndexes(demoState.completedLines),
-    [demoState.completedLines]
-  );
-  const latestKeywordSet = useMemo(
-    () => new Set(demoState.latestReceivedKeywords),
-    [demoState.latestReceivedKeywords]
-  );
   const progressRate = Math.min(
     100,
     Math.round((demoState.completedLines.length / DEMO_PLAY_GOAL_LINES) * 100)
@@ -588,167 +581,144 @@ const MobileDemoGame = ({
   const isReceiveGuide = guidanceMode === "receive";
 
   return (
-    <main className="min-h-screen bg-[#4fc39b] px-4 pb-[150px] pt-5 text-slate-950">
+    <div className="bingo-game-page">
+      <div className="bingo-game-page__mesh" aria-hidden="true" />
       {guidanceMode ? (
         <div className="pointer-events-none fixed inset-0 z-20 bg-slate-950/46" aria-hidden="true" />
       ) : null}
 
-      <div className="relative z-10 flex items-center justify-between gap-3">
-        <Link to="/" aria-label="Bingo Networking 홈으로 이동" className="block">
-          <img src={bingoNetworkingWordmark} alt="Bingo Networking" className="h-auto w-[148px]" />
-        </Link>
-        <DemoBadgeLink className="h-[29px] px-3 text-[12px]" />
-      </div>
+      <main className="bingo-game-shell pb-[150px]">
+        <header className="bingo-game-header">
+          <Link to="/" className="bingo-game-header__brand" aria-label="Bingo Networking 홈으로 이동">
+            <img src={bingoNetworkingWordmark} alt="Bingo Networking" />
+          </Link>
+        </header>
 
-      <section className="relative z-10 mt-5 rounded-[22px] bg-white p-4 shadow-soft">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[15px] font-black tracking-[-0.04em] text-[#076945]/75">
-              홍길동 님
-            </p>
-            <h1 className="mt-2 text-[28px] font-black leading-[34px] tracking-[-0.07em] text-[#076945]">
-              빙고를 채우며
-              <br />
-              소통해봐요!
-            </h1>
-          </div>
-          <div className="rounded-full bg-[#00905b] px-3 py-1.5 text-[13px] font-black text-white">
-            {progressRate}%
-          </div>
-        </div>
-
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#076945]/15">
-          <div className="h-full rounded-full bg-[#00905b]" style={{ width: `${progressRate}%` }} />
-        </div>
-        <dl className="mt-3 grid grid-cols-2 gap-3 text-[14px] font-black tracking-[-0.04em] text-[#076945]">
-          <div className="rounded-[14px] bg-[#f5fbcc] px-3 py-2">
-            <dt>수집한 키워드</dt>
-            <dd>{demoState.board.filter((cell) => cell.status === 1).length}/24</dd>
-          </div>
-          <div className="rounded-[14px] bg-[#f5fbcc] px-3 py-2">
-            <dt>만난 참가자</dt>
-            <dd>{metParticipantCount}명</dd>
-          </div>
-        </dl>
-      </section>
-
-      <section className="relative z-10 mt-4 rounded-[24px] bg-[#f5fbcc] p-3 shadow-soft">
-        <div className="grid grid-cols-5 gap-1.5">
-          {demoState.board.map((cell, index) => {
-            const isCollected = cell.status === 1;
-            const isLatest = latestKeywordSet.has(cell.value);
-            const isCompleted = completedCellIndexes.has(index);
-
-            return (
-              <div
-                key={cell.id}
-                className={`flex aspect-square items-center justify-center rounded-[12px] border px-1 text-center text-[11px] font-black leading-[13px] tracking-[-0.04em] ${
-                  isCollected
-                    ? "border-[#ddff57] bg-[#00905b] text-[#ddff57]"
-                    : "border-[#076945]/14 bg-white text-[#076945]"
-                } ${isLatest ? "ring-2 ring-[#ff5757]" : ""} ${isCompleted ? "shadow-[inset_0_0_0_2px_rgba(221,255,87,0.9)]" : ""}`}
-              >
-                {cell.value}
+        <section className="bingo-game-top">
+          <article className={"bingo-card bingo-hero " + (isSendGuide ? "relative z-30" : "")}>
+            <p className="bingo-hero__identity">홍길동 님</p>
+            <div className="bingo-hero__content">
+              <div className="bingo-hero__copy">
+                <h1>
+                  빙고를 채우며
+                  <br />
+                  소통해봐요!
+                </h1>
+                {isSendGuide ? (
+                  <div className="mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
+                    먼저 상대에게 내 키워드를 보내보세요.
+                  </div>
+                ) : null}
+                {isReceiveGuide ? (
+                  <div className="mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
+                    이제 상대가 보낸 키워드를 받아보세요.
+                  </div>
+                ) : null}
+                <form
+                  className={"bingo-hero__form " + (guidanceMode ? "ring-[5px] ring-[#ddff57]/70" : "")}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    onNext();
+                  }}
+                >
+                  <div className="bingo-hero__form-field">
+                    <input
+                      value={
+                        nextStep?.senderId === "guest"
+                          ? nextStep.senderName + " 님이 보냈어요"
+                          : actionInputLabel
+                      }
+                      aria-label={nextStep?.senderId === "guest" ? "받은 키워드" : "상대방 이름 검색"}
+                      readOnly
+                    />
+                  </div>
+                  <button type="submit" disabled={isComplete}>
+                    {actionButtonLabel}
+                  </button>
+                </form>
               </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="relative z-10 mt-4 grid grid-cols-2 gap-3">
-        <div className="rounded-[18px] bg-[#076945] p-4 text-white shadow-soft">
-          <h2 className="text-[16px] font-black tracking-[-0.04em]">
-            내가 준 사람 <span className="text-[#ff5757]">{doneGivenCount}</span>
-          </h2>
-          <p className="mt-3 text-[13px] font-black leading-[19px] tracking-[-0.04em] text-white/60">
-            {doneGivenCount > 0 ? "키워드를 보냈어요." : "보낸 기록이 여기에 쌓입니다."}
-          </p>
-        </div>
-        <div className="rounded-[18px] bg-[#076945] p-4 text-white shadow-soft">
-          <h2 className="text-[16px] font-black tracking-[-0.04em]">
-            나에게 보낸 사람 <span className="text-[#ff5757]">{doneReceivedCount}</span>
-          </h2>
-          <p className="mt-3 text-[13px] font-black leading-[19px] tracking-[-0.04em] text-white/60">
-            {doneReceivedCount > 0 ? "받은 키워드가 표시됩니다." : "받은 기록이 여기에 쌓입니다."}
-          </p>
-        </div>
-      </section>
-
-      {isComplete ? (
-        <section className="relative z-10 mt-4 rounded-[22px] bg-[#076945] px-5 py-6 text-center text-white shadow-soft">
-          <p className="text-[34px] font-black text-[#ddff57]">✦</p>
-          <p className="mt-2 text-[25px] font-black tracking-[-0.07em]">목표 달성!</p>
-          <Button
-            type="button"
-            className="mt-4 h-[48px] rounded-[24px] !bg-[#ddff57] px-6 text-[16px] font-black !text-[#076945]"
-            onClick={onReplay}
-          >
-            다시 체험하기
-          </Button>
-        </section>
-      ) : null}
-
-      <div
-        className={`fixed inset-x-0 bottom-0 z-30 border-t border-white/20 bg-[#4fc39b]/96 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-4 backdrop-blur ${
-          guidanceMode ? "shadow-[0_-18px_48px_rgba(221,255,87,0.25)]" : ""
-        }`}
-      >
-        {isSendGuide ? (
-          <div className="mb-3 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
-            먼저 상대에게 내 키워드를 보내보세요.
-          </div>
-        ) : null}
-        {isReceiveGuide ? (
-          <div className="mb-3 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
-            이제 상대가 보낸 키워드를 받아보세요.
-          </div>
-        ) : null}
-
-        {nextStep?.senderId === "guest" ? (
-          <div className="flex h-[58px] items-center rounded-[29px] border-[1.5px] border-[#ddff57] bg-[#f5fbcc] p-1">
-            <div className="min-w-0 flex-1 px-4">
-              <p className="text-[12px] font-black leading-none tracking-[-0.04em] text-[#00905b]">
-                {nextStep.senderName} 님이 보냈어요
-              </p>
-              <p className="mt-1.5 truncate text-[15px] font-black leading-none tracking-[-0.04em] text-[#076945]">
-                {nextStep.sentKeywords.join(", ")}
-              </p>
             </div>
-            <Button
-              type="button"
-              className={`h-[50px] w-[116px] rounded-[25px] !bg-[#ddff57] text-[16px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86] ${
-                isReceiveGuide ? "ring-[5px] ring-[#ddff57]/70" : ""
-              }`}
-              disabled={isComplete}
-              onClick={onNext}
-            >
-              {actionButtonLabel}
-            </Button>
-          </div>
-        ) : (
-          <div className={`flex h-[58px] rounded-[29px] border-[1.5px] border-[#076945] bg-white p-1 ${isSendGuide ? "ring-[5px] ring-[#ddff57]/70" : ""}`}>
-            <p className="min-w-0 flex-1 px-4 py-[14px] text-[17px] font-black leading-none tracking-[-0.04em] text-slate-300">
-              {actionInputLabel}
-            </p>
-            <Button
-              type="button"
-              className="h-[50px] w-[100px] rounded-[25px] !bg-[#4fc399] text-[17px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791]"
-              disabled={isComplete}
-              onClick={onNext}
-            >
-              {actionButtonLabel}
-            </Button>
-          </div>
-        )}
+          </article>
 
-        <p className="mt-2 text-center text-[12px] font-black tracking-[-0.04em] text-[#076945]/65">
-          {Math.min(completedStepCount + 1, 4)} / 4 단계
-        </p>
-      </div>
-    </main>
+          <article className="bingo-card bingo-stats">
+            <span className="bingo-stats__badge">개인전</span>
+            <div className="bingo-stats__score">
+              <strong>{progressRate}%</strong>
+              <p>빙고 완성률</p>
+            </div>
+            <div className="bingo-stats__progress" aria-hidden="true">
+              <span style={{ width: progressRate + "%" }} />
+            </div>
+            <section className="bingo-stats__selected" aria-label="내가 고른 키워드">
+              <div className="bingo-stats__selected-head">
+                <h3>내가 고른 키워드</h3>
+                <strong>{selectedKeywords.length}개</strong>
+              </div>
+              <div className="bingo-stats__selected-list">
+                {selectedKeywords.map((keyword) => (
+                  <span key={keyword} className="bingo-stats__selected-chip">
+                    {keyword}
+                  </span>
+                ))}
+              </div>
+            </section>
+            <dl className="bingo-stats__meta">
+              <div>
+                <dt>수집한 키워드</dt>
+                <dd>{demoState.board.filter((cell) => cell.status === 1).length}/24</dd>
+              </div>
+              <div>
+                <dt>만난 참가자</dt>
+                <dd>{metParticipantCount}명</dd>
+              </div>
+            </dl>
+          </article>
+        </section>
+
+        <div className="relative z-10">
+          <DemoBoard
+            board={demoState.board}
+            completedLines={demoState.completedLines}
+            latestReceivedKeywords={demoState.latestReceivedKeywords}
+            isGoalComplete={isComplete}
+            showGoalOverlay={isComplete}
+            onDismissGoalOverlay={() => undefined}
+            receiveOverlay={{
+              open: false,
+              senderName: "",
+              keywords: [],
+            }}
+          />
+        </div>
+
+        <section className="relative z-10 mt-4 grid grid-cols-2 gap-3">
+          <div className="rounded-[18px] bg-[#076945] p-4 text-white shadow-soft">
+            <h2 className="text-[16px] font-black tracking-[-0.04em]">
+              내가 준 사람 <span className="text-[#ff5757]">{doneGivenCount}</span>
+            </h2>
+          </div>
+          <div className="rounded-[18px] bg-[#076945] p-4 text-white shadow-soft">
+            <h2 className="text-[16px] font-black tracking-[-0.04em]">
+              나에게 보낸 사람 <span className="text-[#ff5757]">{doneReceivedCount}</span>
+            </h2>
+          </div>
+        </section>
+
+        {isComplete ? (
+          <div className="relative z-10 mt-4 text-center">
+            <Button
+              type="button"
+              className="h-[48px] rounded-[24px] !bg-[#ddff57] px-6 text-[16px] font-black !text-[#076945]"
+              onClick={onReplay}
+            >
+              다시 체험하기
+            </Button>
+          </div>
+        ) : null}
+      </main>
+    </div>
   );
 };
-
 const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -1070,6 +1040,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
         metParticipantCount={metParticipantCount}
         doneGivenCount={doneGivenCount}
         doneReceivedCount={doneReceivedCount}
+        selectedKeywords={activeKeywords}
         onNext={handleNext}
         onReplay={handleReplay}
       />
