@@ -1190,8 +1190,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
       : isGameRoute && completedStepCount === 1 && nextStep?.senderId === "guest"
         ? "receive"
         : null;
-  const shouldShowSendGuide = guidanceMode === "send";
-  const shouldShowReceiveGuide = guidanceMode === "receive";
+  const pcGuidanceMode = sendAlert.open ? null : guidanceMode;
   const doneGivenCount = exchangeSteps.filter(
     (step, index) => step.senderId === "host" && index < completedStepCount
   ).length;
@@ -1446,8 +1445,8 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
           receiverName={sendAlert.receiverName}
           onClose={handleCloseSendAlert}
         />
-        {guidanceMode ? <DemoGuidanceSpotlight mode={guidanceMode} /> : null}
-        {guidanceMode ? <DemoGuidanceCallout mode={guidanceMode} /> : null}
+        {pcGuidanceMode ? <DemoGuidanceSpotlight mode={pcGuidanceMode} /> : null}
+        {pcGuidanceMode ? <DemoGuidanceCallout mode={pcGuidanceMode} /> : null}
 
         <section
           data-demo-game-layout="true"
@@ -1598,7 +1597,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
           </div>
 
           <div className="relative pt-[25px]">
-            {nextStep?.senderId === "guest" && !isComplete ? (
+            {nextStep?.senderId === "guest" && !isComplete && !sendAlert.open ? (
               <div className="absolute left-[32px] right-[32px] top-0 z-30 flex min-h-[74px] items-center gap-[14px] rounded-[24px] border border-[#ddff57]/80 bg-[#f5fbcc]/95 p-[8px] shadow-[0_16px_36px_rgba(7,105,69,0.2)]">
                 <div className="min-w-0 flex-1 px-[14px]">
                   <p className="text-[15px] font-black leading-none tracking-[-0.04em] text-[#00905b]">
