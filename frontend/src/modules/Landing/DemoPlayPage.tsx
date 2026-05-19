@@ -1485,7 +1485,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                       className={
                         "min-w-0 flex-1 px-[21px] py-[13px] text-left text-[21px] font-black leading-none tracking-[-0.04em] " +
                         (nextStep?.senderId === "guest"
-                          ? "text-[#071322]"
+                          ? "text-slate-300"
                           : "cursor-pointer " + (isDemoParticipantSelected ? "text-[#071322]" : "text-slate-300"))
                       }
                       role="button"
@@ -1501,7 +1501,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                         }
                       }}
                     >
-                      {actionInputLabel}
+                      {nextStep?.senderId === "guest" ? "상대방 이름 검색" : actionInputLabel}
                     </div>
                     <Button
                       type="button"

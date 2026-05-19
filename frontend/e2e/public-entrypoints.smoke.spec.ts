@@ -70,6 +70,8 @@ test("demo experience starts without login and records a sample encounter", asyn
   await expect(page.getByText("김철수 님에게 보냈어요")).toBeHidden();
   await expect(page.getByText("김민수 님이 키워드를 보냈어요")).toBeVisible();
   await expect(page.getByText("김민수 답장")).toHaveCount(0);
+  await expect(page.getByText("상대방 이름 검색")).toBeVisible();
+  await expect(page.getByText("상대방 이름 검색")).toHaveCSS("color", "rgb(203, 213, 225)");
   await expect(page.getByRole("button", { name: "보내기" })).toBeDisabled();
   await expect(receiveButton).not.toHaveClass(/ring-\[5px\]/);
   await expect(receiveButton).toHaveCSS("background-color", "rgb(221, 255, 87)");
