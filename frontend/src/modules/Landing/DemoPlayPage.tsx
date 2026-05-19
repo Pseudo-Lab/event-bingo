@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import bingoNetworkingWordmark from "../../assets/illustrations/Bingo Networking.svg";
@@ -558,6 +558,7 @@ const MobileDemoGame = ({
   doneGivenCount,
   doneReceivedCount,
   selectedKeywords,
+  boardSectionRef,
   onNext,
   onReplay,
 }: {
@@ -572,6 +573,7 @@ const MobileDemoGame = ({
   doneGivenCount: number;
   doneReceivedCount: number;
   selectedKeywords: string[];
+  boardSectionRef: RefObject<HTMLDivElement>;
   onNext: () => void;
   onReplay: () => void;
 }) => {
@@ -677,7 +679,7 @@ const MobileDemoGame = ({
           </article>
         </section>
 
-        <div className="relative z-10">
+        <div ref={boardSectionRef} className="relative z-10 scroll-mt-4">
           <DemoBoard
             board={demoState.board}
             completedLines={demoState.completedLines}
@@ -758,6 +760,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const hasTrackedReadyRef = useRef(false);
   const hasTrackedGoalRef = useRef(false);
   const gameStartedAtRef = useRef(Date.now());
+  const mobileBoardSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     return () => {
@@ -960,9 +963,21 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
         demo_run_id: demoRunId,
       });
     }
+    const shouldScrollToBoard =
+      isMobileViewport && nextStep?.senderId === "guest" && mobileBoardSectionRef.current;
+
     setCompletedStepCount((currentCount) =>
       Math.min(currentCount + 1, exchangeSteps.length)
     );
+
+    if (shouldScrollToBoard) {
+      window.setTimeout(() => {
+        mobileBoardSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 80);
+    }
   };
 
   const handleReplay = () => {
@@ -1044,6 +1059,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
         doneGivenCount={doneGivenCount}
         doneReceivedCount={doneReceivedCount}
         selectedKeywords={activeKeywords}
+        boardSectionRef={mobileBoardSectionRef}
         onNext={handleNext}
         onReplay={handleReplay}
       />
