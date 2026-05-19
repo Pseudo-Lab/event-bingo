@@ -630,7 +630,11 @@ const MobileDemoGame = ({
                     aria-label={nextStep?.senderId === "guest" ? "받은 키워드" : "상대방 이름"}
                   >
                     <span
-                      className="block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-[#071322]"
+                      className={
+                        nextStep?.senderId === "host"
+                          ? "block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-slate-300"
+                          : "block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-[#071322]"
+                      }
                     >
                       {nextStep?.senderId === "guest"
                         ? nextStep.senderName + " 님이 보냈어요"
@@ -1154,7 +1158,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                   </div>
                 ) : (
                   <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] rounded-[31px] border-[1.5px] border-[#076945] bg-white p-[4px]">
-                    <div className="min-w-0 flex-1 px-[21px] py-[13px] text-left text-[21px] font-black leading-none tracking-[-0.04em] text-[#071322]">
+                    <div className="min-w-0 flex-1 px-[21px] py-[13px] text-left text-[21px] font-black leading-none tracking-[-0.04em] text-slate-300">
                       {actionInputLabel}
                     </div>
                     <Button
