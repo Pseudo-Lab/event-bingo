@@ -625,6 +625,10 @@
   background: #ffffff;
 }
 
+.bingo-hero__form--demo {
+  overflow: hidden;
+}
+
 .bingo-hero__form-field {
   position: relative;
   z-index: 30;

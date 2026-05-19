@@ -811,7 +811,7 @@ const MobileDemoGame = ({
                   소통해봐요!
                 </h1>
                 {!shouldShowBoardExchangeControl && isComplete ? (
-                  <div className="bingo-hero__form">
+                  <div className="bingo-hero__form bingo-hero__form--demo">
                     <button type="button" onClick={onReplay}>
                       다시 체험하기
                     </button>
@@ -819,7 +819,7 @@ const MobileDemoGame = ({
                 ) : !shouldShowBoardExchangeControl ? (
                   <form
                     ref={mobileGuidanceTargetRef}
-                    className={"bingo-hero__form " + (guidanceMode ? "relative z-30" : "")}
+                    className={"bingo-hero__form bingo-hero__form--demo " + (guidanceMode ? "relative z-30" : "")}
                     onSubmit={(event) => {
                       event.preventDefault();
                       if (isSendActionDisabled) {

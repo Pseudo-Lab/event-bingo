@@ -76,6 +76,27 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
 
   await expect(nameLabel).toHaveCSS("color", "rgb(203, 213, 225)");
   await expect(sendButton).toBeDisabled();
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const form = document.querySelector(".bingo-hero__form");
+        const button = form?.querySelector("button");
+        const formBox = form?.getBoundingClientRect();
+        const buttonBox = button?.getBoundingClientRect();
+
+        if (!formBox || !buttonBox) {
+          return false;
+        }
+
+        return (
+          buttonBox.left >= formBox.left &&
+          buttonBox.right <= formBox.right &&
+          buttonBox.top >= formBox.top &&
+          buttonBox.bottom <= formBox.bottom
+        );
+      }),
+    )
+    .toBe(true);
 
   await page.mouse.wheel(0, 500);
   await page.waitForTimeout(100);
