@@ -597,7 +597,7 @@ const MobileDemoGame = ({
         </header>
 
         <section className="bingo-game-top">
-          <article className={"bingo-card bingo-hero " + (isSendGuide ? "relative z-30" : "")}>
+          <article className="bingo-card bingo-hero">
             <p className="bingo-hero__identity">홍길동 님</p>
             <div className="bingo-hero__content">
               <div className="bingo-hero__copy">
@@ -607,17 +607,17 @@ const MobileDemoGame = ({
                   소통해봐요!
                 </h1>
                 {isSendGuide ? (
-                  <div className="mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
+                  <div className="relative z-30 mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
                     먼저 상대에게 내 키워드를 보내보세요.
                   </div>
                 ) : null}
                 {isReceiveGuide ? (
-                  <div className="mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
+                  <div className="relative z-30 mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
                     이제 상대가 보낸 키워드를 받아보세요.
                   </div>
                 ) : null}
                 <form
-                  className={"bingo-hero__form " + (guidanceMode ? "ring-[5px] ring-[#ddff57]/70" : "")}
+                  className={"bingo-hero__form " + (guidanceMode ? "relative z-30 ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18),0_18px_40px_rgba(7,105,69,0.24)]" : "")}
                   onSubmit={(event) => {
                     event.preventDefault();
                     onNext();
