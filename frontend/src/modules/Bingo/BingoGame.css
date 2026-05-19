@@ -629,6 +629,13 @@
   overflow: hidden;
 }
 
+.bingo-hero__form--demo button {
+  min-width: 6.4rem;
+  margin-right: 0.15rem;
+  padding-right: 1rem;
+  padding-left: 1rem;
+}
+
 .bingo-hero__form-field {
   position: relative;
   z-index: 30;

@@ -90,10 +90,10 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
         }
 
         return (
-          buttonBox.left >= formBox.left &&
-          buttonBox.right <= formBox.right &&
-          buttonBox.top >= formBox.top &&
-          buttonBox.bottom <= formBox.bottom
+          buttonBox.left >= formBox.left + 4 &&
+          buttonBox.right <= formBox.right - 4 &&
+          buttonBox.top >= formBox.top + 4 &&
+          buttonBox.bottom <= formBox.bottom - 4
         );
       }),
     )
