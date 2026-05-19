@@ -1516,16 +1516,6 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                 <span className="absolute left-[32px] top-[31px] inline-flex h-[29px] items-center rounded-[15px] bg-[#00905b] px-[17px] text-[16px] font-black tracking-[-0.04em] text-white">
                   개인전
                 </span>
-                {completedStepCount > 0 && !isComplete ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="absolute right-[23px] top-[24px] h-[42px] rounded-full border border-[#076945]/20 !bg-[#ddff57] px-[18px] text-[17px] font-black tracking-[-0.04em] !text-[#076945] shadow-[0_8px_18px_rgba(7,105,69,0.18)] hover:!bg-[#e8ff86] hover:!text-[#076945]"
-                    onClick={handleReplay}
-                  >
-                    다시 체험하기
-                  </Button>
-                ) : null}
                 <p className="absolute left-[32px] top-[99px] text-[60px] font-black leading-none tracking-[-0.08em] text-[#ff3b2f]">
                   {Math.min(100, Math.round((demoState.completedLines.length / DEMO_PLAY_GOAL_LINES) * 100))}%
                 </p>

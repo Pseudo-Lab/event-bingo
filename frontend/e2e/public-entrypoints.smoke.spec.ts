@@ -47,10 +47,7 @@ test("demo experience starts without login and records a sample encounter", asyn
   const receiveButton = page.getByRole("button", { name: "교환 확인" });
   await expect(receiveButton).toHaveClass(/ring-\[5px\]/);
   await expect(receiveButton).toHaveCSS("background-color", "rgb(221, 255, 87)");
-  await expect(page.getByRole("button", { name: "다시 체험하기" })).toHaveCSS(
-    "background-color",
-    "rgb(221, 255, 87)",
-  );
+  await expect(page.getByRole("button", { name: "다시 체험하기" })).toHaveCount(0);
 
   await receiveButton.click();
   await expect(page.getByText("김민수 님에게")).toBeVisible();
