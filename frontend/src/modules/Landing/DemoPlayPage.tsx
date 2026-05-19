@@ -686,6 +686,24 @@ const MobileDemoGame = ({
     isComplete || (nextStep?.senderId === "host" && !isParticipantSelected);
   const mobileGuidanceTargetRef = useRef<HTMLFormElement>(null);
 
+  useEffect(() => {
+    if (!guidanceMode) {
+      return;
+    }
+
+    const preventUserScroll = (event: Event) => {
+      event.preventDefault();
+    };
+
+    document.addEventListener("touchmove", preventUserScroll, { passive: false });
+    document.addEventListener("wheel", preventUserScroll, { passive: false });
+
+    return () => {
+      document.removeEventListener("touchmove", preventUserScroll);
+      document.removeEventListener("wheel", preventUserScroll);
+    };
+  }, [guidanceMode]);
+
   return (
     <div className="bingo-game-page">
       <div className="bingo-game-page__mesh" aria-hidden="true" />

@@ -78,6 +78,10 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
   await expect(nameLabel).toHaveCSS("color", "rgb(203, 213, 225)");
   await expect(sendButton).toBeDisabled();
 
+  await page.mouse.wheel(0, 500);
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
   await nameChoice.click();
   await expect(nameLabel).toHaveCSS("color", "rgb(7, 19, 34)");
   await expect(sendButton).toBeEnabled();
