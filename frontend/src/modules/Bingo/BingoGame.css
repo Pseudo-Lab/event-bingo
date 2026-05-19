@@ -1430,8 +1430,17 @@
   animation: demoBingoCellPop 1.25s ease-in-out infinite;
 }
 
-.demo-play-board-highlight .bingo-board-shell {
-  animation: demoBoardHighlight 1.7s ease-out;
+.demo-play-board-highlight::after {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  content: "";
+  border: 8px solid rgba(221, 255, 87, 0.92);
+  border-radius: 46px;
+  box-shadow:
+    0 0 0 3px rgba(245, 255, 164, 0.38),
+    0 0 34px rgba(221, 255, 87, 0.54);
+  animation: demoBoardOutlineHighlight 1.7s ease-out;
 }
 
 .demo-play-history-list {
@@ -1462,22 +1471,18 @@
   }
 }
 
-@keyframes demoBoardHighlight {
+@keyframes demoBoardOutlineHighlight {
   0% {
-    box-shadow:
-      0 0 0 0 rgba(221, 255, 87, 0),
-      0 22px 42px rgba(7, 105, 69, 0.18);
+    opacity: 0;
+    transform: scale(0.985);
   }
   18% {
-    box-shadow:
-      0 0 0 8px rgba(221, 255, 87, 0.72),
-      0 0 34px rgba(221, 255, 87, 0.5),
-      0 22px 42px rgba(7, 105, 69, 0.18);
+    opacity: 1;
+    transform: scale(1);
   }
   100% {
-    box-shadow:
-      0 0 0 0 rgba(221, 255, 87, 0),
-      0 22px 42px rgba(7, 105, 69, 0.18);
+    opacity: 0;
+    transform: scale(1);
   }
 }
 

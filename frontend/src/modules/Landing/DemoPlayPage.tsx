@@ -31,7 +31,6 @@ type DemoPlayState = {
 const PC_CANVAS_WIDTH = 1920;
 const PC_CANVAS_HEIGHT = 1080;
 const PC_GAME_CANVAS_HEIGHT = 1080;
-const DEMO_SEND_ALERT_DURATION_MS = 1200;
 const DEMO_RECEIVE_ALERT_DURATION_MS = 1300;
 const DEMO_GOAL_OVERLAY_DURATION_MS = 2000;
 const DEMO_BOARD_HIGHLIGHT_DURATION_MS = 1700;
@@ -384,28 +383,26 @@ const DemoSendOverlay = ({
   }
 
   return (
-    <div className="absolute left-[32px] top-[144px] z-40 w-[326px]">
+    <div className="absolute left-[193px] top-[292px] z-40 w-[390px]">
       <article
-        className="rounded-[22px] border border-[#ddff57]/80 bg-[#fffde8]/95 px-[18px] py-[13px] shadow-[0_18px_36px_rgba(7,105,69,0.24)]"
+        className="rounded-[24px] border border-[#ddff57]/80 bg-[#fffde8] px-[22px] pb-[30px] pt-[17px] shadow-[0_18px_36px_rgba(7,105,69,0.24)]"
         role="status"
         aria-live="polite"
       >
-        <div className="flex items-center justify-between gap-[10px]">
-          <span className="inline-flex h-[25px] items-center rounded-[13px] bg-[#00905b] px-[13px] text-[13px] font-black tracking-[-0.04em] text-white">
-            보낸 키워드
-          </span>
-          <button
-            type="button"
-            className="text-[13px] font-black tracking-[-0.04em] text-[#076945]/70 hover:text-[#076945]"
-            onClick={onClose}
-          >
-            닫기
-          </button>
-        </div>
-        <p className="mt-[10px] whitespace-normal text-left text-[18px] font-black leading-[24px] tracking-[-0.04em] text-[#076945]">
-          {receiverName} 님에게 보냈어요
+        <p className="whitespace-normal text-left text-[20px] font-black leading-[27px] tracking-[-0.03em] text-[#076945]">
+          {receiverName} 님의 빙고판에 키워드가 전달됐어요.
+        </p>
+        <p className="mt-[7px] whitespace-normal text-left text-[17px] font-black leading-[24px] tracking-[-0.03em] text-[#076945]/70">
+          상대방의 빙고판에 나의 키워드가 채워집니다.
         </p>
       </article>
+      <button
+        type="button"
+        className="absolute bottom-[-26px] right-[20px] flex h-[52px] min-w-[148px] items-center justify-center rounded-[26px] border-[3px] border-[#076945] bg-[#ddff57] px-[22px] text-[19px] font-black tracking-[-0.04em] text-[#076945] shadow-[0_14px_26px_rgba(7,105,69,0.28)] hover:bg-[#e8ff86]"
+        onClick={onClose}
+      >
+        다음 단계
+      </button>
     </div>
   );
 };
@@ -414,8 +411,8 @@ const DemoGuidanceSpotlight = ({ mode }: { mode: DemoGuidanceMode }) => {
   const target =
     mode === "send"
       ? { left: 216, top: 341, width: 342, height: 78 }
-      : { left: 1053, top: 157, width: 675, height: 683 };
-  const padding = 18;
+      : { left: 1053, top: 242, width: 675, height: 683 };
+  const padding = mode === "send" ? 18 : 0;
   const left = target.left - padding;
   const top = target.top - padding;
   const width = target.width + padding * 2;
@@ -456,7 +453,7 @@ const DemoGuidanceSpotlight = ({ mode }: { mode: DemoGuidanceMode }) => {
         style={maskStyle}
       />
       <div
-        className="absolute rounded-[39px] ring-[5px] ring-[#ddff57]/80 shadow-[0_0_0_999px_rgba(15,23,42,0.04),0_0_34px_rgba(221,255,87,0.64)]"
+        className="absolute rounded-[39px] ring-[5px] ring-[#ddff57]/80 shadow-[0_0_34px_rgba(221,255,87,0.64)]"
         style={{
           left,
           top,
@@ -471,14 +468,21 @@ const DemoGuidanceSpotlight = ({ mode }: { mode: DemoGuidanceMode }) => {
 const DemoGuidanceCallout = ({ mode }: { mode: DemoGuidanceMode }) => (
   <div
     className={
-      "pointer-events-none absolute z-30 rounded-[18px] border border-[#ddff57]/70 bg-[#fffde8] px-[20px] py-[12px] text-[17px] font-black leading-[22px] tracking-[-0.04em] text-[#076945] shadow-[0_18px_36px_rgba(7,105,69,0.22)] " +
-      (mode === "send" ? "left-[244px] top-[268px]" : "left-[1000px] top-[64px] w-[430px]")
+      "pointer-events-none absolute z-30 rounded-[18px] border border-[#ddff57]/70 bg-[#fffde8] px-[22px] py-[14px] text-[19px] font-black leading-[25px] tracking-[-0.04em] text-[#076945] shadow-[0_18px_36px_rgba(7,105,69,0.22)] " +
+      (mode === "send" ? "left-[244px] top-[268px]" : "left-[1086px] top-[257px] w-[590px]")
     }
   >
     {mode === "send"
       ? "참가자 이름을 검색한 뒤 내 키워드를 보내보세요."
-      : "상대방에게 키워드를 전달받으면 빙고판에 상대방의 키워드가 채워져요."}
-    <span className="absolute bottom-[-8px] right-[50px] h-[16px] w-[16px] rotate-45 border-b border-r border-[#ddff57]/70 bg-[#fffde8]" />
+      : "상대방이 키워드를 보내면 내 빙고판에 상대방의 키워드가 채워집니다."}
+    <span
+      className={
+        "absolute h-[16px] w-[16px] rotate-45 border-[#ddff57]/70 bg-[#fffde8] " +
+        (mode === "send"
+          ? "bottom-[-8px] right-[50px] border-b border-r"
+          : "right-[72px] top-[-8px] border-l border-t")
+      }
+    />
   </div>
 );
 
@@ -549,7 +553,7 @@ const DemoBoard = ({
         completedCellIndexes={completedCellIndexesList}
       />
       {receiveOverlay.open && !isGoalComplete ? (
-        <div className="absolute inset-4 z-20 flex items-center justify-center rounded-[31px] bg-[#076945]/45 text-center text-white backdrop-blur-[2px]">
+        <div className="absolute inset-4 z-20 flex items-center justify-center rounded-[31px] bg-[#076945]/45 text-center text-white">
           <div className="w-[410px] rounded-[26px] border border-[#ddff57]/70 bg-[#fffde8]/95 px-[34px] py-[30px] shadow-[0_22px_48px_rgba(7,105,69,0.28)]">
             <p className="text-[16px] font-black leading-none tracking-[-0.04em] text-[#00905b]">
               받은 키워드
@@ -575,7 +579,7 @@ const DemoBoard = ({
       {isGoalComplete && showGoalOverlay ? (
         <button
           type="button"
-          className="absolute inset-4 z-30 flex items-center justify-center rounded-[31px] bg-[#076945]/55 text-center text-white backdrop-blur-[2px]"
+          className="absolute inset-4 z-30 flex items-center justify-center rounded-[31px] bg-[#076945]/55 text-center text-white"
           onClick={onDismissGoalOverlay}
           aria-label="목표 달성 안내 닫기"
         >
@@ -653,7 +657,7 @@ const MobileGuidanceBackdrop = ({
     return null;
   }
 
-  const maskClass = "absolute bg-slate-950/58 backdrop-blur-[3px]";
+  const maskClass = "absolute bg-slate-950/58";
 
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-20">
@@ -738,12 +742,12 @@ const MobileGuidanceCallout = ({
 
   return (
     <div
-      className="pointer-events-none fixed z-30 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]"
+      className="pointer-events-none fixed z-30 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[16px] font-black leading-[22px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]"
       style={calloutStyle}
     >
       {mode === "send"
         ? "참가자 이름을 검색한 뒤 내 키워드를 보내보세요."
-        : "상대방에게 키워드를 전달받으면 빙고판에 상대방의 키워드가 채워져요."}
+        : "상대방이 키워드를 보내면 내 빙고판에 상대방의 키워드가 채워집니다."}
       <span className="absolute bottom-[-8px] right-[42px] h-[16px] w-[16px] rotate-45 border-b border-r border-[#ddff57]/70 bg-[#fffde8]" />
     </div>
   );
@@ -1179,8 +1183,9 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const actionButtonLabel = isComplete
     ? "다시 체험하기"
     : nextStep?.senderId === "guest"
-      ? "상대 키워드 받기"
+      ? "키워드 수신 테스트"
       : "보내기";
+  const showReceiveExampleBlock = nextStep?.senderId === "guest" && !isComplete && !sendAlert.open;
   const guidanceMode: DemoGuidanceMode | null = shouldSkipGuidance
     ? null
     : isGameRoute && completedStepCount === 0 && nextStep?.senderId === "host"
@@ -1265,11 +1270,14 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
           keywords: nextStep.sentKeywords,
         });
       }
-      alertTimeoutRef.current = window.setTimeout(() => {
-        setSendAlert((currentAlert) => ({ ...currentAlert, open: false }));
-        setReceiveBoardAlert((currentAlert) => ({ ...currentAlert, open: false }));
+      if (nextStep.senderId === "guest") {
+        alertTimeoutRef.current = window.setTimeout(() => {
+          setReceiveBoardAlert((currentAlert) => ({ ...currentAlert, open: false }));
+          alertTimeoutRef.current = null;
+        }, DEMO_RECEIVE_ALERT_DURATION_MS);
+      } else {
         alertTimeoutRef.current = null;
-      }, nextStep.senderId === "host" ? DEMO_SEND_ALERT_DURATION_MS : DEMO_RECEIVE_ALERT_DURATION_MS);
+      }
 
       const nextDemoState = buildDemoState(
         baseBoard,
@@ -1347,7 +1355,30 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
       { beacon: true }
     );
     window.sessionStorage.setItem(DEMO_SKIP_GUIDANCE_STORAGE_KEY, "true");
-    window.location.reload();
+    setShouldSkipGuidance(true);
+    setCompletedStepCount(0);
+    setIsDemoParticipantSelected(false);
+    setSendAlert((currentAlert) => ({ ...currentAlert, open: false }));
+    setReceiveBoardAlert((currentAlert) => ({ ...currentAlert, open: false }));
+    setIsBoardHighlighted(false);
+    setIsGoalOverlayVisible(true);
+    hasTrackedGoalRef.current = false;
+    gameStartedAtRef.current = Date.now();
+    if (alertTimeoutRef.current) {
+      window.clearTimeout(alertTimeoutRef.current);
+      alertTimeoutRef.current = null;
+    }
+    if (boardFillTimeoutRef.current) {
+      window.clearTimeout(boardFillTimeoutRef.current);
+      boardFillTimeoutRef.current = null;
+    }
+    if (boardHighlightTimeoutRef.current) {
+      window.clearTimeout(boardHighlightTimeoutRef.current);
+      boardHighlightTimeoutRef.current = null;
+    }
+    if (isMobileViewport) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const handleCloseSendAlert = () => {
@@ -1440,6 +1471,11 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
         <h1 className="sr-only">2명이 키워드를 교환하며 빙고를 채워요</h1>
         {pcGuidanceMode ? <DemoGuidanceSpotlight mode={pcGuidanceMode} /> : null}
         {pcGuidanceMode ? <DemoGuidanceCallout mode={pcGuidanceMode} /> : null}
+        <DemoSendOverlay
+          open={sendAlert.open}
+          receiverName={sendAlert.receiverName}
+          onClose={handleCloseSendAlert}
+        />
 
         <section
           data-demo-game-layout="true"
@@ -1464,19 +1500,17 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                   alt=""
                   className="absolute left-[218px] top-[100px] h-auto w-[170px]"
                 />
-                <DemoSendOverlay
-                  open={sendAlert.open}
-                  receiverName={sendAlert.receiverName}
-                  onClose={handleCloseSendAlert}
-                />
                 {isComplete ? (
-                  <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] items-center rounded-[31px] border-[1.5px] border-[#ddff57] bg-[#f5fbcc] p-[4px] shadow-[0_0_18px_rgba(221,255,87,0.25)]">
+                  <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] rounded-[31px] border-[1.5px] border-[#076945] bg-white p-[4px]">
+                    <div className="min-w-0 flex-1 px-[21px] py-[13px] text-left text-[21px] font-black leading-none tracking-[-0.04em] text-slate-300">
+                      상대방 이름 검색
+                    </div>
                     <Button
                       type="button"
-                      className="h-[52px] w-full rounded-[26px] !bg-[#ddff57] text-[19px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
-                      onClick={handleReplay}
+                      className="mr-[10px] h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                      disabled
                     >
-                      {actionButtonLabel}
+                      보내기
                     </Button>
                   </div>
                 ) : (
@@ -1599,36 +1633,67 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
             </section>
           </div>
 
-          <div className="relative pt-[25px]">
-            {nextStep?.senderId === "guest" && !isComplete && !sendAlert.open ? (
-              <div className="absolute left-[32px] right-[32px] top-0 z-30 flex min-h-[78px] items-center gap-[12px] rounded-[24px] border border-[#ddff57]/80 bg-[#f5fbcc]/95 p-[8px] shadow-[0_16px_36px_rgba(7,105,69,0.2)]">
-                <div className="min-w-0 flex-1 px-[14px]">
-                  <p className="text-[14px] font-black leading-[18px] tracking-[-0.03em] text-[#00905b]">
+          <div className="relative">
+            {showReceiveExampleBlock ? (
+              <div className="flex min-h-[92px] items-center gap-[12px] rounded-[24px] border border-[#ddff57]/80 bg-[#f5fbcc] p-[10px] shadow-[0_16px_36px_rgba(7,105,69,0.2)]">
+                <div className="min-w-0 flex-1 px-[16px]">
+                  <p className="text-[19px] font-black leading-[23px] tracking-[-0.03em] text-[#00905b]">
                     {nextStep.senderName} 님이 키워드를 보냈어요
                   </p>
-                  <p className="mt-[7px] truncate text-[17px] font-black leading-none tracking-[-0.03em] text-[#076945]">
+                  <p className="mt-[8px] truncate text-[22px] font-black leading-none tracking-[-0.03em] text-[#076945]">
                     {nextStep.sentKeywords.join(", ")}
                   </p>
                 </div>
                 <Button
                   type="button"
-                  className="h-[54px] w-[164px] rounded-[27px] !bg-[#ddff57] text-[17px] font-black tracking-[-0.03em] !text-[#076945] hover:!bg-[#e8ff86]"
+                  className="h-[64px] w-[232px] rounded-[32px] !bg-[#ddff57] text-[25.5px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
                   onClick={handleNext}
                 >
                   {actionButtonLabel}
                 </Button>
               </div>
-            ) : null}
-            <DemoBoard
-              board={demoState.board}
-              completedLines={demoState.completedLines}
-              latestReceivedKeywords={demoState.latestReceivedKeywords}
-              isGoalComplete={isComplete}
-              showGoalOverlay={isGoalOverlayVisible}
-              onDismissGoalOverlay={() => setIsGoalOverlayVisible(false)}
-              isBoardHighlighted={isBoardHighlighted}
-              receiveOverlay={receiveBoardAlert}
-            />
+            ) : isComplete ? (
+              <div className="flex h-[92px] items-center gap-[18px] rounded-[24px] border border-white/45 bg-white/25 px-[18px] shadow-[0_16px_36px_rgba(7,105,69,0.14)]">
+                <Button
+                  type="button"
+                  className="h-[54px] w-[176px] shrink-0 rounded-[27px] border border-[#076945]/30 !bg-white text-[19px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#f5fbcc]"
+                  onClick={handleReplay}
+                >
+                  다시 체험하기
+                </Button>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[19px] font-black leading-[23px] tracking-[-0.03em] text-[#00905b]">
+                    빙고 체험이 완료됐어요
+                  </p>
+                  <p className="mt-[8px] text-[22px] font-black leading-none tracking-[-0.03em] text-[#076945]">
+                    다시 처음부터 확인할 수 있어요.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-[92px] items-center rounded-[24px] border border-white/35 bg-white/20 px-[26px]">
+                <div>
+                  <p className="text-[18px] font-black leading-[23px] tracking-[-0.03em] text-white/78">
+                    키워드 수신 예시 대기
+                  </p>
+                  <p className="mt-[7px] text-[21px] font-black leading-none tracking-[-0.03em] text-[#076945]/70">
+                    키워드를 보내면 상대방의 수신 예시가 표시됩니다.
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="mt-[18px]">
+              <DemoBoard
+                board={demoState.board}
+                completedLines={demoState.completedLines}
+                latestReceivedKeywords={demoState.latestReceivedKeywords}
+                isGoalComplete={isComplete}
+                showGoalOverlay={isGoalOverlayVisible}
+                onDismissGoalOverlay={() => setIsGoalOverlayVisible(false)}
+                isBoardHighlighted={isBoardHighlighted}
+                receiveOverlay={receiveBoardAlert}
+              />
+            </div>
           </div>
         </section>
         <p className="absolute left-0 top-[1018px] w-full text-center text-[18px] font-medium text-[#076945]/55">

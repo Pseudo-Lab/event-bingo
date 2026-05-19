@@ -57,17 +57,15 @@ test("demo experience starts without login and records a sample encounter", asyn
 
   await sendButton.click();
   await page.mouse.move(0, 0);
-  await expect(page.getByText("김철수 님에게 보냈어요")).toBeVisible();
-  await expect(
-    page.locator('[role="status"]').filter({ hasText: "김철수 님에게 보냈어요" }),
-  ).toHaveCount(1);
-  await expect(page.locator('[role="status"]').filter({ hasText: "김철수 님에게 보냈어요" })).not.toHaveClass(/inset-0/);
-  await page.waitForTimeout(1000);
-  await expect(page.getByText("김철수 님에게 보냈어요")).toBeVisible();
+  const sendToast = page.locator('[role="status"]').filter({ hasText: "키워드가 전달됐어요." });
+  await expect(page.getByText("나의 키워드가 채워집니다.")).toBeVisible();
+  await expect(sendToast).toHaveCount(1);
+  await expect(sendToast).not.toHaveClass(/inset-0/);
   await expect(page.getByText("참가자 이름을 검색한 뒤 내 키워드를 보내보세요.")).toBeHidden();
-  const receiveButton = page.getByRole("button", { name: "상대 키워드 받기" });
+  const receiveButton = page.getByRole("button", { name: "키워드 수신 테스트" });
   await expect(receiveButton).toHaveCount(0);
-  await expect(page.getByText("김철수 님에게 보냈어요")).toBeHidden();
+  await page.getByRole("button", { name: "다음 단계" }).click();
+  await expect(sendToast).toHaveCount(0);
   await expect(page.getByText("김민수 님이 키워드를 보냈어요")).toBeVisible();
   await expect(page.getByText("김민수 답장")).toHaveCount(0);
   await expect(page.getByText("상대방 이름 검색")).toBeVisible();
@@ -77,7 +75,7 @@ test("demo experience starts without login and records a sample encounter", asyn
   await expect(receiveButton).not.toHaveClass(/ring-\[5px\]/);
   await expect(receiveButton).toHaveCSS("background-color", "rgb(221, 255, 87)");
   await expect(
-    page.getByText("상대방에게 키워드를 전달받으면 빙고판에 상대방의 키워드가 채워져요."),
+    page.getByText("상대방이 키워드를 보내면 내 빙고판에 상대방의 키워드가 채워집니다."),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "다시 체험하기" })).toHaveCount(0);
 
@@ -139,10 +137,10 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
   await expect(sendButton).toBeEnabled();
 
   await sendButton.click();
-  const receiveButton = page.getByRole("button", { name: "상대 키워드 받기" });
+  const receiveButton = page.getByRole("button", { name: "키워드 수신 테스트" });
   await expect(receiveButton).toBeVisible();
   await expect(
-    page.getByText("상대방에게 키워드를 전달받으면 빙고판에 상대방의 키워드가 채워져요."),
+    page.getByText("상대방이 키워드를 보내면 내 빙고판에 상대방의 키워드가 채워집니다."),
   ).toBeVisible();
 
   await expect.poll(() => readLatestCollectedKeywordCount(page)).toBe(0);
@@ -157,7 +155,7 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
   await expect(
     page.getByText("빙고판을 보며 다음 키워드 교환을 이어가요."),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "상대 키워드 받기" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "키워드 수신 테스트" })).toHaveCount(1);
 
   for (let stepIndex = 0; stepIndex < 10; stepIndex += 1) {
     if (await page.getByRole("button", { name: "다시 체험하기" }).isVisible()) {
@@ -170,7 +168,7 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
     } else if ((await nextSendButton.count()) > 0) {
       await page.locator('[role="button"]').last().click();
     } else {
-      await page.getByRole("button", { name: "상대 키워드 받기" }).last().click();
+      await page.getByRole("button", { name: "키워드 수신 테스트" }).last().click();
     }
 
     await page.waitForTimeout(700);
@@ -179,6 +177,7 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
   await expect(page.getByText("참가자 이름 검색")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "완료" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "다시 체험하기" })).toHaveCount(1);
+  await expect(page.locator('[class*="backdrop-blur-[2px]"]')).toHaveCount(0);
   await page.getByRole("button", { name: "다시 체험하기" }).click();
   await expect(
     page.getByText("참가자 이름을 검색한 뒤 내 키워드를 보내보세요."),
