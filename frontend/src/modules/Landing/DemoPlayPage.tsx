@@ -559,8 +559,6 @@ const MobileDemoGame = ({
   doneReceivedCount,
   selectedKeywords,
   boardSectionRef,
-  isParticipantSelected,
-  onSelectParticipant,
   onNext,
   onReplay,
 }: {
@@ -576,8 +574,6 @@ const MobileDemoGame = ({
   doneReceivedCount: number;
   selectedKeywords: string[];
   boardSectionRef: RefObject<HTMLDivElement>;
-  isParticipantSelected: boolean;
-  onSelectParticipant: () => void;
   onNext: () => void;
   onReplay: () => void;
 }) => {
@@ -629,24 +625,18 @@ const MobileDemoGame = ({
                     onNext();
                   }}
                 >
-                  <button
-                    type="button"
+                  <div
                     className="bingo-hero__form-field text-left"
-                    onClick={nextStep?.senderId === "host" ? onSelectParticipant : undefined}
-                    aria-label={nextStep?.senderId === "guest" ? "받은 키워드" : "상대방 이름 검색"}
+                    aria-label={nextStep?.senderId === "guest" ? "받은 키워드" : "상대방 이름"}
                   >
                     <span
-                      className={
-                        nextStep?.senderId === "host" && !isParticipantSelected
-                          ? "block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-slate-300"
-                          : "block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-[#071322]"
-                      }
+                      className="block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-[#071322]"
                     >
                       {nextStep?.senderId === "guest"
                         ? nextStep.senderName + " 님이 보냈어요"
                         : actionInputLabel}
                     </span>
-                  </button>
+                  </div>
                   <button type="submit" disabled={isComplete}>
                     {actionButtonLabel}
                   </button>
@@ -757,7 +747,6 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   );
   const [draftKeywords, setDraftKeywords] = useState<string[]>([]);
   const [completedStepCount, setCompletedStepCount] = useState(0);
-  const [isDemoParticipantSelected, setIsDemoParticipantSelected] = useState(false);
   const alertTimeoutRef = useRef<number | null>(null);
   const [sendAlert, setSendAlert] = useState({
     open: false,
@@ -791,7 +780,6 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
 
   useEffect(() => {
     setCompletedStepCount(0);
-    setIsDemoParticipantSelected(false);
     setSendAlert((currentAlert) => ({ ...currentAlert, open: false }));
     setReceiveBoardAlert((currentAlert) => ({ ...currentAlert, open: false }));
     setIsGoalOverlayVisible(true);
@@ -1091,8 +1079,6 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
         doneReceivedCount={doneReceivedCount}
         selectedKeywords={activeKeywords}
         boardSectionRef={mobileBoardSectionRef}
-        isParticipantSelected={isDemoParticipantSelected}
-        onSelectParticipant={() => setIsDemoParticipantSelected(true)}
         onNext={handleNext}
         onReplay={handleReplay}
       />
@@ -1168,16 +1154,9 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                   </div>
                 ) : (
                   <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] rounded-[31px] border-[1.5px] border-[#076945] bg-white p-[4px]">
-                    <button
-                      type="button"
-                      className={
-                        "min-w-0 flex-1 px-[21px] py-[13px] text-left text-[21px] font-black leading-none tracking-[-0.04em] " +
-                        (isDemoParticipantSelected ? "text-[#071322]" : "text-slate-300")
-                      }
-                      onClick={() => setIsDemoParticipantSelected(true)}
-                    >
+                    <div className="min-w-0 flex-1 px-[21px] py-[13px] text-left text-[21px] font-black leading-none tracking-[-0.04em] text-[#071322]">
                       {actionInputLabel}
-                    </button>
+                    </div>
                     <Button
                       type="button"
                       className={
