@@ -686,7 +686,7 @@ const MobileDemoGame = ({
   const isReceiveGuide = guidanceMode === "receive";
   const isSendActionDisabled =
     isComplete || (nextStep?.senderId === "host" && !isParticipantSelected);
-  const mobileGuidanceTargetRef = useRef<HTMLFormElement>(null);
+  const mobileGuidanceTargetRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="bingo-game-page">
@@ -710,19 +710,19 @@ const MobileDemoGame = ({
                   <br />
                   소통해봐요!
                 </h1>
-                {isSendGuide ? (
-                  <div className="relative z-30 mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
-                    참가자 이름을 검색한 뒤 내 키워드를 보내보세요.
-                  </div>
-                ) : null}
-                {isReceiveGuide ? (
-                  <div className="relative z-30 mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
-                    키워드를 주고받으면 서로의 빙고판이 채워져요.
-                  </div>
-                ) : null}
-                <form
-                  ref={mobileGuidanceTargetRef}
-                  className={"bingo-hero__form " + (guidanceMode ? "relative z-30 ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18),0_18px_40px_rgba(7,105,69,0.24)]" : "")}
+                <div ref={mobileGuidanceTargetRef} className={guidanceMode ? "relative z-30" : undefined}>
+                  {isSendGuide ? (
+                    <div className="mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
+                      참가자 이름을 검색한 뒤 내 키워드를 보내보세요.
+                    </div>
+                  ) : null}
+                  {isReceiveGuide ? (
+                    <div className="mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
+                      키워드를 주고받으면 서로의 빙고판이 채워져요.
+                    </div>
+                  ) : null}
+                  <form
+                    className={"bingo-hero__form " + (guidanceMode ? "relative z-30 ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18),0_18px_40px_rgba(7,105,69,0.24)]" : "")}
                   onSubmit={(event) => {
                     event.preventDefault();
                     if (isSendActionDisabled) {
@@ -762,7 +762,8 @@ const MobileDemoGame = ({
                   <button type="submit" disabled={isSendActionDisabled}>
                     {actionButtonLabel}
                   </button>
-                </form>
+                  </form>
+                </div>
               </div>
             </div>
           </article>
