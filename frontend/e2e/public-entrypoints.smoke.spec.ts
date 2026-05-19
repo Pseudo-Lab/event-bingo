@@ -125,6 +125,9 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
     await page.waitForTimeout(700);
   }
 
+  await expect(page.getByText("참가자 이름 검색")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "완료" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "다시 체험하기" })).toHaveCount(1);
   await page.getByRole("button", { name: "다시 체험하기" }).click();
   await expect(
     page.getByText("참가자 이름을 검색한 뒤 내 키워드를 보내보세요."),

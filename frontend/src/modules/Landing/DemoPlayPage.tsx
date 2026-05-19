@@ -797,7 +797,13 @@ const MobileDemoGame = ({
                   <br />
                   소통해봐요!
                 </h1>
-                {!shouldShowBoardExchangeControl ? (
+                {!shouldShowBoardExchangeControl && isComplete ? (
+                  <div className="bingo-hero__form">
+                    <button type="button" onClick={onReplay}>
+                      다시 체험하기
+                    </button>
+                  </div>
+                ) : !shouldShowBoardExchangeControl ? (
                   <form
                     ref={mobileGuidanceTargetRef}
                     className={"bingo-hero__form " + (guidanceMode ? "relative z-30" : "")}
@@ -911,17 +917,6 @@ const MobileDemoGame = ({
           </div>
         </section>
 
-        {isComplete ? (
-          <div className="relative z-10 mt-4 text-center">
-            <Button
-              type="button"
-              className="h-[48px] rounded-[24px] !bg-[#ddff57] px-6 text-[16px] font-black !text-[#076945]"
-              onClick={onReplay}
-            >
-              다시 체험하기
-            </Button>
-          </div>
-        ) : null}
       </main>
 
       {shouldShowBoardExchangeControl ? (
@@ -1130,9 +1125,9 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     ? nextStep.senderId === "host"
       ? nextStep.receiverName
       : `${nextStep.senderName} 답장`
-    : "참가자 이름 검색";
+    : "";
   const actionButtonLabel = isComplete
-    ? "완료"
+    ? "다시 체험하기"
     : nextStep?.senderId === "guest"
       ? "교환 확인"
       : "보내기";
@@ -1409,7 +1404,17 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                   alt=""
                   className="absolute left-[218px] top-[100px] h-auto w-[170px]"
                 />
-                {nextStep?.senderId === "guest" ? (
+                {isComplete ? (
+                  <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] items-center rounded-[31px] border-[1.5px] border-[#ddff57] bg-[#f5fbcc] p-[4px] shadow-[0_0_18px_rgba(221,255,87,0.25)]">
+                    <Button
+                      type="button"
+                      className="h-[52px] w-full rounded-[26px] !bg-[#ddff57] text-[19px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
+                      onClick={handleReplay}
+                    >
+                      {actionButtonLabel}
+                    </Button>
+                  </div>
+                ) : nextStep?.senderId === "guest" ? (
                   <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] items-center rounded-[31px] border-[1.5px] border-[#ddff57] bg-[#f5fbcc] p-[4px] shadow-[0_0_18px_rgba(221,255,87,0.25)]">
                     <div className="min-w-0 flex-1 px-[18px]">
                       <p className="text-[14px] font-black leading-none tracking-[-0.04em] text-[#00905b]">
@@ -1471,7 +1476,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                 <span className="absolute left-[32px] top-[31px] inline-flex h-[29px] items-center rounded-[15px] bg-[#00905b] px-[17px] text-[16px] font-black tracking-[-0.04em] text-white">
                   개인전
                 </span>
-                {completedStepCount > 0 ? (
+                {completedStepCount > 0 && !isComplete ? (
                   <Button
                     type="button"
                     variant="ghost"
