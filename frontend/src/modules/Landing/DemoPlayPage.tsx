@@ -604,12 +604,10 @@ const MobileGuidanceBackdrop = ({
 
     scheduleMeasure();
     window.addEventListener("resize", scheduleMeasure);
-    window.addEventListener("scroll", scheduleMeasure, { passive: true });
 
     return () => {
       window.cancelAnimationFrame(frameId);
       window.removeEventListener("resize", scheduleMeasure);
-      window.removeEventListener("scroll", scheduleMeasure);
     };
   }, [mode, targetRef]);
 
