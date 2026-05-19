@@ -34,6 +34,7 @@ const PC_GAME_CANVAS_HEIGHT = 1080;
 const DEMO_SEND_ALERT_DURATION_MS = 1200;
 const DEMO_RECEIVE_ALERT_DURATION_MS = 1300;
 const DEMO_GOAL_OVERLAY_DURATION_MS = 2000;
+const DEMO_BOARD_HIGHLIGHT_DURATION_MS = 1700;
 const DEMO_SKIP_GUIDANCE_STORAGE_KEY = "bingo-demo-play-skip-guidance";
 
 type DemoGuidanceMode = "send" | "receive";
@@ -463,6 +464,7 @@ const DemoBoard = ({
   useDemoScale = true,
   showGoalOverlay,
   onDismissGoalOverlay,
+  isBoardHighlighted = false,
   receiveOverlay,
 }: {
   board: BingoCell[];
@@ -472,6 +474,7 @@ const DemoBoard = ({
   useDemoScale?: boolean;
   showGoalOverlay: boolean;
   onDismissGoalOverlay: () => void;
+  isBoardHighlighted?: boolean;
   receiveOverlay: {
     open: boolean;
     senderName: string;
@@ -500,7 +503,15 @@ const DemoBoard = ({
   );
 
   return (
-    <div className={useDemoScale ? "demo-play-board relative w-[675px]" : "relative w-full"}>
+    <div
+      className={[
+        useDemoScale ? "demo-play-board relative w-[675px]" : "relative w-full",
+        isBoardHighlighted ? "demo-play-board-highlight" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      data-demo-board-highlighted={isBoardHighlighted ? "true" : undefined}
+    >
       <BingoBoardSection
         board={board}
         boardSize={5}
@@ -725,6 +736,7 @@ const MobileDemoGame = ({
   doneReceivedCount,
   selectedKeywords,
   boardSectionRef,
+  isBoardHighlighted,
   isParticipantSelected,
   onSelectParticipant,
   onNext,
@@ -742,6 +754,7 @@ const MobileDemoGame = ({
   doneReceivedCount: number;
   selectedKeywords: string[];
   boardSectionRef: RefObject<HTMLDivElement>;
+  isBoardHighlighted: boolean;
   isParticipantSelected: boolean;
   onSelectParticipant: () => void;
   onNext: () => void;
@@ -896,6 +909,7 @@ const MobileDemoGame = ({
             useDemoScale={false}
             showGoalOverlay={isComplete}
             onDismissGoalOverlay={() => undefined}
+            isBoardHighlighted={isBoardHighlighted}
             receiveOverlay={{
               open: false,
               senderName: "",
@@ -1015,12 +1029,14 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     senderName: "",
     keywords: [] as string[],
   });
+  const [isBoardHighlighted, setIsBoardHighlighted] = useState(false);
   const [isGoalOverlayVisible, setIsGoalOverlayVisible] = useState(true);
   const hasTrackedReadyRef = useRef(false);
   const hasTrackedGoalRef = useRef(false);
   const gameStartedAtRef = useRef(Date.now());
   const mobileBoardSectionRef = useRef<HTMLDivElement>(null);
   const boardFillTimeoutRef = useRef<number | null>(null);
+  const boardHighlightTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
@@ -1029,6 +1045,9 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
       }
       if (boardFillTimeoutRef.current) {
         window.clearTimeout(boardFillTimeoutRef.current);
+      }
+      if (boardHighlightTimeoutRef.current) {
+        window.clearTimeout(boardHighlightTimeoutRef.current);
       }
     };
   }, []);
@@ -1041,6 +1060,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     setIsDemoParticipantSelected(false);
     setSendAlert((currentAlert) => ({ ...currentAlert, open: false }));
     setReceiveBoardAlert((currentAlert) => ({ ...currentAlert, open: false }));
+    setIsBoardHighlighted(false);
     setIsGoalOverlayVisible(true);
     hasTrackedReadyRef.current = false;
     hasTrackedGoalRef.current = false;
@@ -1052,6 +1072,10 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     if (boardFillTimeoutRef.current) {
       window.clearTimeout(boardFillTimeoutRef.current);
       boardFillTimeoutRef.current = null;
+    }
+    if (boardHighlightTimeoutRef.current) {
+      window.clearTimeout(boardHighlightTimeoutRef.current);
+      boardHighlightTimeoutRef.current = null;
     }
   }, [activeKeywordKey, boardVariantIndex, isGameRoute]);
 
@@ -1250,10 +1274,25 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     const shouldScrollToBoard =
       isMobileViewport && nextStep?.senderId === "guest" && mobileBoardSectionRef.current;
 
+    const flashBoardHighlight = () => {
+      if (nextStep?.senderId !== "guest") {
+        return;
+      }
+      if (boardHighlightTimeoutRef.current) {
+        window.clearTimeout(boardHighlightTimeoutRef.current);
+      }
+      setIsBoardHighlighted(true);
+      boardHighlightTimeoutRef.current = window.setTimeout(() => {
+        setIsBoardHighlighted(false);
+        boardHighlightTimeoutRef.current = null;
+      }, DEMO_BOARD_HIGHLIGHT_DURATION_MS);
+    };
+
     const advanceStep = () => {
       setCompletedStepCount((currentCount) =>
         Math.min(currentCount + 1, exchangeSteps.length)
       );
+      flashBoardHighlight();
     };
 
     if (shouldScrollToBoard) {
@@ -1352,6 +1391,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
         doneReceivedCount={doneReceivedCount}
         selectedKeywords={activeKeywords}
         boardSectionRef={mobileBoardSectionRef}
+        isBoardHighlighted={isBoardHighlighted}
         isParticipantSelected={isDemoParticipantSelected}
         onSelectParticipant={() => setIsDemoParticipantSelected(true)}
         onNext={handleNext}
@@ -1574,6 +1614,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
               isGoalComplete={isComplete}
               showGoalOverlay={isGoalOverlayVisible}
               onDismissGoalOverlay={() => setIsGoalOverlayVisible(false)}
+              isBoardHighlighted={isBoardHighlighted}
               receiveOverlay={receiveBoardAlert}
             />
           </div>

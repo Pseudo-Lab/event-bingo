@@ -103,6 +103,7 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
   await expect
     .poll(() => readLatestCollectedKeywordCount(page), { timeout: 2000 })
     .toBeGreaterThan(0);
+  await expect(page.locator('[data-demo-board-highlighted="true"]')).toBeVisible();
   await expect(
     page.getByText("빙고판을 보며 다음 키워드 교환을 이어가요."),
   ).toBeVisible();
