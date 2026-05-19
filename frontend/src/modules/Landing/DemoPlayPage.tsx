@@ -714,6 +714,7 @@ const MobileGuidanceCallout = ({
 const MobileDemoGame = ({
   demoState,
   nextStep,
+  completedStepCount,
   isComplete,
   actionInputLabel,
   actionButtonLabel,
@@ -752,6 +753,7 @@ const MobileDemoGame = ({
   const isSendActionDisabled =
     isComplete || (nextStep?.senderId === "host" && !isParticipantSelected);
   const mobileGuidanceTargetRef = useRef<HTMLFormElement>(null);
+  const shouldShowBoardExchangeControl = completedStepCount >= 2 && !isComplete && nextStep;
 
   useEffect(() => {
     if (!guidanceMode) {
@@ -794,49 +796,51 @@ const MobileDemoGame = ({
                   <br />
                   소통해봐요!
                 </h1>
-                <form
-                  ref={mobileGuidanceTargetRef}
-                  className={"bingo-hero__form " + (guidanceMode ? "relative z-30" : "")}
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (isSendActionDisabled) {
-                      return;
-                    }
-                    onNext();
-                  }}
-                >
-                  <div
-                    className="bingo-hero__form-field cursor-pointer text-left"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={nextStep?.senderId === "guest" ? "받은 키워드" : `${actionInputLabel} 선택`}
-                    onClick={nextStep?.senderId === "host" ? onSelectParticipant : undefined}
-                    onKeyDown={(event) => {
-                      if (nextStep?.senderId !== "host") {
+                {!shouldShowBoardExchangeControl ? (
+                  <form
+                    ref={mobileGuidanceTargetRef}
+                    className={"bingo-hero__form " + (guidanceMode ? "relative z-30" : "")}
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (isSendActionDisabled) {
                         return;
                       }
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        onSelectParticipant();
-                      }
+                      onNext();
                     }}
                   >
-                    <span
-                      className={
-                        nextStep?.senderId === "host" && !isParticipantSelected
-                          ? "block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-slate-300"
-                          : "block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-[#071322]"
-                      }
+                    <div
+                      className="bingo-hero__form-field cursor-pointer text-left"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={nextStep?.senderId === "guest" ? "받은 키워드" : actionInputLabel + " 선택"}
+                      onClick={nextStep?.senderId === "host" ? onSelectParticipant : undefined}
+                      onKeyDown={(event) => {
+                        if (nextStep?.senderId !== "host") {
+                          return;
+                        }
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onSelectParticipant();
+                        }
+                      }}
                     >
-                      {nextStep?.senderId === "guest"
-                        ? nextStep.senderName + " 님이 보냈어요"
-                        : actionInputLabel}
-                    </span>
-                  </div>
-                  <button type="submit" disabled={isSendActionDisabled}>
-                    {actionButtonLabel}
-                  </button>
-                </form>
+                      <span
+                        className={
+                          nextStep?.senderId === "host" && !isParticipantSelected
+                            ? "block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-slate-300"
+                            : "block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-[#071322]"
+                        }
+                      >
+                        {nextStep?.senderId === "guest"
+                          ? nextStep.senderName + " 님이 보냈어요"
+                          : actionInputLabel}
+                      </span>
+                    </div>
+                    <button type="submit" disabled={isSendActionDisabled}>
+                      {actionButtonLabel}
+                    </button>
+                  </form>
+                ) : null}
               </div>
             </div>
           </article>
@@ -918,6 +922,62 @@ const MobileDemoGame = ({
           </div>
         ) : null}
       </main>
+
+      {shouldShowBoardExchangeControl ? (
+        <div className="fixed bottom-[max(16px,env(safe-area-inset-bottom))] left-4 right-4 z-20 rounded-[24px] border border-[#ddff57]/70 bg-[#f5fbcc] p-3 shadow-[0_18px_36px_rgba(7,105,69,0.24)]">
+          <p className="mb-2 px-1 text-[13px] font-black leading-[18px] tracking-[-0.04em] text-[#076945]">
+            빙고판을 보며 다음 키워드 교환을 이어가요.
+          </p>
+          {nextStep.senderId === "guest" ? (
+            <div className="flex min-h-[56px] items-center gap-2 rounded-[20px] bg-white p-1">
+              <div className="min-w-0 flex-1 px-3">
+                <p className="text-[13px] font-black leading-none tracking-[-0.04em] text-[#00905b]">
+                  {nextStep.senderName} 님이 보냈어요
+                </p>
+                <p className="mt-[6px] truncate text-[15px] font-black leading-none tracking-[-0.04em] text-[#076945]">
+                  {nextStep.sentKeywords.join(", ")}
+                </p>
+              </div>
+              <Button
+                type="button"
+                className="h-[48px] w-[112px] rounded-[24px] !bg-[#ddff57] text-[16px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
+                onClick={onNext}
+              >
+                교환 확인
+              </Button>
+            </div>
+          ) : (
+            <div className="flex min-h-[56px] items-center gap-2 rounded-[20px] bg-white p-1">
+              <div
+                className={
+                  "min-w-0 flex-1 cursor-pointer px-3 py-3 text-left text-[17px] font-black leading-none tracking-[-0.04em] " +
+                  (isParticipantSelected ? "text-[#071322]" : "text-slate-300")
+                }
+                role="button"
+                tabIndex={0}
+                aria-label={nextStep.receiverName + " 선택"}
+                onClick={onSelectParticipant}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelectParticipant();
+                  }
+                }}
+              >
+                {nextStep.receiverName}
+              </div>
+              <Button
+                type="button"
+                className="h-[48px] w-[112px] rounded-[24px] !bg-[#4fc399] text-[17px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                disabled={!isParticipantSelected}
+                onClick={onNext}
+              >
+                보내기
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 };

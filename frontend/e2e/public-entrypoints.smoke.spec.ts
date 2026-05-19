@@ -101,6 +101,10 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
   await expect
     .poll(() => readLatestCollectedKeywordCount(page), { timeout: 2000 })
     .toBeGreaterThan(0);
+  await expect(
+    page.getByText("빙고판을 보며 다음 키워드 교환을 이어가요."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "교환 확인" })).toHaveCount(1);
 });
 
 test("admin login entrypoint renders Google login guidance", async ({
