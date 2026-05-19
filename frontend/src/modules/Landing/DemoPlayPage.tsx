@@ -1481,17 +1481,22 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                       {actionButtonLabel}
                     </Button>
                   </div>
-                ) : nextStep?.senderId === "guest" ? null : (
+                ) : (
                   <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] rounded-[31px] border-[1.5px] border-[#076945] bg-white p-[4px]">
                     <div
                       className={
-                        "min-w-0 flex-1 cursor-pointer px-[21px] py-[13px] text-left text-[21px] font-black leading-none tracking-[-0.04em] " +
-                        (isDemoParticipantSelected ? "text-[#071322]" : "text-slate-300")
+                        "min-w-0 flex-1 px-[21px] py-[13px] text-left text-[21px] font-black leading-none tracking-[-0.04em] " +
+                        (nextStep?.senderId === "guest"
+                          ? "text-[#071322]"
+                          : "cursor-pointer " + (isDemoParticipantSelected ? "text-[#071322]" : "text-slate-300"))
                       }
                       role="button"
                       tabIndex={0}
-                      onClick={() => setIsDemoParticipantSelected(true)}
+                      onClick={nextStep?.senderId === "host" ? () => setIsDemoParticipantSelected(true) : undefined}
                       onKeyDown={(event) => {
+                        if (nextStep?.senderId !== "host") {
+                          return;
+                        }
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
                           setIsDemoParticipantSelected(true);
@@ -1503,10 +1508,10 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                     <Button
                       type="button"
                       className="mr-[10px] h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
-                      disabled={isComplete || !isDemoParticipantSelected}
-                      onClick={handleNext}
+                      disabled={isComplete || nextStep?.senderId !== "host" || !isDemoParticipantSelected}
+                      onClick={nextStep?.senderId === "host" ? handleNext : undefined}
                     >
-                      {actionButtonLabel}
+                      보내기
                     </Button>
                   </div>
                 )}
