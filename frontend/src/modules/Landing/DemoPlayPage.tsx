@@ -277,15 +277,15 @@ const MobileKeywordSelector = ({
     </section>
 
     <section className="mt-5 rounded-[22px] bg-white p-3 shadow-soft">
-      <div className="grid grid-cols-2 gap-2">
-        {DEMO_PLAY_KEYWORDS.slice(0, 12).map((keyword) => {
+      <div className="grid grid-cols-3 gap-2">
+        {DEMO_PLAY_KEYWORDS.slice(0, 15).map((keyword) => {
           const isSelected = selectedKeywords.includes(keyword);
 
           return (
             <button
               key={keyword}
               type="button"
-              className={`h-[40px] rounded-[20px] border px-3 text-[14px] font-black tracking-[-0.04em] transition ${
+              className={`h-[38px] rounded-[19px] border px-2 text-[12px] font-black tracking-[-0.04em] transition ${ 
                 isSelected
                   ? "border-[#4fc39a] bg-[#28d791] text-white shadow-[0_8px_16px_rgba(40,215,145,0.22)]"
                   : "border-[#4fc399] bg-white text-[#4fc399]"
