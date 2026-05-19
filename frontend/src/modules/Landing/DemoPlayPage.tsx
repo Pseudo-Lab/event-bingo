@@ -416,7 +416,7 @@ const DemoGuidanceSpotlight = ({ mode }: { mode: DemoGuidanceMode }) => {
   const target =
     mode === "send"
       ? { left: 216, top: 341, width: 342, height: 78 }
-      : { left: 421, top: 345, width: 132, height: 66 };
+      : { left: 1053, top: 157, width: 675, height: 683 };
   const padding = 18;
   const left = target.left - padding;
   const top = target.top - padding;
@@ -446,12 +446,12 @@ const DemoGuidanceCallout = ({ mode }: { mode: DemoGuidanceMode }) => (
   <div
     className={
       "pointer-events-none absolute z-30 rounded-[18px] border border-[#ddff57]/70 bg-[#fffde8] px-[20px] py-[12px] text-[17px] font-black leading-[22px] tracking-[-0.04em] text-[#076945] shadow-[0_18px_36px_rgba(7,105,69,0.22)] " +
-      (mode === "send" ? "left-[244px] top-[268px]" : "left-[262px] top-[270px] w-[272px]")
+      (mode === "send" ? "left-[244px] top-[268px]" : "left-[1000px] top-[64px] w-[430px]")
     }
   >
     {mode === "send"
       ? "참가자 이름을 검색한 뒤 내 키워드를 보내보세요."
-      : "키워드를 주고받으면 서로의 빙고판이 채워져요."}
+      : "상대방에게 키워드를 전달받으면 빙고판에 상대방의 키워드가 채워져요."}
     <span className="absolute bottom-[-8px] right-[50px] h-[16px] w-[16px] rotate-45 border-b border-r border-[#ddff57]/70 bg-[#fffde8]" />
   </div>
 );
@@ -717,7 +717,7 @@ const MobileGuidanceCallout = ({
     >
       {mode === "send"
         ? "참가자 이름을 검색한 뒤 내 키워드를 보내보세요."
-        : "키워드를 주고받으면 서로의 빙고판이 채워져요."}
+        : "상대방에게 키워드를 전달받으면 빙고판에 상대방의 키워드가 채워져요."}
       <span className="absolute bottom-[-8px] right-[42px] h-[16px] w-[16px] rotate-45 border-b border-r border-[#ddff57]/70 bg-[#fffde8]" />
     </div>
   );
@@ -1466,11 +1466,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                     </div>
                     <Button
                       type="button"
-                      className={
-                        shouldShowReceiveGuide
-                          ? "relative z-30 h-[52px] w-[118px] rounded-[26px] !bg-[#ddff57] text-[17px] font-black tracking-[-0.04em] !text-[#076945] ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18)] hover:!bg-[#e8ff86] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
-                          : "h-[52px] w-[118px] rounded-[26px] !bg-[#ddff57] text-[17px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
-                      }
+                      className="h-[52px] w-[118px] rounded-[26px] !bg-[#ddff57] text-[17px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
                       disabled={isComplete}
                       onClick={handleNext}
                     >

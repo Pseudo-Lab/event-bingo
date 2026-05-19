@@ -62,8 +62,11 @@ test("demo experience starts without login and records a sample encounter", asyn
   await expect(page.getByText("김철수 님").first()).toBeVisible();
 
   const receiveButton = page.getByRole("button", { name: "교환 확인" });
-  await expect(receiveButton).toHaveClass(/ring-\[5px\]/);
+  await expect(receiveButton).not.toHaveClass(/ring-\[5px\]/);
   await expect(receiveButton).toHaveCSS("background-color", "rgb(221, 255, 87)");
+  await expect(
+    page.getByText("상대방에게 키워드를 전달받으면 빙고판에 상대방의 키워드가 채워져요."),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "다시 체험하기" })).toHaveCount(0);
 
   await receiveButton.click();
@@ -127,7 +130,7 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
   const receiveButton = page.getByRole("button", { name: "교환 확인" });
   await expect(receiveButton).toBeVisible();
   await expect(
-    page.getByText("키워드를 주고받으면 서로의 빙고판이 채워져요."),
+    page.getByText("상대방에게 키워드를 전달받으면 빙고판에 상대방의 키워드가 채워져요."),
   ).toBeVisible();
 
   await expect.poll(() => readLatestCollectedKeywordCount(page)).toBe(0);
