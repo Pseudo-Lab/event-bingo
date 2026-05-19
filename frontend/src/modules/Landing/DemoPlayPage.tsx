@@ -34,7 +34,6 @@ const PC_GAME_CANVAS_HEIGHT = 1080;
 const DEMO_RECEIVE_ALERT_DURATION_MS = 1300;
 const DEMO_GOAL_OVERLAY_DURATION_MS = 2000;
 const DEMO_BOARD_HIGHLIGHT_DURATION_MS = 1700;
-const DEMO_SKIP_GUIDANCE_STORAGE_KEY = "bingo-demo-play-skip-guidance";
 
 type DemoGuidanceMode = "send" | "receive";
 
@@ -1044,11 +1043,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const [draftKeywords, setDraftKeywords] = useState<string[]>([]);
   const [completedStepCount, setCompletedStepCount] = useState(0);
   const [isDemoParticipantSelected, setIsDemoParticipantSelected] = useState(false);
-  const [shouldSkipGuidance, setShouldSkipGuidance] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.sessionStorage.getItem(DEMO_SKIP_GUIDANCE_STORAGE_KEY) === "true"
-  );
+  const [shouldSkipGuidance, setShouldSkipGuidance] = useState(false);
   const alertTimeoutRef = useRef<number | null>(null);
   const [sendAlert, setSendAlert] = useState({
     open: false,
@@ -1232,7 +1227,6 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     if (!canStart) {
       return;
     }
-    window.sessionStorage.removeItem(DEMO_SKIP_GUIDANCE_STORAGE_KEY);
     setShouldSkipGuidance(false);
     track("demo_start_clicked", {
       selected_count: draftKeywords.length,
@@ -1354,7 +1348,6 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
       },
       { beacon: true }
     );
-    window.sessionStorage.setItem(DEMO_SKIP_GUIDANCE_STORAGE_KEY, "true");
     setShouldSkipGuidance(true);
     setCompletedStepCount(0);
     setIsDemoParticipantSelected(false);
