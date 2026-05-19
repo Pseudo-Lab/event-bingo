@@ -773,11 +773,15 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const hasTrackedGoalRef = useRef(false);
   const gameStartedAtRef = useRef(Date.now());
   const mobileBoardSectionRef = useRef<HTMLDivElement>(null);
+  const boardFillTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
       if (alertTimeoutRef.current) {
         window.clearTimeout(alertTimeoutRef.current);
+      }
+      if (boardFillTimeoutRef.current) {
+        window.clearTimeout(boardFillTimeoutRef.current);
       }
     };
   }, []);
@@ -797,6 +801,10 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     if (alertTimeoutRef.current) {
       window.clearTimeout(alertTimeoutRef.current);
       alertTimeoutRef.current = null;
+    }
+    if (boardFillTimeoutRef.current) {
+      window.clearTimeout(boardFillTimeoutRef.current);
+      boardFillTimeoutRef.current = null;
     }
   }, [activeKeywordKey, boardVariantIndex, isGameRoute]);
 
@@ -926,6 +934,9 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     if (!isGameRoute) {
       return;
     }
+    if (boardFillTimeoutRef.current) {
+      return;
+    }
     if (nextStep) {
       if (alertTimeoutRef.current) {
         window.clearTimeout(alertTimeoutRef.current);
@@ -979,18 +990,25 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     const shouldScrollToBoard =
       isMobileViewport && nextStep?.senderId === "guest" && mobileBoardSectionRef.current;
 
-    setCompletedStepCount((currentCount) =>
-      Math.min(currentCount + 1, exchangeSteps.length)
-    );
+    const advanceStep = () => {
+      setCompletedStepCount((currentCount) =>
+        Math.min(currentCount + 1, exchangeSteps.length)
+      );
+    };
 
     if (shouldScrollToBoard) {
-      window.setTimeout(() => {
-        mobileBoardSectionRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-      }, 80);
+      mobileBoardSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      boardFillTimeoutRef.current = window.setTimeout(() => {
+        advanceStep();
+        boardFillTimeoutRef.current = null;
+      }, 520);
+      return;
     }
+
+    advanceStep();
   };
 
   const handleReplay = () => {
