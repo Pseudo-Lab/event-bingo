@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import bingoNetworkingWordmark from "../../assets/illustrations/Bingo Networking.svg";
@@ -31,9 +31,12 @@ type DemoPlayState = {
 const PC_CANVAS_WIDTH = 1920;
 const PC_CANVAS_HEIGHT = 1080;
 const PC_GAME_CANVAS_HEIGHT = 1080;
-const DEMO_SEND_ALERT_DURATION_MS = 750;
 const DEMO_RECEIVE_ALERT_DURATION_MS = 1300;
 const DEMO_GOAL_OVERLAY_DURATION_MS = 2000;
+const DEMO_BOARD_HIGHLIGHT_DURATION_MS = 1700;
+const DEMO_SKIP_GUIDANCE_STORAGE_KEY = "bingo-demo-play-skip-guidance";
+
+type DemoGuidanceMode = "send" | "receive";
 
 const useViewportScale = (canvasHeight: number, fitWidthOnly = false) => {
   const [viewport, setViewport] = useState(() => ({
@@ -55,14 +58,26 @@ const useViewportScale = (canvasHeight: number, fitWidthOnly = false) => {
   }, []);
 
   if (fitWidthOnly) {
-    return Math.min(
-      1,
-      viewport.width / PC_CANVAS_WIDTH,
-      viewport.height / PC_CANVAS_HEIGHT
-    );
+    return Math.min(1, viewport.width / PC_CANVAS_WIDTH);
   }
 
   return Math.min(viewport.width / PC_CANVAS_WIDTH, viewport.height / canvasHeight);
+};
+
+const useIsMobileViewport = () => {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window === "undefined" ? false : window.innerWidth < 768
+  );
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return isMobile;
 };
 
 const PcDesignStage = ({
@@ -233,6 +248,80 @@ const KeywordSelector = ({
   </section>
 );
 
+const MobileKeywordSelector = ({
+  selectedKeywords,
+  onToggleKeyword,
+  canStart,
+  onStart,
+}: {
+  selectedKeywords: string[];
+  onToggleKeyword: (keyword: string) => void;
+  canStart: boolean;
+  onStart: () => void;
+}) => (
+  <main className="fixed inset-0 flex overflow-hidden overscroll-none bg-[#4fc39b] px-5 pb-4 pt-5 text-slate-950">
+    <div className="flex h-full w-full flex-col overflow-hidden">
+    <div className="flex items-center justify-between gap-3">
+      <Link to="/" aria-label="Bingo Networking 홈으로 이동" className="block">
+        <img src={bingoNetworkingWordmark} alt="Bingo Networking" className="h-auto w-[148px]" />
+      </Link>
+      <DemoBadgeLink className="h-[30px] px-3 text-[12px]" />
+    </div>
+
+    <section className="mt-7">
+      <p className="text-[30px] leading-none text-[#9cee69]">✦</p>
+      <h1 className="mt-1 text-[36px] font-black leading-none tracking-[-0.07em] text-[#076945]">
+        관심사 선택
+      </h1>
+      <p className="mt-3 text-[15px] font-black leading-[22px] tracking-[-0.04em] text-white/90">
+        행사장에서 나를 표현할 키워드 3개를 골라주세요.
+      </p>
+    </section>
+
+    <section className="mt-5 rounded-[22px] bg-white p-3 shadow-soft">
+      <div className="grid grid-cols-3 gap-2">
+        {DEMO_PLAY_KEYWORDS.slice(0, 15).map((keyword) => {
+          const isSelected = selectedKeywords.includes(keyword);
+
+          return (
+            <button
+              key={keyword}
+              type="button"
+              className={`h-[38px] rounded-[19px] border px-2 text-[12px] font-black tracking-[-0.04em] transition ${ 
+                isSelected
+                  ? "border-[#4fc39a] bg-[#28d791] text-white shadow-[0_8px_16px_rgba(40,215,145,0.22)]"
+                  : "border-[#4fc399] bg-white text-[#4fc399]"
+              }`}
+              onClick={() => onToggleKeyword(keyword)}
+            >
+              {keyword}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+
+    <div className="-mx-5 mt-auto min-h-[158px] border-t border-white/20 bg-[#4fc39b]/95 px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+      <div className="mb-2 flex items-center justify-between text-[14px] font-black tracking-[-0.04em] text-[#076945]">
+        <span>선택한 키워드</span>
+        <span>{selectedKeywords.length}/{DEMO_PLAY_MIN_SELECTED_KEYWORDS}</span>
+      </div>
+      <Button
+        type="button"
+        className="h-[48px] w-full rounded-[24px] !bg-[#076945] text-[16px] font-black tracking-[-0.04em] !text-white hover:!bg-[#00905b] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+        disabled={!canStart}
+        onClick={onStart}
+      >
+        빙고 시작하기
+      </Button>
+      <p className="mt-2 min-h-[18px] text-center text-[13px] font-black text-[#076945]/75">
+        {!canStart ? `키워드는 ${DEMO_PLAY_MIN_SELECTED_KEYWORDS}개 선택해야 합니다.` : ""}
+      </p>
+    </div>
+    </div>
+  </main>
+);
+
 const ExchangeCard = ({
   step,
   index,
@@ -294,49 +383,128 @@ const DemoSendOverlay = ({
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#076945]/24 backdrop-blur-[1px]">
+    <div className="absolute left-[193px] top-[292px] z-40 w-[390px]">
       <article
-        className="w-[500px] rounded-[30px] border border-[#ddff57]/70 bg-[#fffde8]/95 px-[40px] py-[34px] text-center shadow-[0_26px_60px_rgba(7,105,69,0.28)]"
+        className="rounded-[24px] border border-[#ddff57]/80 bg-[#fffde8] px-[22px] pb-[30px] pt-[17px] shadow-[0_18px_36px_rgba(7,105,69,0.24)]"
         role="status"
         aria-live="polite"
       >
-        <div className="flex items-center justify-between gap-[16px]">
-          <span className="inline-flex h-[29px] items-center rounded-[15px] bg-[#00905b] px-[16px] text-[15px] font-black tracking-[-0.04em] text-white">
-            보낸 키워드
-          </span>
-          <button
-            type="button"
-            className="text-[15px] font-black tracking-[-0.04em] text-[#076945]/70 hover:text-[#076945]"
-            onClick={onClose}
-          >
-            닫기
-          </button>
-        </div>
-        <p className="mt-[24px] text-[28px] font-black leading-[36px] tracking-[-0.06em] text-[#076945]">
-          {receiverName} 님에게
-          <br />
-          내 키워드를 보냈어요
+        <p className="whitespace-normal text-left text-[20px] font-black leading-[27px] tracking-[-0.03em] text-[#076945]">
+          {receiverName} 님의 빙고판에 키워드가 전달됐어요.
+        </p>
+        <p className="mt-[7px] whitespace-normal text-left text-[17px] font-black leading-[24px] tracking-[-0.03em] text-[#076945]/70">
+          상대방의 빙고판에 나의 키워드가 채워집니다.
         </p>
       </article>
+      <button
+        type="button"
+        className="absolute bottom-[-26px] right-[20px] flex h-[52px] min-w-[148px] items-center justify-center rounded-[26px] border-[3px] border-[#076945] bg-[#ddff57] px-[22px] text-[19px] font-black tracking-[-0.04em] text-[#076945] shadow-[0_14px_26px_rgba(7,105,69,0.28)] hover:bg-[#e8ff86]"
+        onClick={onClose}
+      >
+        다음 단계
+      </button>
     </div>
   );
 };
+
+const DemoGuidanceSpotlight = ({ mode }: { mode: DemoGuidanceMode }) => {
+  const target =
+    mode === "send"
+      ? { left: 216, top: 341, width: 342, height: 78 }
+      : { left: 1053, top: 242, width: 675, height: 683 };
+  const padding = mode === "send" ? 18 : 0;
+  const left = target.left - padding;
+  const top = target.top - padding;
+  const width = target.width + padding * 2;
+  const height = target.height + padding * 2;
+  const radius = 39;
+  const maskRight = left + width;
+  const maskBottom = top + height;
+  const maskRadius = Math.min(radius, width / 2, height / 2);
+  const maskPath = [
+    `M0 0H${PC_CANVAS_WIDTH}V${PC_GAME_CANVAS_HEIGHT}H0Z`,
+    `M${left + maskRadius} ${top}`,
+    `H${maskRight - maskRadius}`,
+    `A${maskRadius} ${maskRadius} 0 0 1 ${maskRight} ${top + maskRadius}`,
+    `V${maskBottom - maskRadius}`,
+    `A${maskRadius} ${maskRadius} 0 0 1 ${maskRight - maskRadius} ${maskBottom}`,
+    `H${left + maskRadius}`,
+    `A${maskRadius} ${maskRadius} 0 0 1 ${left} ${maskBottom - maskRadius}`,
+    `V${top + maskRadius}`,
+    `A${maskRadius} ${maskRadius} 0 0 1 ${left + maskRadius} ${top}`,
+    "Z",
+  ].join(" ");
+  const maskSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PC_CANVAS_WIDTH} ${PC_GAME_CANVAS_HEIGHT}"><path fill="white" fill-rule="evenodd" d="${maskPath}"/></svg>`;
+  const maskImage = `url("data:image/svg+xml,${encodeURIComponent(maskSvg)}")`;
+  const maskStyle = {
+    WebkitMaskImage: maskImage,
+    maskImage,
+    WebkitMaskSize: "100% 100%",
+    maskSize: "100% 100%",
+    WebkitMaskRepeat: "no-repeat",
+    maskRepeat: "no-repeat",
+  } as CSSProperties;
+
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-20">
+      <div
+        data-demo-spotlight-mask="true"
+        className="absolute inset-0 bg-slate-950/58"
+        style={maskStyle}
+      />
+      <div
+        className="absolute rounded-[39px] ring-[5px] ring-[#ddff57]/80 shadow-[0_0_34px_rgba(221,255,87,0.64)]"
+        style={{
+          left,
+          top,
+          width,
+          height,
+        }}
+      />
+    </div>
+  );
+};
+
+const DemoGuidanceCallout = ({ mode }: { mode: DemoGuidanceMode }) => (
+  <div
+    className={
+      "pointer-events-none absolute z-30 rounded-[18px] border border-[#ddff57]/70 bg-[#fffde8] px-[22px] py-[14px] text-[19px] font-black leading-[25px] tracking-[-0.04em] text-[#076945] shadow-[0_18px_36px_rgba(7,105,69,0.22)] " +
+      (mode === "send" ? "left-[244px] top-[268px]" : "left-[1086px] top-[257px] w-[590px]")
+    }
+  >
+    {mode === "send"
+      ? "참가자 이름을 검색한 뒤 내 키워드를 보내보세요."
+      : "상대방이 키워드를 보내면 내 빙고판에 상대방의 키워드가 채워집니다."}
+    <span
+      className={
+        "absolute h-[16px] w-[16px] rotate-45 border-[#ddff57]/70 bg-[#fffde8] " +
+        (mode === "send"
+          ? "bottom-[-8px] right-[50px] border-b border-r"
+          : "right-[72px] top-[-8px] border-l border-t")
+      }
+    />
+  </div>
+);
 
 const DemoBoard = ({
   board,
   completedLines,
   latestReceivedKeywords,
   isGoalComplete,
+  useDemoScale = true,
   showGoalOverlay,
   onDismissGoalOverlay,
+  isBoardHighlighted = false,
   receiveOverlay,
 }: {
   board: BingoCell[];
   completedLines: CompletedLine[];
   latestReceivedKeywords: string[];
   isGoalComplete: boolean;
+  useDemoScale?: boolean;
   showGoalOverlay: boolean;
   onDismissGoalOverlay: () => void;
+  isBoardHighlighted?: boolean;
   receiveOverlay: {
     open: boolean;
     senderName: string;
@@ -365,7 +533,15 @@ const DemoBoard = ({
   );
 
   return (
-    <div className="demo-play-board relative w-[675px]">
+    <div
+      className={[
+        useDemoScale ? "demo-play-board relative w-[675px]" : "relative w-full",
+        isBoardHighlighted ? "demo-play-board-highlight" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      data-demo-board-highlighted={isBoardHighlighted ? "true" : undefined}
+    >
       <BingoBoardSection
         board={board}
         boardSize={5}
@@ -377,7 +553,7 @@ const DemoBoard = ({
         completedCellIndexes={completedCellIndexesList}
       />
       {receiveOverlay.open && !isGoalComplete ? (
-        <div className="absolute inset-4 z-20 flex items-center justify-center rounded-[31px] bg-[#076945]/45 text-center text-white backdrop-blur-[2px]">
+        <div className="absolute inset-4 z-20 flex items-center justify-center rounded-[31px] bg-[#076945]/45 text-center text-white">
           <div className="w-[410px] rounded-[26px] border border-[#ddff57]/70 bg-[#fffde8]/95 px-[34px] py-[30px] shadow-[0_22px_48px_rgba(7,105,69,0.28)]">
             <p className="text-[16px] font-black leading-none tracking-[-0.04em] text-[#00905b]">
               받은 키워드
@@ -403,7 +579,7 @@ const DemoBoard = ({
       {isGoalComplete && showGoalOverlay ? (
         <button
           type="button"
-          className="absolute inset-4 z-30 flex items-center justify-center rounded-[31px] bg-[#076945]/55 text-center text-white backdrop-blur-[2px]"
+          className="absolute inset-4 z-30 flex items-center justify-center rounded-[31px] bg-[#076945]/55 text-center text-white"
           onClick={onDismissGoalOverlay}
           aria-label="목표 달성 안내 닫기"
         >
@@ -420,12 +596,438 @@ const DemoBoard = ({
   );
 };
 
+const MobileGuidanceBackdrop = ({
+  targetRef,
+  mode,
+}: {
+  targetRef: RefObject<HTMLElement>;
+  mode: DemoGuidanceMode;
+}) => {
+  const [targetRect, setTargetRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    right: number;
+    bottom: number;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    let frameId = 0;
+
+    const measure = () => {
+      const target = targetRef.current;
+      if (!target) {
+        setTargetRect(null);
+        return;
+      }
+
+      const rect = target.getBoundingClientRect();
+      const padding = 12;
+      const left = Math.max(0, rect.left - padding);
+      const top = Math.max(0, rect.top - padding);
+      const right = Math.max(0, window.innerWidth - rect.right - padding);
+      const bottom = Math.max(0, window.innerHeight - rect.bottom - padding);
+
+      setTargetRect({
+        left,
+        top,
+        width: Math.min(window.innerWidth - left, rect.width + padding * 2),
+        height: Math.min(window.innerHeight - top, rect.height + padding * 2),
+        right,
+        bottom,
+      });
+    };
+
+    const scheduleMeasure = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+    window.addEventListener("resize", scheduleMeasure);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", scheduleMeasure);
+    };
+  }, [mode, targetRef]);
+
+  if (!targetRect) {
+    return null;
+  }
+
+  const maskClass = "absolute bg-slate-950/58";
+
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-20">
+      <div className={maskClass + " left-0 top-0 w-full"} style={{ height: targetRect.top }} />
+      <div
+        className={maskClass + " left-0"}
+        style={{ top: targetRect.top, width: targetRect.left, height: targetRect.height }}
+      />
+      <div
+        className={maskClass + " right-0"}
+        style={{ top: targetRect.top, width: targetRect.right, height: targetRect.height }}
+      />
+      <div className={maskClass + " bottom-0 left-0 w-full"} style={{ height: targetRect.bottom }} />
+      <div
+        className="absolute rounded-[30px] ring-[5px] ring-[#ddff57]/70 shadow-[0_0_34px_rgba(221,255,87,0.56)]"
+        style={{
+          left: targetRect.left,
+          top: targetRect.top,
+          width: targetRect.width,
+          height: targetRect.height,
+        }}
+      />
+    </div>
+  );
+};
+
+const MobileGuidanceCallout = ({
+  targetRef,
+  mode,
+}: {
+  targetRef: RefObject<HTMLElement>;
+  mode: DemoGuidanceMode;
+}) => {
+  const [calloutStyle, setCalloutStyle] = useState<{
+    left: number;
+    top: number;
+    width: number;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    let frameId = 0;
+
+    const measure = () => {
+      const target = targetRef.current;
+      if (!target) {
+        setCalloutStyle(null);
+        return;
+      }
+
+      const rect = target.getBoundingClientRect();
+      const horizontalInset = 20;
+      const left = Math.max(horizontalInset, rect.left);
+      const width = Math.min(
+        window.innerWidth - horizontalInset * 2,
+        Math.max(280, rect.width),
+      );
+
+      setCalloutStyle({
+        left,
+        top: Math.max(20, rect.top - 98),
+        width,
+      });
+    };
+
+    const scheduleMeasure = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+    window.addEventListener("resize", scheduleMeasure);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", scheduleMeasure);
+    };
+  }, [mode, targetRef]);
+
+  if (!calloutStyle) {
+    return null;
+  }
+
+  return (
+    <div
+      className="pointer-events-none fixed z-30 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[16px] font-black leading-[22px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]"
+      style={calloutStyle}
+    >
+      {mode === "send"
+        ? "참가자 이름을 검색한 뒤 내 키워드를 보내보세요."
+        : "상대방이 키워드를 보내면 내 빙고판에 상대방의 키워드가 채워집니다."}
+      <span className="absolute bottom-[-8px] right-[42px] h-[16px] w-[16px] rotate-45 border-b border-r border-[#ddff57]/70 bg-[#fffde8]" />
+    </div>
+  );
+};
+
+const MobileDemoGame = ({
+  demoState,
+  nextStep,
+  completedStepCount,
+  isComplete,
+  actionInputLabel,
+  actionButtonLabel,
+  guidanceMode,
+  metParticipantCount,
+  doneGivenCount,
+  doneReceivedCount,
+  selectedKeywords,
+  boardSectionRef,
+  isBoardHighlighted,
+  isParticipantSelected,
+  onSelectParticipant,
+  onNext,
+  onReplay,
+}: {
+  demoState: DemoPlayState;
+  nextStep: DemoPlayExchangeStep | null;
+  completedStepCount: number;
+  isComplete: boolean;
+  actionInputLabel: string;
+  actionButtonLabel: string;
+  guidanceMode: DemoGuidanceMode | null;
+  metParticipantCount: number;
+  doneGivenCount: number;
+  doneReceivedCount: number;
+  selectedKeywords: string[];
+  boardSectionRef: RefObject<HTMLDivElement>;
+  isBoardHighlighted: boolean;
+  isParticipantSelected: boolean;
+  onSelectParticipant: () => void;
+  onNext: () => void;
+  onReplay: () => void;
+}) => {
+  const progressRate = Math.min(
+    100,
+    Math.round((demoState.completedLines.length / DEMO_PLAY_GOAL_LINES) * 100)
+  );
+  const isSendActionDisabled =
+    isComplete || (nextStep?.senderId === "host" && !isParticipantSelected);
+  const mobileGuidanceTargetRef = useRef<HTMLFormElement>(null);
+  const shouldShowBoardExchangeControl = completedStepCount >= 2 && !isComplete && nextStep;
+
+  useEffect(() => {
+    if (!guidanceMode) {
+      return;
+    }
+
+    const preventUserScroll = (event: Event) => {
+      event.preventDefault();
+    };
+
+    document.addEventListener("touchmove", preventUserScroll, { passive: false });
+    document.addEventListener("wheel", preventUserScroll, { passive: false });
+
+    return () => {
+      document.removeEventListener("touchmove", preventUserScroll);
+      document.removeEventListener("wheel", preventUserScroll);
+    };
+  }, [guidanceMode]);
+
+  return (
+    <div className="bingo-game-page">
+      <div className="bingo-game-page__mesh" aria-hidden="true" />
+      {guidanceMode ? <MobileGuidanceBackdrop targetRef={mobileGuidanceTargetRef} mode={guidanceMode} /> : null}
+      {guidanceMode ? <MobileGuidanceCallout targetRef={mobileGuidanceTargetRef} mode={guidanceMode} /> : null}
+
+      <main className="bingo-game-shell pb-[150px]">
+        <header className="bingo-game-header">
+          <Link to="/" className="bingo-game-header__brand" aria-label="Bingo Networking 홈으로 이동">
+            <img src={bingoNetworkingWordmark} alt="Bingo Networking" />
+          </Link>
+        </header>
+
+        <section className="bingo-game-top">
+          <article className="bingo-card bingo-hero">
+            <p className="bingo-hero__identity">홍길동 님</p>
+            <div className="bingo-hero__content">
+              <div className="bingo-hero__copy">
+                <h1>
+                  빙고를 채우며
+                  <br />
+                  소통해봐요!
+                </h1>
+                {!shouldShowBoardExchangeControl && isComplete ? (
+                  <div className="bingo-hero__form bingo-hero__form--demo">
+                    <button type="button" onClick={onReplay}>
+                      다시 체험하기
+                    </button>
+                  </div>
+                ) : !shouldShowBoardExchangeControl ? (
+                  <form
+                    ref={mobileGuidanceTargetRef}
+                    className={"bingo-hero__form bingo-hero__form--demo " + (guidanceMode ? "relative z-30" : "")}
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (isSendActionDisabled) {
+                        return;
+                      }
+                      onNext();
+                    }}
+                  >
+                    <div
+                      className="bingo-hero__form-field cursor-pointer text-left"
+                      role={nextStep?.senderId === "host" ? "button" : undefined}
+                      tabIndex={nextStep?.senderId === "host" ? 0 : undefined}
+                      aria-label={nextStep?.senderId === "guest" ? "받은 키워드" : actionInputLabel + " 선택"}
+                      onClick={nextStep?.senderId === "host" ? onSelectParticipant : undefined}
+                      onKeyDown={(event) => {
+                        if (nextStep?.senderId !== "host") {
+                          return;
+                        }
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onSelectParticipant();
+                        }
+                      }}
+                    >
+                      <span
+                        className={
+                          nextStep?.senderId === "host" && !isParticipantSelected
+                            ? "block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-slate-300"
+                            : "block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-[#071322]"
+                        }
+                      >
+                        {nextStep?.senderId === "guest"
+                          ? nextStep.senderName + " 님이 보냈어요"
+                          : actionInputLabel}
+                      </span>
+                    </div>
+                    <button type="submit" disabled={isSendActionDisabled}>
+                      {actionButtonLabel}
+                    </button>
+                  </form>
+                ) : null}
+              </div>
+            </div>
+          </article>
+
+          <article className="bingo-card bingo-stats">
+            <span className="bingo-stats__badge">개인전</span>
+            <div className="bingo-stats__score">
+              <strong>{progressRate}%</strong>
+              <p>빙고 완성률</p>
+            </div>
+            <div className="bingo-stats__progress" aria-hidden="true">
+              <span style={{ width: progressRate + "%" }} />
+            </div>
+            <section className="bingo-stats__selected" aria-label="내가 고른 키워드">
+              <div className="bingo-stats__selected-head">
+                <h3>내가 고른 키워드</h3>
+                <strong>{selectedKeywords.length}개</strong>
+              </div>
+              <div className="bingo-stats__selected-list">
+                {selectedKeywords.map((keyword) => (
+                  <span key={keyword} className="bingo-stats__selected-chip">
+                    {keyword}
+                  </span>
+                ))}
+              </div>
+            </section>
+            <dl className="bingo-stats__meta">
+              <div>
+                <dt>수집한 키워드</dt>
+                <dd>{demoState.board.filter((cell) => cell.status === 1).length}/24</dd>
+              </div>
+              <div>
+                <dt>만난 참가자</dt>
+                <dd>{metParticipantCount}명</dd>
+              </div>
+            </dl>
+          </article>
+        </section>
+
+        <div ref={boardSectionRef} className="relative z-10 scroll-mt-4">
+          <DemoBoard
+            board={demoState.board}
+            completedLines={demoState.completedLines}
+            latestReceivedKeywords={demoState.latestReceivedKeywords}
+            isGoalComplete={isComplete}
+            useDemoScale={false}
+            showGoalOverlay={isComplete}
+            onDismissGoalOverlay={() => undefined}
+            isBoardHighlighted={isBoardHighlighted}
+            receiveOverlay={{
+              open: false,
+              senderName: "",
+              keywords: [],
+            }}
+          />
+        </div>
+
+        <section className="relative z-10 mt-4 grid grid-cols-2 gap-3">
+          <div className="rounded-[18px] bg-[#076945] p-4 text-white shadow-soft">
+            <h2 className="text-[16px] font-black tracking-[-0.04em]">
+              내가 준 사람 <span className="text-[#ff5757]">{doneGivenCount}</span>
+            </h2>
+          </div>
+          <div className="rounded-[18px] bg-[#076945] p-4 text-white shadow-soft">
+            <h2 className="text-[16px] font-black tracking-[-0.04em]">
+              나에게 보낸 사람 <span className="text-[#ff5757]">{doneReceivedCount}</span>
+            </h2>
+          </div>
+        </section>
+
+      </main>
+
+      {shouldShowBoardExchangeControl ? (
+        <div className="fixed bottom-[max(16px,env(safe-area-inset-bottom))] left-4 right-4 z-20 rounded-[24px] border border-[#ddff57]/70 bg-[#f5fbcc] p-3 shadow-[0_18px_36px_rgba(7,105,69,0.24)]">
+          <p className="mb-2 px-1 text-[13px] font-black leading-[18px] tracking-[-0.04em] text-[#076945]">
+            빙고판을 보며 다음 키워드 교환을 이어가요.
+          </p>
+          {nextStep.senderId === "guest" ? (
+            <div className="flex min-h-[56px] items-center gap-2 rounded-[20px] bg-white p-1">
+              <div className="min-w-0 flex-1 px-3">
+                <p className="text-[13px] font-black leading-none tracking-[-0.04em] text-[#00905b]">
+                  {nextStep.senderName} 님이 보냈어요
+                </p>
+                <p className="mt-[6px] truncate text-[15px] font-black leading-none tracking-[-0.04em] text-[#076945]">
+                  {nextStep.sentKeywords.join(", ")}
+                </p>
+              </div>
+              <Button
+                type="button"
+                className="h-[48px] w-[112px] rounded-[24px] !bg-[#ddff57] text-[16px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
+                onClick={onNext}
+              >
+                {actionButtonLabel}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex min-h-[56px] items-center gap-2 rounded-[20px] bg-white p-1">
+              <div
+                className={
+                  "min-w-0 flex-1 cursor-pointer px-3 py-3 text-left text-[17px] font-black leading-none tracking-[-0.04em] " +
+                  (isParticipantSelected ? "text-[#071322]" : "text-slate-300")
+                }
+                role="button"
+                tabIndex={0}
+                aria-label={nextStep.receiverName + " 선택"}
+                onClick={onSelectParticipant}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelectParticipant();
+                  }
+                }}
+              >
+                {nextStep.receiverName}
+              </div>
+              <Button
+                type="button"
+                className="h-[48px] w-[112px] rounded-[24px] !bg-[#4fc399] text-[17px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                disabled={!isParticipantSelected}
+                onClick={onNext}
+              >
+                보내기
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+};
 const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { track } = useSiteAnalytics();
   const isGameRoute = location.pathname.endsWith("/game");
+  const isMobileViewport = useIsMobileViewport();
   const selectedKeywordsFromQuery = useMemo(() => {
     const keywords = searchParams.get("keywords") ?? "";
     return keywords
@@ -441,6 +1043,12 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   );
   const [draftKeywords, setDraftKeywords] = useState<string[]>([]);
   const [completedStepCount, setCompletedStepCount] = useState(0);
+  const [isDemoParticipantSelected, setIsDemoParticipantSelected] = useState(false);
+  const [shouldSkipGuidance, setShouldSkipGuidance] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.sessionStorage.getItem(DEMO_SKIP_GUIDANCE_STORAGE_KEY) === "true"
+  );
   const alertTimeoutRef = useRef<number | null>(null);
   const [sendAlert, setSendAlert] = useState({
     open: false,
@@ -451,15 +1059,25 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     senderName: "",
     keywords: [] as string[],
   });
+  const [isBoardHighlighted, setIsBoardHighlighted] = useState(false);
   const [isGoalOverlayVisible, setIsGoalOverlayVisible] = useState(true);
   const hasTrackedReadyRef = useRef(false);
   const hasTrackedGoalRef = useRef(false);
   const gameStartedAtRef = useRef(Date.now());
+  const mobileBoardSectionRef = useRef<HTMLDivElement>(null);
+  const boardFillTimeoutRef = useRef<number | null>(null);
+  const boardHighlightTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
       if (alertTimeoutRef.current) {
         window.clearTimeout(alertTimeoutRef.current);
+      }
+      if (boardFillTimeoutRef.current) {
+        window.clearTimeout(boardFillTimeoutRef.current);
+      }
+      if (boardHighlightTimeoutRef.current) {
+        window.clearTimeout(boardHighlightTimeoutRef.current);
       }
     };
   }, []);
@@ -469,8 +1087,10 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
 
   useEffect(() => {
     setCompletedStepCount(0);
+    setIsDemoParticipantSelected(false);
     setSendAlert((currentAlert) => ({ ...currentAlert, open: false }));
     setReceiveBoardAlert((currentAlert) => ({ ...currentAlert, open: false }));
+    setIsBoardHighlighted(false);
     setIsGoalOverlayVisible(true);
     hasTrackedReadyRef.current = false;
     hasTrackedGoalRef.current = false;
@@ -478,6 +1098,14 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     if (alertTimeoutRef.current) {
       window.clearTimeout(alertTimeoutRef.current);
       alertTimeoutRef.current = null;
+    }
+    if (boardFillTimeoutRef.current) {
+      window.clearTimeout(boardFillTimeoutRef.current);
+      boardFillTimeoutRef.current = null;
+    }
+    if (boardHighlightTimeoutRef.current) {
+      window.clearTimeout(boardHighlightTimeoutRef.current);
+      boardHighlightTimeoutRef.current = null;
     }
   }, [activeKeywordKey, boardVariantIndex, isGameRoute]);
 
@@ -539,17 +1167,33 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   }, [boardVariantIndex, demoRunId, demoState.completedLines.length, exchangeSteps.length, isComplete, track]);
 
   const nextStep = exchangeSteps[completedStepCount] ?? null;
+
+  useEffect(() => {
+    if (nextStep?.senderId === "host") {
+      setIsDemoParticipantSelected(false);
+    }
+  }, [nextStep?.id, nextStep?.senderId]);
+
   const canStart = draftKeywords.length >= DEMO_PLAY_MIN_SELECTED_KEYWORDS;
   const actionInputLabel = nextStep
     ? nextStep.senderId === "host"
       ? nextStep.receiverName
-      : `${nextStep.senderName} 답장`
-    : "참가자 이름 검색";
+      : ""
+    : "";
   const actionButtonLabel = isComplete
-    ? "완료"
+    ? "다시 체험하기"
     : nextStep?.senderId === "guest"
-      ? "키워드 받기"
+      ? "키워드 수신 테스트"
       : "보내기";
+  const showReceiveExampleBlock = nextStep?.senderId === "guest" && !isComplete && !sendAlert.open;
+  const guidanceMode: DemoGuidanceMode | null = shouldSkipGuidance
+    ? null
+    : isGameRoute && completedStepCount === 0 && nextStep?.senderId === "host"
+      ? "send"
+      : isGameRoute && completedStepCount === 1 && nextStep?.senderId === "guest"
+        ? "receive"
+        : null;
+  const pcGuidanceMode = sendAlert.open ? null : guidanceMode;
   const doneGivenCount = exchangeSteps.filter(
     (step, index) => step.senderId === "host" && index < completedStepCount
   ).length;
@@ -588,6 +1232,8 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     if (!canStart) {
       return;
     }
+    window.sessionStorage.removeItem(DEMO_SKIP_GUIDANCE_STORAGE_KEY);
+    setShouldSkipGuidance(false);
     track("demo_start_clicked", {
       selected_count: draftKeywords.length,
     });
@@ -597,6 +1243,12 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
 
   const handleNext = () => {
     if (!isGameRoute) {
+      return;
+    }
+    if (boardFillTimeoutRef.current) {
+      return;
+    }
+    if (nextStep?.senderId === "host" && !isDemoParticipantSelected) {
       return;
     }
     if (nextStep) {
@@ -618,11 +1270,14 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
           keywords: nextStep.sentKeywords,
         });
       }
-      alertTimeoutRef.current = window.setTimeout(() => {
-        setSendAlert((currentAlert) => ({ ...currentAlert, open: false }));
-        setReceiveBoardAlert((currentAlert) => ({ ...currentAlert, open: false }));
+      if (nextStep.senderId === "guest") {
+        alertTimeoutRef.current = window.setTimeout(() => {
+          setReceiveBoardAlert((currentAlert) => ({ ...currentAlert, open: false }));
+          alertTimeoutRef.current = null;
+        }, DEMO_RECEIVE_ALERT_DURATION_MS);
+      } else {
         alertTimeoutRef.current = null;
-      }, nextStep.senderId === "host" ? DEMO_SEND_ALERT_DURATION_MS : DEMO_RECEIVE_ALERT_DURATION_MS);
+      }
 
       const nextDemoState = buildDemoState(
         baseBoard,
@@ -649,9 +1304,43 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
         demo_run_id: demoRunId,
       });
     }
-    setCompletedStepCount((currentCount) =>
-      Math.min(currentCount + 1, exchangeSteps.length)
-    );
+    const shouldScrollToBoard =
+      isMobileViewport && nextStep?.senderId === "guest" && mobileBoardSectionRef.current;
+
+    const flashBoardHighlight = () => {
+      if (nextStep?.senderId !== "guest") {
+        return;
+      }
+      if (boardHighlightTimeoutRef.current) {
+        window.clearTimeout(boardHighlightTimeoutRef.current);
+      }
+      setIsBoardHighlighted(true);
+      boardHighlightTimeoutRef.current = window.setTimeout(() => {
+        setIsBoardHighlighted(false);
+        boardHighlightTimeoutRef.current = null;
+      }, DEMO_BOARD_HIGHLIGHT_DURATION_MS);
+    };
+
+    const advanceStep = () => {
+      setCompletedStepCount((currentCount) =>
+        Math.min(currentCount + 1, exchangeSteps.length)
+      );
+      flashBoardHighlight();
+    };
+
+    if (shouldScrollToBoard) {
+      mobileBoardSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      boardFillTimeoutRef.current = window.setTimeout(() => {
+        advanceStep();
+        boardFillTimeoutRef.current = null;
+      }, 520);
+      return;
+    }
+
+    advanceStep();
   };
 
   const handleReplay = () => {
@@ -665,7 +1354,31 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
       },
       { beacon: true }
     );
-    window.location.reload();
+    window.sessionStorage.setItem(DEMO_SKIP_GUIDANCE_STORAGE_KEY, "true");
+    setShouldSkipGuidance(true);
+    setCompletedStepCount(0);
+    setIsDemoParticipantSelected(false);
+    setSendAlert((currentAlert) => ({ ...currentAlert, open: false }));
+    setReceiveBoardAlert((currentAlert) => ({ ...currentAlert, open: false }));
+    setIsBoardHighlighted(false);
+    setIsGoalOverlayVisible(true);
+    hasTrackedGoalRef.current = false;
+    gameStartedAtRef.current = Date.now();
+    if (alertTimeoutRef.current) {
+      window.clearTimeout(alertTimeoutRef.current);
+      alertTimeoutRef.current = null;
+    }
+    if (boardFillTimeoutRef.current) {
+      window.clearTimeout(boardFillTimeoutRef.current);
+      boardFillTimeoutRef.current = null;
+    }
+    if (boardHighlightTimeoutRef.current) {
+      window.clearTimeout(boardHighlightTimeoutRef.current);
+      boardHighlightTimeoutRef.current = null;
+    }
+    if (isMobileViewport) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const handleCloseSendAlert = () => {
@@ -685,6 +1398,17 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   }
 
   if (!isGameRoute) {
+    if (isMobileViewport) {
+      return (
+        <MobileKeywordSelector
+          selectedKeywords={draftKeywords}
+          onToggleKeyword={handleToggleKeyword}
+          canStart={canStart}
+          onStart={handleStart}
+        />
+      );
+    }
+
     return (
       <PcDesignStage>
         <main className="relative h-[1080px] w-[1920px] bg-[#4fc39b]">
@@ -708,6 +1432,30 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     );
   }
 
+  if (isMobileViewport) {
+    return (
+      <MobileDemoGame
+        demoState={demoState}
+        nextStep={nextStep}
+        completedStepCount={completedStepCount}
+        isComplete={isComplete}
+        actionInputLabel={actionInputLabel}
+        actionButtonLabel={actionButtonLabel}
+        guidanceMode={guidanceMode}
+        metParticipantCount={metParticipantCount}
+        doneGivenCount={doneGivenCount}
+        doneReceivedCount={doneReceivedCount}
+        selectedKeywords={activeKeywords}
+        boardSectionRef={mobileBoardSectionRef}
+        isBoardHighlighted={isBoardHighlighted}
+        isParticipantSelected={isDemoParticipantSelected}
+        onSelectParticipant={() => setIsDemoParticipantSelected(true)}
+        onNext={handleNext}
+        onReplay={handleReplay}
+      />
+    );
+  }
+
   return (
     <PcDesignStage canvasHeight={PC_GAME_CANVAS_HEIGHT}>
       <main
@@ -721,6 +1469,8 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
           <DemoBadgeLink />
         </div>
         <h1 className="sr-only">2명이 키워드를 교환하며 빙고를 채워요</h1>
+        {pcGuidanceMode ? <DemoGuidanceSpotlight mode={pcGuidanceMode} /> : null}
+        {pcGuidanceMode ? <DemoGuidanceCallout mode={pcGuidanceMode} /> : null}
         <DemoSendOverlay
           open={sendAlert.open}
           receiverName={sendAlert.receiverName}
@@ -750,37 +1500,50 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                   alt=""
                   className="absolute left-[218px] top-[100px] h-auto w-[170px]"
                 />
-                {nextStep?.senderId === "guest" ? (
-                  <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] items-center rounded-[31px] border-[1.5px] border-[#ddff57] bg-[#f5fbcc] p-[4px] shadow-[0_0_18px_rgba(221,255,87,0.25)]">
-                    <div className="min-w-0 flex-1 px-[18px]">
-                      <p className="text-[14px] font-black leading-none tracking-[-0.04em] text-[#00905b]">
-                        {nextStep.senderName} 님이 보냈어요
-                      </p>
-                      <p className="mt-[6px] truncate text-[17px] font-black leading-none tracking-[-0.04em] text-[#076945]">
-                        {nextStep.sentKeywords.join(", ")}
-                      </p>
+                {isComplete ? (
+                  <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] rounded-[31px] border-[1.5px] border-[#076945] bg-white p-[4px]">
+                    <div className="min-w-0 flex-1 px-[21px] py-[13px] text-left text-[21px] font-black leading-none tracking-[-0.04em] text-slate-300">
+                      상대방 이름 검색
                     </div>
                     <Button
                       type="button"
-                      className="h-[52px] w-[118px] rounded-[26px] !bg-[#ddff57] text-[17px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
-                      disabled={isComplete}
-                      onClick={handleNext}
+                      className="mr-[10px] h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                      disabled
                     >
-                      {actionButtonLabel}
+                      보내기
                     </Button>
                   </div>
                 ) : (
                   <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] rounded-[31px] border-[1.5px] border-[#076945] bg-white p-[4px]">
-                    <p className="min-w-0 flex-1 px-[21px] py-[13px] text-[21px] font-black leading-none tracking-[-0.04em] text-slate-300">
-                      {actionInputLabel}
-                    </p>
+                    <div
+                      className={
+                        "min-w-0 flex-1 px-[21px] py-[13px] text-left text-[21px] font-black leading-none tracking-[-0.04em] " +
+                        (nextStep?.senderId === "guest"
+                          ? "text-slate-300"
+                          : "cursor-pointer " + (isDemoParticipantSelected ? "text-[#071322]" : "text-slate-300"))
+                      }
+                      role={nextStep?.senderId === "host" ? "button" : undefined}
+                      tabIndex={nextStep?.senderId === "host" ? 0 : undefined}
+                      onClick={nextStep?.senderId === "host" ? () => setIsDemoParticipantSelected(true) : undefined}
+                      onKeyDown={(event) => {
+                        if (nextStep?.senderId !== "host") {
+                          return;
+                        }
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setIsDemoParticipantSelected(true);
+                        }
+                      }}
+                    >
+                      {nextStep?.senderId === "guest" ? "상대방 이름 검색" : actionInputLabel}
+                    </div>
                     <Button
                       type="button"
-                      className="h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
-                      disabled={isComplete}
-                      onClick={handleNext}
+                      className="mr-[10px] h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                      disabled={isComplete || nextStep?.senderId !== "host" || !isDemoParticipantSelected}
+                      onClick={nextStep?.senderId === "host" ? handleNext : undefined}
                     >
-                      {actionButtonLabel}
+                      보내기
                     </Button>
                   </div>
                 )}
@@ -790,16 +1553,6 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                 <span className="absolute left-[32px] top-[31px] inline-flex h-[29px] items-center rounded-[15px] bg-[#00905b] px-[17px] text-[16px] font-black tracking-[-0.04em] text-white">
                   개인전
                 </span>
-                {completedStepCount > 0 ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="absolute right-[23px] top-[24px] h-[42px] rounded-full border border-[#076945]/20 !bg-[#ddff57] px-[18px] text-[17px] font-black tracking-[-0.04em] !text-[#076945] shadow-[0_8px_18px_rgba(7,105,69,0.18)] hover:!bg-[#e8ff86] hover:!text-[#076945]"
-                    onClick={handleReplay}
-                  >
-                    다시 체험하기
-                  </Button>
-                ) : null}
                 <p className="absolute left-[32px] top-[99px] text-[60px] font-black leading-none tracking-[-0.08em] text-[#ff3b2f]">
                   {Math.min(100, Math.round((demoState.completedLines.length / DEMO_PLAY_GOAL_LINES) * 100))}%
                 </p>
@@ -880,16 +1633,67 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
             </section>
           </div>
 
-          <div className="pt-[25px]">
-            <DemoBoard
-              board={demoState.board}
-              completedLines={demoState.completedLines}
-              latestReceivedKeywords={demoState.latestReceivedKeywords}
-              isGoalComplete={isComplete}
-              showGoalOverlay={isGoalOverlayVisible}
-              onDismissGoalOverlay={() => setIsGoalOverlayVisible(false)}
-              receiveOverlay={receiveBoardAlert}
-            />
+          <div className="relative">
+            {showReceiveExampleBlock ? (
+              <div className="flex min-h-[92px] items-center gap-[12px] rounded-[24px] border border-[#ddff57]/80 bg-[#f5fbcc] p-[10px] shadow-[0_16px_36px_rgba(7,105,69,0.2)]">
+                <div className="min-w-0 flex-1 px-[16px]">
+                  <p className="text-[19px] font-black leading-[23px] tracking-[-0.03em] text-[#00905b]">
+                    {nextStep.senderName} 님이 키워드를 보냈어요
+                  </p>
+                  <p className="mt-[8px] truncate text-[22px] font-black leading-none tracking-[-0.03em] text-[#076945]">
+                    {nextStep.sentKeywords.join(", ")}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  className="h-[64px] w-[232px] rounded-[32px] !bg-[#ddff57] text-[25.5px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
+                  onClick={handleNext}
+                >
+                  {actionButtonLabel}
+                </Button>
+              </div>
+            ) : isComplete ? (
+              <div className="flex h-[92px] items-center gap-[18px] rounded-[24px] border border-white/45 bg-white/25 px-[18px] shadow-[0_16px_36px_rgba(7,105,69,0.14)]">
+                <Button
+                  type="button"
+                  className="h-[54px] w-[176px] shrink-0 rounded-[27px] border border-[#076945]/30 !bg-white text-[19px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#f5fbcc]"
+                  onClick={handleReplay}
+                >
+                  다시 체험하기
+                </Button>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[19px] font-black leading-[23px] tracking-[-0.03em] text-[#00905b]">
+                    빙고 체험이 완료됐어요
+                  </p>
+                  <p className="mt-[8px] text-[22px] font-black leading-none tracking-[-0.03em] text-[#076945]">
+                    다시 처음부터 확인할 수 있어요.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-[92px] items-center rounded-[24px] border border-white/35 bg-white/20 px-[26px]">
+                <div>
+                  <p className="text-[18px] font-black leading-[23px] tracking-[-0.03em] text-white/78">
+                    키워드 수신 예시 대기
+                  </p>
+                  <p className="mt-[7px] text-[21px] font-black leading-none tracking-[-0.03em] text-[#076945]/70">
+                    키워드를 보내면 상대방의 수신 예시가 표시됩니다.
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="mt-[18px]">
+              <DemoBoard
+                board={demoState.board}
+                completedLines={demoState.completedLines}
+                latestReceivedKeywords={demoState.latestReceivedKeywords}
+                isGoalComplete={isComplete}
+                showGoalOverlay={isGoalOverlayVisible}
+                onDismissGoalOverlay={() => setIsGoalOverlayVisible(false)}
+                isBoardHighlighted={isBoardHighlighted}
+                receiveOverlay={receiveBoardAlert}
+              />
+            </div>
           </div>
         </section>
         <p className="absolute left-0 top-[1018px] w-full text-center text-[18px] font-medium text-[#076945]/55">

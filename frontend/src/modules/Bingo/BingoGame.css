@@ -625,6 +625,17 @@
   background: #ffffff;
 }
 
+.bingo-hero__form--demo {
+  overflow: hidden;
+}
+
+.bingo-hero__form--demo button {
+  min-width: 6.4rem;
+  margin-right: 0.65rem;
+  padding-right: 1rem;
+  padding-left: 1rem;
+}
+
 .bingo-hero__form-field {
   position: relative;
   z-index: 30;
@@ -1419,6 +1430,19 @@
   animation: demoBingoCellPop 1.25s ease-in-out infinite;
 }
 
+.demo-play-board-highlight::after {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  content: "";
+  border: 8px solid rgba(221, 255, 87, 0.92);
+  border-radius: 46px;
+  box-shadow:
+    0 0 0 3px rgba(245, 255, 164, 0.38),
+    0 0 34px rgba(221, 255, 87, 0.54);
+  animation: demoBoardOutlineHighlight 1.7s ease-out;
+}
+
 .demo-play-history-list {
   scrollbar-color: rgba(79, 195, 155, 0.4) transparent;
   scrollbar-width: thin;
@@ -1444,6 +1468,21 @@
   }
   45% {
     transform: scale(1.07);
+  }
+}
+
+@keyframes demoBoardOutlineHighlight {
+  0% {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
   }
 }
 
