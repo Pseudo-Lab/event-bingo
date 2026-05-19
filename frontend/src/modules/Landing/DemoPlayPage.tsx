@@ -642,6 +642,75 @@ const MobileGuidanceBackdrop = ({
   );
 };
 
+const MobileGuidanceCallout = ({
+  targetRef,
+  mode,
+}: {
+  targetRef: RefObject<HTMLElement>;
+  mode: DemoGuidanceMode;
+}) => {
+  const [calloutStyle, setCalloutStyle] = useState<{
+    left: number;
+    top: number;
+    width: number;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    let frameId = 0;
+
+    const measure = () => {
+      const target = targetRef.current;
+      if (!target) {
+        setCalloutStyle(null);
+        return;
+      }
+
+      const rect = target.getBoundingClientRect();
+      const horizontalInset = 20;
+      const left = Math.max(horizontalInset, rect.left);
+      const width = Math.min(
+        window.innerWidth - horizontalInset * 2,
+        Math.max(280, rect.width),
+      );
+
+      setCalloutStyle({
+        left,
+        top: Math.max(20, rect.top - 98),
+        width,
+      });
+    };
+
+    const scheduleMeasure = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+    window.addEventListener("resize", scheduleMeasure);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", scheduleMeasure);
+    };
+  }, [mode, targetRef]);
+
+  if (!calloutStyle) {
+    return null;
+  }
+
+  return (
+    <div
+      className="pointer-events-none fixed z-30 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]"
+      style={calloutStyle}
+    >
+      {mode === "send"
+        ? "참가자 이름을 검색한 뒤 내 키워드를 보내보세요."
+        : "키워드를 주고받으면 서로의 빙고판이 채워져요."}
+      <span className="absolute bottom-[-8px] right-[42px] h-[16px] w-[16px] rotate-45 border-b border-r border-[#ddff57]/70 bg-[#fffde8]" />
+    </div>
+  );
+};
+
 const MobileDemoGame = ({
   demoState,
   nextStep,
@@ -680,8 +749,6 @@ const MobileDemoGame = ({
     100,
     Math.round((demoState.completedLines.length / DEMO_PLAY_GOAL_LINES) * 100)
   );
-  const isSendGuide = guidanceMode === "send";
-  const isReceiveGuide = guidanceMode === "receive";
   const isSendActionDisabled =
     isComplete || (nextStep?.senderId === "host" && !isParticipantSelected);
   const mobileGuidanceTargetRef = useRef<HTMLFormElement>(null);
@@ -708,6 +775,7 @@ const MobileDemoGame = ({
     <div className="bingo-game-page">
       <div className="bingo-game-page__mesh" aria-hidden="true" />
       {guidanceMode ? <MobileGuidanceBackdrop targetRef={mobileGuidanceTargetRef} mode={guidanceMode} /> : null}
+      {guidanceMode ? <MobileGuidanceCallout targetRef={mobileGuidanceTargetRef} mode={guidanceMode} /> : null}
 
       <main className="bingo-game-shell pb-[150px]">
         <header className="bingo-game-header">
@@ -726,16 +794,6 @@ const MobileDemoGame = ({
                   <br />
                   소통해봐요!
                 </h1>
-                {isSendGuide ? (
-                  <div className="relative z-30 mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
-                    참가자 이름을 검색한 뒤 내 키워드를 보내보세요.
-                  </div>
-                ) : null}
-                {isReceiveGuide ? (
-                  <div className="relative z-30 mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
-                    키워드를 주고받으면 서로의 빙고판이 채워져요.
-                  </div>
-                ) : null}
                 <form
                   ref={mobileGuidanceTargetRef}
                   className={"bingo-hero__form " + (guidanceMode ? "relative z-30 ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18),0_18px_40px_rgba(7,105,69,0.24)]" : "")}
