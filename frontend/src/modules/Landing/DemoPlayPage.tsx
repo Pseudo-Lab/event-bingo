@@ -258,7 +258,8 @@ const MobileKeywordSelector = ({
   canStart: boolean;
   onStart: () => void;
 }) => (
-  <main className="flex h-[100dvh] flex-col overflow-hidden bg-[#4fc39b] px-5 pb-4 pt-5 text-slate-950">
+  <main className="fixed inset-0 flex overflow-hidden overscroll-none bg-[#4fc39b] px-5 pb-4 pt-5 text-slate-950">
+    <div className="flex h-full w-full flex-col overflow-hidden">
     <div className="flex items-center justify-between gap-3">
       <Link to="/" aria-label="Bingo Networking 홈으로 이동" className="block">
         <img src={bingoNetworkingWordmark} alt="Bingo Networking" className="h-auto w-[148px]" />
@@ -315,6 +316,7 @@ const MobileKeywordSelector = ({
       <p className="mt-2 min-h-[18px] text-center text-[13px] font-black text-[#076945]/75">
         {!canStart ? `키워드는 ${DEMO_PLAY_MIN_SELECTED_KEYWORDS}개 선택해야 합니다.` : ""}
       </p>
+    </div>
     </div>
   </main>
 );
