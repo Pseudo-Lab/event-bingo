@@ -856,8 +856,8 @@ const MobileDemoGame = ({
                   >
                     <div
                       className="bingo-hero__form-field cursor-pointer text-left"
-                      role="button"
-                      tabIndex={0}
+                      role={nextStep?.senderId === "host" ? "button" : undefined}
+                      tabIndex={nextStep?.senderId === "host" ? 0 : undefined}
                       aria-label={nextStep?.senderId === "guest" ? "받은 키워드" : actionInputLabel + " 선택"}
                       onClick={nextStep?.senderId === "host" ? onSelectParticipant : undefined}
                       onKeyDown={(event) => {
@@ -1488,8 +1488,8 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                           ? "text-slate-300"
                           : "cursor-pointer " + (isDemoParticipantSelected ? "text-[#071322]" : "text-slate-300"))
                       }
-                      role="button"
-                      tabIndex={0}
+                      role={nextStep?.senderId === "host" ? "button" : undefined}
+                      tabIndex={nextStep?.senderId === "host" ? 0 : undefined}
                       onClick={nextStep?.senderId === "host" ? () => setIsDemoParticipantSelected(true) : undefined}
                       onKeyDown={(event) => {
                         if (nextStep?.senderId !== "host") {
