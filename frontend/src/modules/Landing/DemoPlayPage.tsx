@@ -423,12 +423,12 @@ const DemoGuidanceSpotlight = ({ mode }: { mode: DemoGuidanceMode }) => {
 
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-20">
-      <div className="absolute left-0 top-0 w-full bg-slate-950/45" style={{ height: top }} />
-      <div className="absolute left-0 bg-slate-950/45" style={{ top, width: left, height: target.height + padding * 2 }} />
-      <div className="absolute right-0 bg-slate-950/45" style={{ top, width: right, height: target.height + padding * 2 }} />
-      <div className="absolute bottom-0 left-0 w-full bg-slate-950/45" style={{ height: bottom }} />
+      <div className="absolute left-0 top-0 w-full bg-slate-950/58 backdrop-blur-[3px]" style={{ height: top }} />
+      <div className="absolute left-0 bg-slate-950/58 backdrop-blur-[3px]" style={{ top, width: left, height: target.height + padding * 2 }} />
+      <div className="absolute right-0 bg-slate-950/58 backdrop-blur-[3px]" style={{ top, width: right, height: target.height + padding * 2 }} />
+      <div className="absolute bottom-0 left-0 w-full bg-slate-950/58 backdrop-blur-[3px]" style={{ height: bottom }} />
       <div
-        className="absolute rounded-[39px] ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_999px_rgba(15,23,42,0.08),0_0_34px_rgba(221,255,87,0.58)]"
+        className="absolute rounded-[39px] ring-[5px] ring-[#ddff57]/80 shadow-[0_0_0_999px_rgba(15,23,42,0.04),0_0_34px_rgba(221,255,87,0.64)]"
         style={{
           left,
           top,
@@ -440,9 +440,16 @@ const DemoGuidanceSpotlight = ({ mode }: { mode: DemoGuidanceMode }) => {
   );
 };
 
-const DemoGuidanceCallout = () => (
-  <div className="pointer-events-none absolute left-[244px] top-[268px] z-30 rounded-[18px] border border-[#ddff57]/70 bg-[#fffde8] px-[20px] py-[12px] text-[17px] font-black leading-[22px] tracking-[-0.04em] text-[#076945] shadow-[0_18px_36px_rgba(7,105,69,0.22)]">
-    참가자 이름을 검색한 뒤 내 키워드를 보내보세요.
+const DemoGuidanceCallout = ({ mode }: { mode: DemoGuidanceMode }) => (
+  <div
+    className={
+      "pointer-events-none absolute z-30 rounded-[18px] border border-[#ddff57]/70 bg-[#fffde8] px-[20px] py-[12px] text-[17px] font-black leading-[22px] tracking-[-0.04em] text-[#076945] shadow-[0_18px_36px_rgba(7,105,69,0.22)] " +
+      (mode === "send" ? "left-[244px] top-[268px]" : "left-[262px] top-[270px] w-[272px]")
+    }
+  >
+    {mode === "send"
+      ? "참가자 이름을 검색한 뒤 내 키워드를 보내보세요."
+      : "키워드를 주고받으면 서로의 빙고판이 채워져요."}
     <span className="absolute bottom-[-8px] right-[50px] h-[16px] w-[16px] rotate-45 border-b border-r border-[#ddff57]/70 bg-[#fffde8]" />
   </div>
 );
@@ -594,7 +601,7 @@ const MobileDemoGame = ({
     <div className="bingo-game-page">
       <div className="bingo-game-page__mesh" aria-hidden="true" />
       {guidanceMode ? (
-        <div className="pointer-events-none fixed inset-0 z-20 bg-slate-950/46" aria-hidden="true" />
+        <div className="pointer-events-none fixed inset-0 z-20 bg-slate-950/58 backdrop-blur-[3px]" aria-hidden="true" />
       ) : null}
 
       <main className="bingo-game-shell pb-[150px]">
@@ -1143,7 +1150,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
           onClose={handleCloseSendAlert}
         />
         {guidanceMode ? <DemoGuidanceSpotlight mode={guidanceMode} /> : null}
-        {shouldShowSendGuide ? <DemoGuidanceCallout /> : null}
+        {guidanceMode ? <DemoGuidanceCallout mode={guidanceMode} /> : null}
 
         <section
           data-demo-game-layout="true"
