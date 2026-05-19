@@ -1401,7 +1401,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   }
 
   return (
-    <PcDesignStage canvasHeight={PC_GAME_CANVAS_HEIGHT} scrollable>
+    <PcDesignStage canvasHeight={PC_GAME_CANVAS_HEIGHT}>
       <main
         id="main-content"
         className="relative h-[1080px] w-[1920px] bg-[#4fc39b] text-slate-950"

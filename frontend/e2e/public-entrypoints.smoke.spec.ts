@@ -22,6 +22,7 @@ test("demo experience starts without login and records a sample encounter", asyn
   await page.getByRole("button", { name: "빙고 시작하기" }).click();
 
   await expect(page).toHaveURL(/\/demo\/play\/game\?keywords=/);
+  await expect(page.locator('[data-demo-play-scroll="true"]')).toHaveCount(0);
   await expect(page.getByText("빙고 완성률")).toBeVisible();
   await expect(page.getByText("만난 참가자")).toBeVisible();
   await expect(page.getByText("참가자 이름을 검색한 뒤 내 키워드를 보내보세요.")).toBeVisible();
