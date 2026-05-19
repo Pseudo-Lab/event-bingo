@@ -322,6 +322,39 @@ const MobileKeywordSelector = ({
   </main>
 );
 
+const MobileDemoUnavailable = () => (
+  <main className="fixed inset-0 flex overflow-hidden bg-[#4fc39b] px-5 pb-6 pt-5 text-slate-950">
+    <div className="flex h-full w-full flex-col">
+      <header className="flex items-center justify-between gap-3">
+        <Link to="/" aria-label="Bingo Networking 홈으로 이동" className="block">
+          <img src={bingoNetworkingWordmark} alt="Bingo Networking" className="h-auto w-[148px]" />
+        </Link>
+        <DemoBadgeLink className="h-[30px] px-3 text-[12px]" />
+      </header>
+
+      <section className="flex flex-1 items-center">
+        <div className="w-full rounded-[28px] bg-white px-6 py-8 text-center shadow-soft">
+          <p className="text-[34px] leading-none text-[#9cee69]">✦</p>
+          <h1 className="mt-3 text-[32px] font-black leading-[38px] tracking-[-0.07em] text-[#076945]">
+            모바일 데모는
+            <br />
+            준비 중입니다
+          </h1>
+          <p className="mx-auto mt-5 max-w-[280px] text-[16px] font-black leading-[24px] tracking-[-0.04em] text-[#076945]/72">
+            PC에서 데모를 체험해 주세요.
+          </p>
+          <Link
+            to="/"
+            className="mt-7 inline-flex h-[48px] items-center justify-center rounded-[24px] bg-[#076945] px-7 text-[16px] font-black tracking-[-0.04em] text-white transition hover:bg-[#00905b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ddff57]"
+          >
+            홈으로 돌아가기
+          </Link>
+        </div>
+      </section>
+    </div>
+  </main>
+);
+
 const ExchangeCard = ({
   step,
   index,
@@ -1393,22 +1426,15 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const isInvalidGameEntry =
     isGameRoute && selectedKeywordsFromQuery.length < DEMO_PLAY_MIN_SELECTED_KEYWORDS;
 
+  if (isMobileViewport) {
+    return <MobileDemoUnavailable />;
+  }
+
   if (isInvalidGameEntry) {
     return <Navigate to="/demo/play" replace />;
   }
 
   if (!isGameRoute) {
-    if (isMobileViewport) {
-      return (
-        <MobileKeywordSelector
-          selectedKeywords={draftKeywords}
-          onToggleKeyword={handleToggleKeyword}
-          canStart={canStart}
-          onStart={handleStart}
-        />
-      );
-    }
-
     return (
       <PcDesignStage>
         <main className="relative h-[1080px] w-[1920px] bg-[#4fc39b]">
