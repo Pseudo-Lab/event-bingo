@@ -57,18 +57,19 @@ test("demo experience starts without login and records a sample encounter", asyn
 
   await sendButton.click();
   await page.mouse.move(0, 0);
-  await expect(page.getByText("내 키워드를 보냈어요")).toBeVisible();
+  await expect(page.getByText("김철수 님에게 보냈어요")).toBeVisible();
   await expect(
-    page.locator('[role="status"]').filter({ hasText: "내 키워드를 보냈어요" }),
+    page.locator('[role="status"]').filter({ hasText: "김철수 님에게 보냈어요" }),
   ).toHaveCount(1);
-  await expect(page.locator('[role="status"]').filter({ hasText: "내 키워드를 보냈어요" })).not.toHaveClass(/inset-0/);
+  await expect(page.locator('[role="status"]').filter({ hasText: "김철수 님에게 보냈어요" })).not.toHaveClass(/inset-0/);
   await page.waitForTimeout(1000);
-  await expect(page.getByText("내 키워드를 보냈어요")).toBeVisible();
+  await expect(page.getByText("김철수 님에게 보냈어요")).toBeVisible();
   await expect(page.getByText("참가자 이름을 검색한 뒤 내 키워드를 보내보세요.")).toBeHidden();
   const receiveButton = page.getByRole("button", { name: "상대 키워드 받기" });
   await expect(receiveButton).toHaveCount(0);
-  await expect(page.getByText("내 키워드를 보냈어요")).toBeHidden();
+  await expect(page.getByText("김철수 님에게 보냈어요")).toBeHidden();
   await expect(page.getByText("김민수 님이 키워드를 보냈어요")).toBeVisible();
+  await expect(page.getByText("김민수 답장")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "보내기" })).toBeDisabled();
   await expect(receiveButton).not.toHaveClass(/ring-\[5px\]/);
   await expect(receiveButton).toHaveCSS("background-color", "rgb(221, 255, 87)");

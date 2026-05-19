@@ -384,9 +384,9 @@ const DemoSendOverlay = ({
   }
 
   return (
-    <div className="absolute left-[32px] top-[142px] z-40 w-[326px]">
+    <div className="absolute left-[32px] top-[144px] z-40 w-[326px]">
       <article
-        className="rounded-[24px] border border-[#ddff57]/80 bg-[#fffde8]/95 px-[18px] py-[14px] text-center shadow-[0_18px_36px_rgba(7,105,69,0.24)]"
+        className="rounded-[22px] border border-[#ddff57]/80 bg-[#fffde8]/95 px-[18px] py-[13px] shadow-[0_18px_36px_rgba(7,105,69,0.24)]"
         role="status"
         aria-live="polite"
       >
@@ -402,9 +402,8 @@ const DemoSendOverlay = ({
             닫기
           </button>
         </div>
-        <p className="mt-[10px] text-[20px] font-black leading-[25px] tracking-[-0.06em] text-[#076945]">
-          {receiverName} 님에게
-          내 키워드를 보냈어요
+        <p className="mt-[10px] whitespace-normal text-left text-[18px] font-black leading-[24px] tracking-[-0.04em] text-[#076945]">
+          {receiverName} 님에게 보냈어요
         </p>
       </article>
     </div>
@@ -1175,7 +1174,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const actionInputLabel = nextStep
     ? nextStep.senderId === "host"
       ? nextStep.receiverName
-      : `${nextStep.senderName} 답장`
+      : ""
     : "";
   const actionButtonLabel = isComplete
     ? "다시 체험하기"
@@ -1602,18 +1601,18 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
 
           <div className="relative pt-[25px]">
             {nextStep?.senderId === "guest" && !isComplete && !sendAlert.open ? (
-              <div className="absolute left-[32px] right-[32px] top-0 z-30 flex min-h-[74px] items-center gap-[14px] rounded-[24px] border border-[#ddff57]/80 bg-[#f5fbcc]/95 p-[8px] shadow-[0_16px_36px_rgba(7,105,69,0.2)]">
+              <div className="absolute left-[32px] right-[32px] top-0 z-30 flex min-h-[78px] items-center gap-[12px] rounded-[24px] border border-[#ddff57]/80 bg-[#f5fbcc]/95 p-[8px] shadow-[0_16px_36px_rgba(7,105,69,0.2)]">
                 <div className="min-w-0 flex-1 px-[14px]">
-                  <p className="text-[15px] font-black leading-none tracking-[-0.04em] text-[#00905b]">
+                  <p className="text-[14px] font-black leading-[18px] tracking-[-0.03em] text-[#00905b]">
                     {nextStep.senderName} 님이 키워드를 보냈어요
                   </p>
-                  <p className="mt-[8px] truncate text-[18px] font-black leading-none tracking-[-0.04em] text-[#076945]">
+                  <p className="mt-[7px] truncate text-[17px] font-black leading-none tracking-[-0.03em] text-[#076945]">
                     {nextStep.sentKeywords.join(", ")}
                   </p>
                 </div>
                 <Button
                   type="button"
-                  className="h-[54px] w-[176px] rounded-[27px] !bg-[#ddff57] text-[18px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
+                  className="h-[54px] w-[164px] rounded-[27px] !bg-[#ddff57] text-[17px] font-black tracking-[-0.03em] !text-[#076945] hover:!bg-[#e8ff86]"
                   onClick={handleNext}
                 >
                   {actionButtonLabel}
