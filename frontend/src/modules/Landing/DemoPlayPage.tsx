@@ -796,7 +796,7 @@ const MobileDemoGame = ({
                 </h1>
                 <form
                   ref={mobileGuidanceTargetRef}
-                  className={"bingo-hero__form " + (guidanceMode ? "relative z-30 ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18),0_18px_40px_rgba(7,105,69,0.24)]" : "")}
+                  className={"bingo-hero__form " + (guidanceMode ? "relative z-30" : "")}
                   onSubmit={(event) => {
                     event.preventDefault();
                     if (isSendActionDisabled) {
