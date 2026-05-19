@@ -454,7 +454,7 @@ const DemoGuidanceSpotlight = ({ mode }: { mode: DemoGuidanceMode }) => {
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-20">
       <div
         data-demo-spotlight-mask="true"
-        className="absolute inset-0 bg-slate-950/58 backdrop-blur-[3px]"
+        className="absolute inset-0 bg-slate-950/58"
         style={maskStyle}
       />
       <div
