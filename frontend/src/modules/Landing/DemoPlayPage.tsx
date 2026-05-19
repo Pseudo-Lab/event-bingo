@@ -981,7 +981,7 @@ const MobileDemoGame = ({
                 className="h-[48px] w-[112px] rounded-[24px] !bg-[#ddff57] text-[16px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
                 onClick={onNext}
               >
-                교환 확인
+                {actionButtonLabel}
               </Button>
             </div>
           ) : (
@@ -1181,7 +1181,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const actionButtonLabel = isComplete
     ? "다시 체험하기"
     : nextStep?.senderId === "guest"
-      ? "교환 확인"
+      ? "상대 키워드 받기"
       : "보내기";
   const guidanceMode: DemoGuidanceMode | null = shouldSkipGuidance
     ? null
@@ -1482,26 +1482,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                       {actionButtonLabel}
                     </Button>
                   </div>
-                ) : nextStep?.senderId === "guest" ? (
-                  <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] items-center rounded-[31px] border-[1.5px] border-[#ddff57] bg-[#f5fbcc] p-[4px] shadow-[0_0_18px_rgba(221,255,87,0.25)]">
-                    <div className="min-w-0 flex-1 px-[18px]">
-                      <p className="text-[14px] font-black leading-none tracking-[-0.04em] text-[#00905b]">
-                        {nextStep.senderName} 님이 보냈어요
-                      </p>
-                      <p className="mt-[6px] truncate text-[17px] font-black leading-none tracking-[-0.04em] text-[#076945]">
-                        {nextStep.sentKeywords.join(", ")}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      className="h-[52px] w-[118px] rounded-[26px] !bg-[#ddff57] text-[17px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
-                      disabled={isComplete}
-                      onClick={handleNext}
-                    >
-                      {actionButtonLabel}
-                    </Button>
-                  </div>
-                ) : (
+                ) : nextStep?.senderId === "guest" ? null : (
                   <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] rounded-[31px] border-[1.5px] border-[#076945] bg-white p-[4px]">
                     <div
                       className={
@@ -1616,7 +1597,26 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
             </section>
           </div>
 
-          <div className="pt-[25px]">
+          <div className="relative pt-[25px]">
+            {nextStep?.senderId === "guest" && !isComplete ? (
+              <div className="absolute left-[32px] right-[32px] top-0 z-30 flex min-h-[74px] items-center gap-[14px] rounded-[24px] border border-[#ddff57]/80 bg-[#f5fbcc]/95 p-[8px] shadow-[0_16px_36px_rgba(7,105,69,0.2)]">
+                <div className="min-w-0 flex-1 px-[14px]">
+                  <p className="text-[15px] font-black leading-none tracking-[-0.04em] text-[#00905b]">
+                    {nextStep.senderName} 님이 키워드를 보냈어요
+                  </p>
+                  <p className="mt-[8px] truncate text-[18px] font-black leading-none tracking-[-0.04em] text-[#076945]">
+                    {nextStep.sentKeywords.join(", ")}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  className="h-[54px] w-[176px] rounded-[27px] !bg-[#ddff57] text-[18px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
+                  onClick={handleNext}
+                >
+                  {actionButtonLabel}
+                </Button>
+              </div>
+            ) : null}
             <DemoBoard
               board={demoState.board}
               completedLines={demoState.completedLines}

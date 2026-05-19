@@ -61,9 +61,9 @@ test("demo experience starts without login and records a sample encounter", asyn
   await page.waitForTimeout(1000);
   await expect(page.getByText("내 키워드를 보냈어요")).toBeVisible();
   await expect(page.getByText("참가자 이름을 검색한 뒤 내 키워드를 보내보세요.")).toBeHidden();
-  await expect(page.getByText("김철수 님").first()).toBeVisible();
+  await expect(page.getByText("김민수 님이 키워드를 보냈어요")).toBeVisible();
 
-  const receiveButton = page.getByRole("button", { name: "교환 확인" });
+  const receiveButton = page.getByRole("button", { name: "상대 키워드 받기" });
   await expect(receiveButton).not.toHaveClass(/ring-\[5px\]/);
   await expect(receiveButton).toHaveCSS("background-color", "rgb(221, 255, 87)");
   await expect(
@@ -129,7 +129,7 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
   await expect(sendButton).toBeEnabled();
 
   await sendButton.click();
-  const receiveButton = page.getByRole("button", { name: "교환 확인" });
+  const receiveButton = page.getByRole("button", { name: "상대 키워드 받기" });
   await expect(receiveButton).toBeVisible();
   await expect(
     page.getByText("상대방에게 키워드를 전달받으면 빙고판에 상대방의 키워드가 채워져요."),
@@ -147,7 +147,7 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
   await expect(
     page.getByText("빙고판을 보며 다음 키워드 교환을 이어가요."),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "교환 확인" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "상대 키워드 받기" })).toHaveCount(1);
 
   for (let stepIndex = 0; stepIndex < 10; stepIndex += 1) {
     if (await page.getByRole("button", { name: "다시 체험하기" }).isVisible()) {
@@ -160,7 +160,7 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
     } else if ((await nextSendButton.count()) > 0) {
       await page.locator('[role="button"]').last().click();
     } else {
-      await page.getByRole("button", { name: "교환 확인" }).last().click();
+      await page.getByRole("button", { name: "상대 키워드 받기" }).last().click();
     }
 
     await page.waitForTimeout(700);
