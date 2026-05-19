@@ -442,7 +442,7 @@ const DemoGuidanceSpotlight = ({ mode }: { mode: DemoGuidanceMode }) => {
 
 const DemoGuidanceCallout = () => (
   <div className="pointer-events-none absolute left-[244px] top-[268px] z-30 rounded-[18px] border border-[#ddff57]/70 bg-[#fffde8] px-[20px] py-[12px] text-[17px] font-black leading-[22px] tracking-[-0.04em] text-[#076945] shadow-[0_18px_36px_rgba(7,105,69,0.22)]">
-    먼저 상대에게 내 키워드를 보내보세요.
+    참가자 이름을 검색한 뒤 내 키워드를 보내보세요.
     <span className="absolute bottom-[-8px] right-[50px] h-[16px] w-[16px] rotate-45 border-b border-r border-[#ddff57]/70 bg-[#fffde8]" />
   </div>
 );
@@ -610,7 +610,7 @@ const MobileDemoGame = ({
                 </h1>
                 {isSendGuide ? (
                   <div className="relative z-30 mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
-                    먼저 상대에게 내 키워드를 보내보세요.
+                    참가자 이름을 검색한 뒤 내 키워드를 보내보세요.
                   </div>
                 ) : null}
                 {isReceiveGuide ? (
@@ -848,7 +848,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const canStart = draftKeywords.length >= DEMO_PLAY_MIN_SELECTED_KEYWORDS;
   const actionInputLabel = nextStep
     ? nextStep.senderId === "host"
-      ? nextStep.receiverName
+      ? `${nextStep.receiverName} 검색`
       : `${nextStep.senderName} 답장`
     : "참가자 이름 검색";
   const actionButtonLabel = isComplete
