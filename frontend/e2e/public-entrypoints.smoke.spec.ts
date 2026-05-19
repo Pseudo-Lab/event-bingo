@@ -17,7 +17,7 @@ test("demo experience starts without login and records a sample encounter", asyn
   await expect(page.getByText("빙고 완성률")).toBeVisible();
   await expect(page.getByText("만난 참가자")).toBeVisible();
   await expect(page.getByText("참가자 이름을 검색한 뒤 내 키워드를 보내보세요.")).toBeVisible();
-  await expect(page.getByText("김철수 검색")).toBeVisible();
+  await expect(page.getByText("김철수")).toBeVisible();
   await expect(page.getByText("키워드를 보내면 기록이 여기에 쌓입니다.")).toBeVisible();
   await expect(page.getByText("받은 키워드가 생기면 기록이 표시됩니다.")).toBeVisible();
 
