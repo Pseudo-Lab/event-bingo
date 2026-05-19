@@ -613,7 +613,7 @@ const MobileDemoGame = ({
                 ) : null}
                 {isReceiveGuide ? (
                   <div className="relative z-30 mb-3 mt-4 rounded-[16px] border border-[#ddff57]/70 bg-[#fffde8] px-4 py-3 text-[15px] font-black leading-[21px] tracking-[-0.04em] text-[#076945] shadow-[0_12px_28px_rgba(7,105,69,0.18)]">
-                    이제 상대가 보낸 키워드를 받아보세요.
+                    키워드를 주고받으면 서로의 빙고판이 채워져요.
                   </div>
                 ) : null}
                 <form
@@ -851,7 +851,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const actionButtonLabel = isComplete
     ? "완료"
     : nextStep?.senderId === "guest"
-      ? "키워드 받기"
+      ? "교환 확인"
       : "보내기";
   const guidanceMode: DemoGuidanceMode | null =
     isGameRoute && completedStepCount === 0 && nextStep?.senderId === "host"

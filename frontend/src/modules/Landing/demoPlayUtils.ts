@@ -197,8 +197,8 @@ export const createDemoPlayExchangeSteps = (
     },
     {
       id: "guest-replies",
-      title: "상대 키워드 받기",
-      description: "김민수가 보낸 키워드가 내 빙고판의 일치하는 칸에 채워집니다.",
+      title: "상대 키워드 교환 확인",
+      description: "김민수와 키워드를 주고받으며 내 빙고판의 일치하는 칸이 채워집니다.",
       senderId: "guest",
       senderName: "김민수",
       receiverId: "host",
@@ -221,7 +221,7 @@ export const createDemoPlayExchangeSteps = (
     },
     {
       id: "more-fill",
-      title: "추가 키워드 받기",
+      title: "추가 키워드 교환 확인",
       description: "이영희가 보낸 키워드가 빙고판을 더 채웁니다.",
       senderId: "guest",
       senderName: "이영희",

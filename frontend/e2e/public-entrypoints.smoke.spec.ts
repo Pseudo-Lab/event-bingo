@@ -29,7 +29,7 @@ test("demo experience starts without login and records a sample encounter", asyn
   await expect(page.getByText("먼저 상대에게 내 키워드를 보내보세요.")).toBeHidden();
   await expect(page.getByText("김철수 님").first()).toBeVisible();
 
-  const receiveButton = page.getByRole("button", { name: "키워드 받기" });
+  const receiveButton = page.getByRole("button", { name: "교환 확인" });
   await expect(receiveButton).toHaveClass(/ring-\[5px\]/);
   await expect(receiveButton).toHaveCSS("background-color", "rgb(221, 255, 87)");
   await expect(page.getByRole("button", { name: "다시 체험하기" })).toHaveCSS(
