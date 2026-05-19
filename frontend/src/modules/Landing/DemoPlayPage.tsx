@@ -452,6 +452,7 @@ const DemoBoard = ({
   completedLines,
   latestReceivedKeywords,
   isGoalComplete,
+  useDemoScale = true,
   showGoalOverlay,
   onDismissGoalOverlay,
   receiveOverlay,
@@ -460,6 +461,7 @@ const DemoBoard = ({
   completedLines: CompletedLine[];
   latestReceivedKeywords: string[];
   isGoalComplete: boolean;
+  useDemoScale?: boolean;
   showGoalOverlay: boolean;
   onDismissGoalOverlay: () => void;
   receiveOverlay: {
@@ -490,7 +492,7 @@ const DemoBoard = ({
   );
 
   return (
-    <div className="demo-play-board relative w-[675px]">
+    <div className={useDemoScale ? "demo-play-board relative w-[675px]" : "relative w-full"}>
       <BingoBoardSection
         board={board}
         boardSize={5}
@@ -681,6 +683,7 @@ const MobileDemoGame = ({
             completedLines={demoState.completedLines}
             latestReceivedKeywords={demoState.latestReceivedKeywords}
             isGoalComplete={isComplete}
+            useDemoScale={false}
             showGoalOverlay={isComplete}
             onDismissGoalOverlay={() => undefined}
             receiveOverlay={{
