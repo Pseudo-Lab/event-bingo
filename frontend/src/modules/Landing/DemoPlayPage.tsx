@@ -233,7 +233,7 @@ const KeywordSelector = ({
 
       <Button
         type="button"
-        className="mt-[31px] h-[65px] w-[600px] rounded-[32.5px] !bg-[#4fc399] text-[22px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+        className="mt-[31px] h-[65px] w-[600px] rounded-[32.5px] !bg-[#4fc399] !text-[22px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
         disabled={!canStart}
         onClick={onStart}
       >
@@ -308,7 +308,7 @@ const MobileKeywordSelector = ({
       </div>
       <Button
         type="button"
-        className="h-[48px] w-full rounded-[24px] !bg-[#076945] text-[16px] font-black tracking-[-0.04em] !text-white hover:!bg-[#00905b] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+        className="h-[48px] w-full rounded-[24px] !bg-[#076945] !text-[16px] font-black tracking-[-0.04em] !text-white hover:!bg-[#00905b] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
         disabled={!canStart}
         onClick={onStart}
       >
@@ -980,7 +980,7 @@ const MobileDemoGame = ({
               </div>
               <Button
                 type="button"
-                className="h-[48px] w-[112px] rounded-[24px] !bg-[#ddff57] text-[16px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
+                className="h-[48px] w-[112px] rounded-[24px] !bg-[#ddff57] !text-[16px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
                 onClick={onNext}
               >
                 {actionButtonLabel}
@@ -1008,7 +1008,7 @@ const MobileDemoGame = ({
               </div>
               <Button
                 type="button"
-                className="h-[48px] w-[112px] rounded-[24px] !bg-[#4fc399] text-[17px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                className="h-[48px] w-[112px] rounded-[24px] !bg-[#4fc399] !text-[17px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
                 disabled={!isParticipantSelected}
                 onClick={onNext}
               >
@@ -1507,7 +1507,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                     </div>
                     <Button
                       type="button"
-                      className="mr-[10px] h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                      className="mr-[10px] h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] !text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
                       disabled
                     >
                       보내기
@@ -1539,7 +1539,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                     </div>
                     <Button
                       type="button"
-                      className="mr-[10px] h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                      className="mr-[10px] h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] !text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
                       disabled={isComplete || nextStep?.senderId !== "host" || !isDemoParticipantSelected}
                       onClick={nextStep?.senderId === "host" ? handleNext : undefined}
                     >
@@ -1646,7 +1646,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                 </div>
                 <Button
                   type="button"
-                  className="h-[64px] w-[232px] rounded-[32px] !bg-[#ddff57] text-[25.5px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
+                  className="h-[64px] w-[232px] rounded-[32px] !bg-[#ddff57] !text-[25.5px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#e8ff86]"
                   onClick={handleNext}
                 >
                   {actionButtonLabel}
@@ -1656,7 +1656,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
               <div className="flex h-[92px] items-center gap-[18px] rounded-[24px] border border-white/45 bg-white/25 px-[18px] shadow-[0_16px_36px_rgba(7,105,69,0.14)]">
                 <Button
                   type="button"
-                  className="h-[54px] w-[176px] shrink-0 rounded-[27px] border border-[#076945]/30 !bg-white text-[19px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#f5fbcc]"
+                  className="h-[54px] w-[176px] shrink-0 rounded-[27px] border border-[#076945]/30 !bg-white !text-[19px] font-black tracking-[-0.04em] !text-[#076945] hover:!bg-[#f5fbcc]"
                   onClick={handleReplay}
                 >
                   다시 체험하기
