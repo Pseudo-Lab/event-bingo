@@ -559,6 +559,8 @@ const MobileDemoGame = ({
   doneReceivedCount,
   selectedKeywords,
   boardSectionRef,
+  isParticipantSelected,
+  onSelectParticipant,
   onNext,
   onReplay,
 }: {
@@ -574,6 +576,8 @@ const MobileDemoGame = ({
   doneReceivedCount: number;
   selectedKeywords: string[];
   boardSectionRef: RefObject<HTMLDivElement>;
+  isParticipantSelected: boolean;
+  onSelectParticipant: () => void;
   onNext: () => void;
   onReplay: () => void;
 }) => {
@@ -626,12 +630,24 @@ const MobileDemoGame = ({
                   }}
                 >
                   <div
-                    className="bingo-hero__form-field text-left"
-                    aria-label={nextStep?.senderId === "guest" ? "받은 키워드" : "상대방 이름"}
+                    className="bingo-hero__form-field cursor-pointer text-left"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={nextStep?.senderId === "guest" ? "받은 키워드" : `${actionInputLabel} 선택`}
+                    onClick={nextStep?.senderId === "host" ? onSelectParticipant : undefined}
+                    onKeyDown={(event) => {
+                      if (nextStep?.senderId !== "host") {
+                        return;
+                      }
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onSelectParticipant();
+                      }
+                    }}
                   >
                     <span
                       className={
-                        nextStep?.senderId === "host"
+                        nextStep?.senderId === "host" && !isParticipantSelected
                           ? "block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-slate-300"
                           : "block px-[0.9rem] py-[0.8rem] text-[1rem] font-black tracking-[-0.04em] text-[#071322]"
                       }
@@ -751,6 +767,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   );
   const [draftKeywords, setDraftKeywords] = useState<string[]>([]);
   const [completedStepCount, setCompletedStepCount] = useState(0);
+  const [isDemoParticipantSelected, setIsDemoParticipantSelected] = useState(false);
   const alertTimeoutRef = useRef<number | null>(null);
   const [sendAlert, setSendAlert] = useState({
     open: false,
@@ -784,6 +801,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
 
   useEffect(() => {
     setCompletedStepCount(0);
+    setIsDemoParticipantSelected(false);
     setSendAlert((currentAlert) => ({ ...currentAlert, open: false }));
     setReceiveBoardAlert((currentAlert) => ({ ...currentAlert, open: false }));
     setIsGoalOverlayVisible(true);
@@ -1083,6 +1101,8 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
         doneReceivedCount={doneReceivedCount}
         selectedKeywords={activeKeywords}
         boardSectionRef={mobileBoardSectionRef}
+        isParticipantSelected={isDemoParticipantSelected}
+        onSelectParticipant={() => setIsDemoParticipantSelected(true)}
         onNext={handleNext}
         onReplay={handleReplay}
       />
@@ -1158,7 +1178,21 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                   </div>
                 ) : (
                   <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] rounded-[31px] border-[1.5px] border-[#076945] bg-white p-[4px]">
-                    <div className="min-w-0 flex-1 px-[21px] py-[13px] text-left text-[21px] font-black leading-none tracking-[-0.04em] text-slate-300">
+                    <div
+                      className={
+                        "min-w-0 flex-1 cursor-pointer px-[21px] py-[13px] text-left text-[21px] font-black leading-none tracking-[-0.04em] " +
+                        (isDemoParticipantSelected ? "text-[#071322]" : "text-slate-300")
+                      }
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setIsDemoParticipantSelected(true)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setIsDemoParticipantSelected(true);
+                        }
+                      }}
+                    >
                       {actionInputLabel}
                     </div>
                     <Button
