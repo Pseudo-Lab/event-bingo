@@ -105,6 +105,31 @@ test("mobile demo tutorial gates send and fills board after scroll", async ({
     page.getByText("빙고판을 보며 다음 키워드 교환을 이어가요."),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "교환 확인" })).toHaveCount(1);
+
+  for (let stepIndex = 0; stepIndex < 10; stepIndex += 1) {
+    if (await page.getByRole("button", { name: "다시 체험하기" }).isVisible()) {
+      break;
+    }
+
+    const nextSendButton = page.getByRole("button", { name: "보내기" }).last();
+    if ((await nextSendButton.count()) > 0 && !(await nextSendButton.isDisabled())) {
+      await nextSendButton.click();
+    } else if ((await nextSendButton.count()) > 0) {
+      await page.locator('[role="button"]').last().click();
+    } else {
+      await page.getByRole("button", { name: "교환 확인" }).last().click();
+    }
+
+    await page.waitForTimeout(700);
+  }
+
+  await page.getByRole("button", { name: "다시 체험하기" }).click();
+  await expect(
+    page.getByText("참가자 이름을 검색한 뒤 내 키워드를 보내보세요."),
+  ).toBeHidden();
+  await expect(page.locator('[class*="backdrop-blur-[3px]"]')).toHaveCount(0);
+  await expect(page.locator('[class*="ring-[5px]"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "보내기" })).toBeDisabled();
 });
 
 test("admin login entrypoint renders Google login guidance", async ({

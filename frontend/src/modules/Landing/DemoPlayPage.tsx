@@ -34,6 +34,7 @@ const PC_GAME_CANVAS_HEIGHT = 1080;
 const DEMO_SEND_ALERT_DURATION_MS = 750;
 const DEMO_RECEIVE_ALERT_DURATION_MS = 1300;
 const DEMO_GOAL_OVERLAY_DURATION_MS = 2000;
+const DEMO_SKIP_GUIDANCE_STORAGE_KEY = "bingo-demo-play-skip-guidance";
 
 type DemoGuidanceMode = "send" | "receive";
 
@@ -1004,6 +1005,11 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   const [draftKeywords, setDraftKeywords] = useState<string[]>([]);
   const [completedStepCount, setCompletedStepCount] = useState(0);
   const [isDemoParticipantSelected, setIsDemoParticipantSelected] = useState(false);
+  const [shouldSkipGuidance, setShouldSkipGuidance] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.sessionStorage.getItem(DEMO_SKIP_GUIDANCE_STORAGE_KEY) === "true"
+  );
   const alertTimeoutRef = useRef<number | null>(null);
   const [sendAlert, setSendAlert] = useState({
     open: false,
@@ -1130,8 +1136,9 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     : nextStep?.senderId === "guest"
       ? "교환 확인"
       : "보내기";
-  const guidanceMode: DemoGuidanceMode | null =
-    isGameRoute && completedStepCount === 0 && nextStep?.senderId === "host"
+  const guidanceMode: DemoGuidanceMode | null = shouldSkipGuidance
+    ? null
+    : isGameRoute && completedStepCount === 0 && nextStep?.senderId === "host"
       ? "send"
       : isGameRoute && completedStepCount === 1 && nextStep?.senderId === "guest"
         ? "receive"
@@ -1176,6 +1183,8 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
     if (!canStart) {
       return;
     }
+    window.sessionStorage.removeItem(DEMO_SKIP_GUIDANCE_STORAGE_KEY);
+    setShouldSkipGuidance(false);
     track("demo_start_clicked", {
       selected_count: draftKeywords.length,
     });
@@ -1278,6 +1287,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
       },
       { beacon: true }
     );
+    window.sessionStorage.setItem(DEMO_SKIP_GUIDANCE_STORAGE_KEY, "true");
     window.location.reload();
   };
 
