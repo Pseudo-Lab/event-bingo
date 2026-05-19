@@ -1500,8 +1500,8 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                       type="button"
                       className={
                         shouldShowSendGuide
-                          ? "h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18)] hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
-                          : "h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                          ? "mr-[10px] h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18)] hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
+                          : "mr-[10px] h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
                       }
                       disabled={isComplete || !isDemoParticipantSelected}
                       onClick={handleNext}

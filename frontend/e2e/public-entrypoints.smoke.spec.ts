@@ -32,6 +32,21 @@ test("demo experience starts without login and records a sample encounter", asyn
 
   const sendButton = page.getByRole("button", { name: "보내기" });
   await expect(sendButton).toBeDisabled();
+  await expect
+    .poll(async () =>
+      sendButton.evaluate((button) => {
+        const container = button.parentElement;
+        const containerBox = container?.getBoundingClientRect();
+        const buttonBox = button.getBoundingClientRect();
+
+        if (!containerBox) {
+          return false;
+        }
+
+        return buttonBox.right <= containerBox.right - 8;
+      }),
+    )
+    .toBe(true);
 
   await page.getByRole("button", { name: /김철수/ }).click();
   await expect(sendButton).toBeEnabled();
