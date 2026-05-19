@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import bingoNetworkingWordmark from "../../assets/illustrations/Bingo Networking.svg";
@@ -554,6 +554,96 @@ const DemoBoard = ({
   );
 };
 
+const MobileGuidanceBackdrop = ({
+  targetRef,
+  mode,
+}: {
+  targetRef: RefObject<HTMLElement>;
+  mode: DemoGuidanceMode;
+}) => {
+  const [targetRect, setTargetRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    right: number;
+    bottom: number;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    let frameId = 0;
+
+    const measure = () => {
+      const target = targetRef.current;
+      if (!target) {
+        setTargetRect(null);
+        return;
+      }
+
+      const rect = target.getBoundingClientRect();
+      const padding = 12;
+      const left = Math.max(0, rect.left - padding);
+      const top = Math.max(0, rect.top - padding);
+      const right = Math.max(0, window.innerWidth - rect.right - padding);
+      const bottom = Math.max(0, window.innerHeight - rect.bottom - padding);
+
+      setTargetRect({
+        left,
+        top,
+        width: Math.min(window.innerWidth - left, rect.width + padding * 2),
+        height: Math.min(window.innerHeight - top, rect.height + padding * 2),
+        right,
+        bottom,
+      });
+    };
+
+    const scheduleMeasure = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+    window.addEventListener("resize", scheduleMeasure);
+    window.addEventListener("scroll", scheduleMeasure, { passive: true });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", scheduleMeasure);
+      window.removeEventListener("scroll", scheduleMeasure);
+    };
+  }, [mode, targetRef]);
+
+  if (!targetRect) {
+    return null;
+  }
+
+  const maskClass = "absolute bg-slate-950/58 backdrop-blur-[3px]";
+
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-20">
+      <div className={maskClass + " left-0 top-0 w-full"} style={{ height: targetRect.top }} />
+      <div
+        className={maskClass + " left-0"}
+        style={{ top: targetRect.top, width: targetRect.left, height: targetRect.height }}
+      />
+      <div
+        className={maskClass + " right-0"}
+        style={{ top: targetRect.top, width: targetRect.right, height: targetRect.height }}
+      />
+      <div className={maskClass + " bottom-0 left-0 w-full"} style={{ height: targetRect.bottom }} />
+      <div
+        className="absolute rounded-[30px] ring-[5px] ring-[#ddff57]/70 shadow-[0_0_34px_rgba(221,255,87,0.56)]"
+        style={{
+          left: targetRect.left,
+          top: targetRect.top,
+          width: targetRect.width,
+          height: targetRect.height,
+        }}
+      />
+    </div>
+  );
+};
+
 const MobileDemoGame = ({
   demoState,
   nextStep,
@@ -596,13 +686,12 @@ const MobileDemoGame = ({
   const isReceiveGuide = guidanceMode === "receive";
   const isSendActionDisabled =
     isComplete || (nextStep?.senderId === "host" && !isParticipantSelected);
+  const mobileGuidanceTargetRef = useRef<HTMLFormElement>(null);
 
   return (
     <div className="bingo-game-page">
       <div className="bingo-game-page__mesh" aria-hidden="true" />
-      {guidanceMode ? (
-        <div className="pointer-events-none fixed inset-0 z-20 bg-slate-950/58 backdrop-blur-[3px]" aria-hidden="true" />
-      ) : null}
+      {guidanceMode ? <MobileGuidanceBackdrop targetRef={mobileGuidanceTargetRef} mode={guidanceMode} /> : null}
 
       <main className="bingo-game-shell pb-[150px]">
         <header className="bingo-game-header">
@@ -632,6 +721,7 @@ const MobileDemoGame = ({
                   </div>
                 ) : null}
                 <form
+                  ref={mobileGuidanceTargetRef}
                   className={"bingo-hero__form " + (guidanceMode ? "relative z-30 ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18),0_18px_40px_rgba(7,105,69,0.24)]" : "")}
                   onSubmit={(event) => {
                     event.preventDefault();
