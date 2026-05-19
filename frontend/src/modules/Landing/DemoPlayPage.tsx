@@ -587,6 +587,8 @@ const MobileDemoGame = ({
   );
   const isSendGuide = guidanceMode === "send";
   const isReceiveGuide = guidanceMode === "receive";
+  const isSendActionDisabled =
+    isComplete || (nextStep?.senderId === "host" && !isParticipantSelected);
 
   return (
     <div className="bingo-game-page">
@@ -626,6 +628,9 @@ const MobileDemoGame = ({
                   className={"bingo-hero__form " + (guidanceMode ? "relative z-30 ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18),0_18px_40px_rgba(7,105,69,0.24)]" : "")}
                   onSubmit={(event) => {
                     event.preventDefault();
+                    if (isSendActionDisabled) {
+                      return;
+                    }
                     onNext();
                   }}
                 >
@@ -657,7 +662,7 @@ const MobileDemoGame = ({
                         : actionInputLabel}
                     </span>
                   </div>
-                  <button type="submit" disabled={isComplete}>
+                  <button type="submit" disabled={isSendActionDisabled}>
                     {actionButtonLabel}
                   </button>
                 </form>
@@ -876,6 +881,13 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
   }, [boardVariantIndex, demoRunId, demoState.completedLines.length, exchangeSteps.length, isComplete, track]);
 
   const nextStep = exchangeSteps[completedStepCount] ?? null;
+
+  useEffect(() => {
+    if (nextStep?.senderId === "host") {
+      setIsDemoParticipantSelected(false);
+    }
+  }, [nextStep?.id, nextStep?.senderId]);
+
   const canStart = draftKeywords.length >= DEMO_PLAY_MIN_SELECTED_KEYWORDS;
   const actionInputLabel = nextStep
     ? nextStep.senderId === "host"
@@ -945,6 +957,9 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
       return;
     }
     if (boardFillTimeoutRef.current) {
+      return;
+    }
+    if (nextStep?.senderId === "host" && !isDemoParticipantSelected) {
       return;
     }
     if (nextStep) {
@@ -1202,7 +1217,7 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                           ? "h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white ring-[5px] ring-[#ddff57]/70 shadow-[0_0_0_10px_rgba(221,255,87,0.18)] hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
                           : "h-[52px] w-[118px] rounded-[26px] !bg-[#4fc399] text-[19px] font-black tracking-[-0.04em] !text-white hover:!bg-[#28d791] disabled:!bg-[#a7c4c8] disabled:!opacity-100"
                       }
-                      disabled={isComplete}
+                      disabled={isComplete || !isDemoParticipantSelected}
                       onClick={handleNext}
                     >
                       {actionButtonLabel}

@@ -22,6 +22,10 @@ test("demo experience starts without login and records a sample encounter", asyn
   await expect(page.getByText("받은 키워드가 생기면 기록이 표시됩니다.")).toBeVisible();
 
   const sendButton = page.getByRole("button", { name: "보내기" });
+  await expect(sendButton).toBeDisabled();
+
+  await page.getByRole("button", { name: /김철수/ }).click();
+  await expect(sendButton).toBeEnabled();
   await expect(sendButton).toHaveCSS("background-color", "rgb(79, 195, 153)");
 
   await sendButton.click();
