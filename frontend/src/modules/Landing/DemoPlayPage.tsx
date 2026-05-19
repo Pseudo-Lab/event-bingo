@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import bingoNetworkingWordmark from "../../assets/illustrations/Bingo Networking.svg";
@@ -420,22 +420,50 @@ const DemoGuidanceSpotlight = ({ mode }: { mode: DemoGuidanceMode }) => {
   const padding = 18;
   const left = target.left - padding;
   const top = target.top - padding;
-  const right = PC_CANVAS_WIDTH - target.left - target.width - padding;
-  const bottom = PC_GAME_CANVAS_HEIGHT - target.top - target.height - padding;
+  const width = target.width + padding * 2;
+  const height = target.height + padding * 2;
+  const radius = 39;
+  const maskRight = left + width;
+  const maskBottom = top + height;
+  const maskRadius = Math.min(radius, width / 2, height / 2);
+  const maskPath = [
+    `M0 0H${PC_CANVAS_WIDTH}V${PC_GAME_CANVAS_HEIGHT}H0Z`,
+    `M${left + maskRadius} ${top}`,
+    `H${maskRight - maskRadius}`,
+    `A${maskRadius} ${maskRadius} 0 0 1 ${maskRight} ${top + maskRadius}`,
+    `V${maskBottom - maskRadius}`,
+    `A${maskRadius} ${maskRadius} 0 0 1 ${maskRight - maskRadius} ${maskBottom}`,
+    `H${left + maskRadius}`,
+    `A${maskRadius} ${maskRadius} 0 0 1 ${left} ${maskBottom - maskRadius}`,
+    `V${top + maskRadius}`,
+    `A${maskRadius} ${maskRadius} 0 0 1 ${left + maskRadius} ${top}`,
+    "Z",
+  ].join(" ");
+  const maskSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PC_CANVAS_WIDTH} ${PC_GAME_CANVAS_HEIGHT}"><path fill="white" fill-rule="evenodd" d="${maskPath}"/></svg>`;
+  const maskImage = `url("data:image/svg+xml,${encodeURIComponent(maskSvg)}")`;
+  const maskStyle = {
+    WebkitMaskImage: maskImage,
+    maskImage,
+    WebkitMaskSize: "100% 100%",
+    maskSize: "100% 100%",
+    WebkitMaskRepeat: "no-repeat",
+    maskRepeat: "no-repeat",
+  } as CSSProperties;
 
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-20">
-      <div className="absolute left-0 top-0 w-full bg-slate-950/58 backdrop-blur-[3px]" style={{ height: top }} />
-      <div className="absolute left-0 bg-slate-950/58 backdrop-blur-[3px]" style={{ top, width: left, height: target.height + padding * 2 }} />
-      <div className="absolute right-0 bg-slate-950/58 backdrop-blur-[3px]" style={{ top, width: right, height: target.height + padding * 2 }} />
-      <div className="absolute bottom-0 left-0 w-full bg-slate-950/58 backdrop-blur-[3px]" style={{ height: bottom }} />
+      <div
+        data-demo-spotlight-mask="true"
+        className="absolute inset-0 bg-slate-950/58 backdrop-blur-[3px]"
+        style={maskStyle}
+      />
       <div
         className="absolute rounded-[39px] ring-[5px] ring-[#ddff57]/80 shadow-[0_0_0_999px_rgba(15,23,42,0.04),0_0_34px_rgba(221,255,87,0.64)]"
         style={{
           left,
           top,
-          width: target.width + padding * 2,
-          height: target.height + padding * 2,
+          width,
+          height,
         }}
       />
     </div>
