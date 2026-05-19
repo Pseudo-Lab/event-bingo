@@ -384,27 +384,26 @@ const DemoSendOverlay = ({
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#076945]/24 backdrop-blur-[1px]">
+    <div className="absolute left-[32px] top-[142px] z-40 w-[326px]">
       <article
-        className="w-[500px] rounded-[30px] border border-[#ddff57]/70 bg-[#fffde8]/95 px-[40px] py-[34px] text-center shadow-[0_26px_60px_rgba(7,105,69,0.28)]"
+        className="rounded-[24px] border border-[#ddff57]/80 bg-[#fffde8]/95 px-[18px] py-[14px] text-center shadow-[0_18px_36px_rgba(7,105,69,0.24)]"
         role="status"
         aria-live="polite"
       >
-        <div className="flex items-center justify-between gap-[16px]">
-          <span className="inline-flex h-[29px] items-center rounded-[15px] bg-[#00905b] px-[16px] text-[15px] font-black tracking-[-0.04em] text-white">
+        <div className="flex items-center justify-between gap-[10px]">
+          <span className="inline-flex h-[25px] items-center rounded-[13px] bg-[#00905b] px-[13px] text-[13px] font-black tracking-[-0.04em] text-white">
             보낸 키워드
           </span>
           <button
             type="button"
-            className="text-[15px] font-black tracking-[-0.04em] text-[#076945]/70 hover:text-[#076945]"
+            className="text-[13px] font-black tracking-[-0.04em] text-[#076945]/70 hover:text-[#076945]"
             onClick={onClose}
           >
             닫기
           </button>
         </div>
-        <p className="mt-[24px] text-[28px] font-black leading-[36px] tracking-[-0.06em] text-[#076945]">
+        <p className="mt-[10px] text-[20px] font-black leading-[25px] tracking-[-0.06em] text-[#076945]">
           {receiverName} 님에게
-          <br />
           내 키워드를 보냈어요
         </p>
       </article>
@@ -1440,11 +1439,6 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
           <DemoBadgeLink />
         </div>
         <h1 className="sr-only">2명이 키워드를 교환하며 빙고를 채워요</h1>
-        <DemoSendOverlay
-          open={sendAlert.open}
-          receiverName={sendAlert.receiverName}
-          onClose={handleCloseSendAlert}
-        />
         {pcGuidanceMode ? <DemoGuidanceSpotlight mode={pcGuidanceMode} /> : null}
         {pcGuidanceMode ? <DemoGuidanceCallout mode={pcGuidanceMode} /> : null}
 
@@ -1470,6 +1464,11 @@ const DemoPlayPageContent = ({ demoRunId }: { demoRunId: string }) => {
                   src={characterIllustration}
                   alt=""
                   className="absolute left-[218px] top-[100px] h-auto w-[170px]"
+                />
+                <DemoSendOverlay
+                  open={sendAlert.open}
+                  receiverName={sendAlert.receiverName}
+                  onClose={handleCloseSendAlert}
                 />
                 {isComplete ? (
                   <div className="absolute left-[32px] top-[217px] z-10 flex h-[62px] w-[326px] items-center rounded-[31px] border-[1.5px] border-[#ddff57] bg-[#f5fbcc] p-[4px] shadow-[0_0_18px_rgba(221,255,87,0.25)]">

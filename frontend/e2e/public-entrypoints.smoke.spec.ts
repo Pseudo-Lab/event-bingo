@@ -58,6 +58,10 @@ test("demo experience starts without login and records a sample encounter", asyn
   await sendButton.click();
   await page.mouse.move(0, 0);
   await expect(page.getByText("내 키워드를 보냈어요")).toBeVisible();
+  await expect(
+    page.locator('[role="status"]').filter({ hasText: "내 키워드를 보냈어요" }),
+  ).toHaveCount(1);
+  await expect(page.locator('[role="status"]').filter({ hasText: "내 키워드를 보냈어요" })).not.toHaveClass(/inset-0/);
   await page.waitForTimeout(1000);
   await expect(page.getByText("내 키워드를 보냈어요")).toBeVisible();
   await expect(page.getByText("참가자 이름을 검색한 뒤 내 키워드를 보내보세요.")).toBeHidden();
