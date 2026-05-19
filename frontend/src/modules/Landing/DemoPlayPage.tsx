@@ -299,7 +299,7 @@ const MobileKeywordSelector = ({
       </div>
     </section>
 
-    <div className="-mx-5 mt-auto border-t border-white/20 bg-[#4fc39b]/95 px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+    <div className="-mx-5 mt-auto min-h-[158px] border-t border-white/20 bg-[#4fc39b]/95 px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
       <div className="mb-2 flex items-center justify-between text-[14px] font-black tracking-[-0.04em] text-[#076945]">
         <span>선택한 키워드</span>
         <span>{selectedKeywords.length}/{DEMO_PLAY_MIN_SELECTED_KEYWORDS}</span>
@@ -312,11 +312,9 @@ const MobileKeywordSelector = ({
       >
         빙고 시작하기
       </Button>
-      {!canStart ? (
-        <p className="mt-2 text-center text-[13px] font-black text-[#076945]/75">
-          키워드는 {DEMO_PLAY_MIN_SELECTED_KEYWORDS}개 선택해야 합니다.
-        </p>
-      ) : null}
+      <p className="mt-2 min-h-[18px] text-center text-[13px] font-black text-[#076945]/75">
+        {!canStart ? `키워드는 ${DEMO_PLAY_MIN_SELECTED_KEYWORDS}개 선택해야 합니다.` : ""}
+      </p>
     </div>
   </main>
 );
