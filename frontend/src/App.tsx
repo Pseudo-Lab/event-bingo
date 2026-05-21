@@ -1,5 +1,6 @@
 import "./App.css";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import SeoMetadata from "./components/SeoMetadata.tsx";
 import Home from "./modules/Home/Home.tsx";
 import BingoGame from "./modules/Bingo/BingoGame.tsx";
 import LandingHomePage from "./modules/Landing/LandingHomePage.tsx";
@@ -25,6 +26,7 @@ import { getAdminPath } from "./config/eventProfiles";
 function AppRoutes() {
   return (
     <div className="app-shell">
+      <SeoMetadata />
       <main className="app-main">
         <Routes>
           <Route path="/" element={<LandingHomePage />} />

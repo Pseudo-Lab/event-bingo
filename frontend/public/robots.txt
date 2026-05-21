@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api
+Disallow: /event/
+
+Sitemap: https://bingo.pseudolab-devfactory.com/sitemap.xml
