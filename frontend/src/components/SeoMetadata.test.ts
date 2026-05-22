@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getSeoMetaForPath, isIndexedSeoPath } from "./SeoMetadata";
+import { getSeoMetaForPath, isIndexedSeoPath } from "./seoMetadataConfig";
 
 describe("SeoMetadata", () => {
   it("returns indexed metadata for fixed public pages", () => {
