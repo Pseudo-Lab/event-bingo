@@ -6,9 +6,11 @@ import api.events.routes as event_routes
 from api.events.routes import (
     events_router,
     get_public_policy_template,
+    list_public_events,
     normalize_event_manager_request_purpose,
 )
 from api.events.schema import EventManagerRequestCreateRequest
+from models.event import Event
 from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 from models.policy_template import PLATFORM_PRIVACY_POLICY_UPDATED_AT
 
@@ -22,6 +24,18 @@ def test_events_router_exposes_public_catalog_and_application_endpoints():
     assert "/events/{event_slug}/privacy-notice-template" in paths
     assert "/events/manager-requests" in paths
     assert "/events/{event_slug}" in paths
+
+
+def test_public_catalog_does_not_enumerate_events(monkeypatch):
+    async def fail_get_all(_session):
+        raise AssertionError("public catalog must not enumerate all events")
+
+    monkeypatch.setattr(Event, "get_all", fail_get_all)
+
+    response = asyncio.run(list_public_events())
+
+    assert response.ok is True
+    assert response.events == []
 
 
 def test_public_platform_policy_endpoint_returns_code_defined_static_policy():

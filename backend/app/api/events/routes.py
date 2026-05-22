@@ -21,7 +21,6 @@ from .schema import (
     PublicEventProfileResponse,
     PublicPolicyTemplateItem,
     PublicPolicyTemplateResponse,
-    PublicEventSummaryItem,
 )
 
 
@@ -46,27 +45,11 @@ def normalize_event_manager_request_purpose(event_purpose: str | None) -> str:
     response_model=PublicEventListResponse,
     summary="공개 이벤트 목록 조회",
 )
-async def list_public_events(
-    db: AsyncSessionDepends,
-):
-    events = await Event.get_all(db)
-    event_items = [
-        PublicEventSummaryItem(
-            id=event.id,
-            slug=event.slug,
-            name=event.name,
-            start_at=event.start_time,
-            board_size=event.bingo_size,
-            bingo_mission_count=event.success_condition,
-            status=resolve_public_event_status(event),
-        )
-        for event in events
-    ]
-
+async def list_public_events():
     return PublicEventListResponse(
         ok=True,
-        message="이벤트 목록을 불러왔습니다.",
-        events=event_items,
+        message="공개 이벤트 목록은 제공하지 않습니다.",
+        events=[],
     )
 
 
