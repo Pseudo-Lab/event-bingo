@@ -43,6 +43,20 @@ ALLOWED_EVENT_SOURCES = {"frontend"}
 ALLOWED_DEVICE_CLASSES = {"mobile", "tablet", "desktop"}
 ALLOWED_VIEWPORT_BUCKETS = {"mobile", "tablet", "desktop-sm", "desktop-md", "desktop-lg"}
 ALLOWED_REFERRER_TYPES = {"direct", "internal", "external", "unknown"}
+ALLOWED_TRAFFIC_TYPES = {"public", "internal_qa"}
+ALLOWED_UTM_PROPERTY_KEYS = {"utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"}
+ALLOWED_REFERRER_DOMAIN_BUCKETS = {
+    "direct",
+    "internal",
+    "luma",
+    "google",
+    "linkedin",
+    "facebook",
+    "instagram",
+    "github",
+    "other_external",
+    "unknown",
+}
 HOST_ENVIRONMENT_MAP = {
     "bingo.pseudolab-devfactory.com": ("production", "bingo", True),
     "bingo-private.pseudolab-devfactory.com": ("private_dev", "bingo-private", False),
@@ -53,6 +67,7 @@ HOST_ENVIRONMENT_MAP = {
 }
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+ANALYTICS_TOKEN_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,79}$")
 DISALLOWED_PROPERTY_KEYS = {
     "email",
     "name",
@@ -77,6 +92,60 @@ DISALLOWED_PROPERTY_KEYS = {
     "purpose",
     "notes",
 }
+
+
+def validate_low_cardinality_token(value: Any, path: str) -> None:
+    if not isinstance(value, str) or not ANALYTICS_TOKEN_PATTERN.fullmatch(value):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"허용되지 않은 analytics property 값입니다: {path}",
+        )
+
+
+def validate_known_property_value(key: str, value: Any, path: str) -> None:
+    if key == "traffic_type":
+        if value not in ALLOWED_TRAFFIC_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"허용되지 않은 traffic_type입니다: {path}",
+            )
+        return
+
+    if key.startswith("utm_"):
+        if key not in ALLOWED_UTM_PROPERTY_KEYS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"허용되지 않은 UTM analytics property입니다: {path}",
+            )
+        validate_low_cardinality_token(value, path)
+        return
+
+    if key in {"session_entry_utm_source", "session_entry_utm_medium", "session_entry_utm_campaign"}:
+        validate_low_cardinality_token(value, path)
+        return
+
+    if key == "referrer_domain_bucket" or key == "session_entry_referrer_domain_bucket":
+        if value not in ALLOWED_REFERRER_DOMAIN_BUCKETS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"허용되지 않은 referrer domain bucket입니다: {path}",
+            )
+        return
+
+    if key == "session_entry_referrer_type":
+        if value not in ALLOWED_REFERRER_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"허용되지 않은 session entry referrer type입니다: {path}",
+            )
+        return
+
+    if key == "session_entry_route":
+        if value not in ALLOWED_ROUTES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"허용되지 않은 session entry route입니다: {path}",
+            )
 
 
 def normalize_hostname(hostname: str) -> str:
@@ -141,6 +210,7 @@ def validate_safe_properties(value: Any, path: str = "properties") -> None:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"개인정보 또는 원문 로그로 판단되는 필드는 저장할 수 없습니다: {path}.{key}",
                 )
+            validate_known_property_value(normalized_key, nested_value, f"{path}.{key}")
             validate_safe_properties(nested_value, f"{path}.{key}")
         return
 

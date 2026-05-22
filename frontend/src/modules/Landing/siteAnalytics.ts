@@ -42,6 +42,38 @@ export type SiteAnalyticsPropertyValue =
 
 export type SiteAnalyticsProperties = Record<string, SiteAnalyticsPropertyValue>;
 
+type AnalyticsTrafficType = "public" | "internal_qa";
+type ReferrerDomainBucket =
+  | "direct"
+  | "internal"
+  | "luma"
+  | "google"
+  | "linkedin"
+  | "facebook"
+  | "instagram"
+  | "github"
+  | "other_external"
+  | "unknown";
+
+type CampaignContext = {
+  traffic_type: AnalyticsTrafficType;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
+};
+
+type SessionEntryContext = {
+  traffic_type: AnalyticsTrafficType;
+  session_entry_route: string;
+  session_entry_referrer_type: "direct" | "internal" | "external" | "unknown";
+  session_entry_referrer_domain_bucket: ReferrerDomainBucket;
+  session_entry_utm_source?: string;
+  session_entry_utm_medium?: string;
+  session_entry_utm_campaign?: string;
+};
+
 export type SiteAnalyticsPayload = {
   event_id: string;
   schema_version: 1;
@@ -75,6 +107,8 @@ type SiteAnalyticsContextValue = {
 
 const ANALYTICS_ENDPOINT = "/api/analytics/events";
 const ANALYTICS_SESSION_KEY = "bingo_site_analytics_session_id";
+const ANALYTICS_ENTRY_CONTEXT_KEY = "bingo_site_analytics_entry_context";
+const ANALYTICS_VALUE_MAX_LENGTH = 80;
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"]);
 const DEFAULT_CONTEXT: SiteAnalyticsContextValue = {
   route: "",
@@ -109,6 +143,7 @@ export const getAnalyticsSessionId = () => {
 
   const nextSessionId = createAnalyticsId();
   storage?.setItem(ANALYTICS_SESSION_KEY, nextSessionId);
+  storage?.removeItem(ANALYTICS_ENTRY_CONTEXT_KEY);
   return nextSessionId;
 };
 
@@ -172,11 +207,152 @@ export const getReferrerType = (referrer: string, hostname: string) => {
   }
 
   try {
-    const referrerHostname = new URL(referrer).hostname;
-    return referrerHostname === hostname ? ("internal" as const) : ("external" as const);
+    const referrerHostname = new URL(referrer).hostname.trim().toLowerCase();
+    const normalizedHostname = hostname.trim().toLowerCase();
+    return referrerHostname === normalizedHostname ? ("internal" as const) : ("external" as const);
   } catch {
     return "unknown" as const;
   }
+};
+
+const normalizeAnalyticsToken = (value: string) => {
+  const normalizedValue = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, ANALYTICS_VALUE_MAX_LENGTH);
+
+  return normalizedValue || undefined;
+};
+
+const hasHostnameSuffix = (hostname: string, suffix: string) =>
+  hostname === suffix || hostname.endsWith(`.${suffix}`);
+
+export const getReferrerDomainBucket = (
+  referrer: string,
+  hostname: string
+): ReferrerDomainBucket => {
+  const referrerType = getReferrerType(referrer, hostname);
+  if (referrerType === "direct" || referrerType === "internal" || referrerType === "unknown") {
+    return referrerType;
+  }
+
+  try {
+    const referrerHostname = new URL(referrer).hostname.trim().toLowerCase();
+    if (hasHostnameSuffix(referrerHostname, "lu.ma") || referrerHostname.includes("luma")) {
+      return "luma";
+    }
+    if (referrerHostname.includes("google.")) {
+      return "google";
+    }
+    if (
+      hasHostnameSuffix(referrerHostname, "linkedin.com") ||
+      hasHostnameSuffix(referrerHostname, "lnkd.in")
+    ) {
+      return "linkedin";
+    }
+    if (
+      hasHostnameSuffix(referrerHostname, "facebook.com") ||
+      hasHostnameSuffix(referrerHostname, "fb.com")
+    ) {
+      return "facebook";
+    }
+    if (hasHostnameSuffix(referrerHostname, "instagram.com")) {
+      return "instagram";
+    }
+    if (hasHostnameSuffix(referrerHostname, "github.com")) {
+      return "github";
+    }
+  } catch {
+    return "unknown";
+  }
+
+  return "other_external";
+};
+
+const UTM_FIELD_PROPERTY_MAP = {
+  source: "utm_source",
+  medium: "utm_medium",
+  campaign: "utm_campaign",
+  content: "utm_content",
+  term: "utm_term",
+} as const;
+
+export const getCampaignContext = (locationSearch: string): CampaignContext => {
+  const searchParams = new URLSearchParams(locationSearch);
+  const trafficTypeParam = normalizeAnalyticsToken(searchParams.get("traffic_type") ?? "");
+  const qaParam = normalizeAnalyticsToken(searchParams.get("qa") ?? "");
+  const trafficType: AnalyticsTrafficType =
+    trafficTypeParam === "internal_qa" || qaParam === "1" ? "internal_qa" : "public";
+  const campaignContext: CampaignContext = { traffic_type: trafficType };
+
+  Object.entries(UTM_FIELD_PROPERTY_MAP).forEach(([queryKey, propertyKey]) => {
+    const normalizedValue = normalizeAnalyticsToken(searchParams.get(`utm_${queryKey}`) ?? "");
+    if (normalizedValue) {
+      campaignContext[propertyKey] = normalizedValue;
+    }
+  });
+
+  return campaignContext;
+};
+
+const isTrafficType = (value: unknown): value is AnalyticsTrafficType =>
+  value === "public" || value === "internal_qa";
+
+const getAnalyticsEntryContext = ({
+  route,
+  referrerType,
+  referrerDomainBucket,
+  campaignContext,
+}: {
+  route: string;
+  referrerType: SessionEntryContext["session_entry_referrer_type"];
+  referrerDomainBucket: ReferrerDomainBucket;
+  campaignContext: CampaignContext;
+}): SessionEntryContext => {
+  const storage = getSessionStorage();
+  const storedContext = storage?.getItem(ANALYTICS_ENTRY_CONTEXT_KEY);
+  if (storedContext) {
+    try {
+      const parsedContext = JSON.parse(storedContext) as SessionEntryContext;
+      if (isTrafficType(parsedContext.traffic_type)) {
+        const nextContext = {
+          ...parsedContext,
+          traffic_type:
+            campaignContext.traffic_type === "internal_qa"
+              ? ("internal_qa" as const)
+              : parsedContext.traffic_type,
+        };
+        if (nextContext.traffic_type !== parsedContext.traffic_type) {
+          storage?.setItem(ANALYTICS_ENTRY_CONTEXT_KEY, JSON.stringify(nextContext));
+        }
+        return nextContext;
+      }
+    } catch {
+      storage?.removeItem(ANALYTICS_ENTRY_CONTEXT_KEY);
+    }
+  }
+
+  const entryContext: SessionEntryContext = {
+    traffic_type: campaignContext.traffic_type,
+    session_entry_route: route,
+    session_entry_referrer_type: referrerType,
+    session_entry_referrer_domain_bucket: referrerDomainBucket,
+  };
+
+  if (campaignContext.utm_source) {
+    entryContext.session_entry_utm_source = campaignContext.utm_source;
+  }
+  if (campaignContext.utm_medium) {
+    entryContext.session_entry_utm_medium = campaignContext.utm_medium;
+  }
+  if (campaignContext.utm_campaign) {
+    entryContext.session_entry_utm_campaign = campaignContext.utm_campaign;
+  }
+
+  storage?.setItem(ANALYTICS_ENTRY_CONTEXT_KEY, JSON.stringify(entryContext));
+  return entryContext;
 };
 
 export const createSiteAnalyticsPayload = ({
@@ -188,6 +364,7 @@ export const createSiteAnalyticsPayload = ({
   now = new Date(),
   locationHostname,
   referrer,
+  locationSearch = "",
   viewportWidth,
 }: {
   eventName: SiteAnalyticsEventName;
@@ -198,10 +375,26 @@ export const createSiteAnalyticsPayload = ({
   now?: Date;
   locationHostname: string;
   referrer: string;
+  locationSearch?: string;
   viewportWidth: number;
 }): SiteAnalyticsPayload => {
   const environment = getAnalyticsEnvironment(locationHostname);
   const viewport = getViewportContext(viewportWidth);
+  const referrerType = getReferrerType(referrer, environment.hostname);
+  const referrerDomainBucket = getReferrerDomainBucket(referrer, environment.hostname);
+  const campaignContext = getCampaignContext(locationSearch);
+  const sessionEntryContext = getAnalyticsEntryContext({
+    route,
+    referrerType,
+    referrerDomainBucket,
+    campaignContext,
+  });
+  const analyticsProperties: SiteAnalyticsProperties = {
+    ...properties,
+    ...campaignContext,
+    referrer_domain_bucket: referrerDomainBucket,
+    ...sessionEntryContext,
+  };
 
   return {
     event_id: createAnalyticsId(),
@@ -219,8 +412,8 @@ export const createSiteAnalyticsPayload = ({
     is_production_domain: environment.is_production_domain,
     viewport_bucket: viewport.viewport_bucket,
     device_class: viewport.device_class,
-    referrer_type: getReferrerType(referrer, environment.hostname),
-    properties,
+    referrer_type: referrerType,
+    properties: analyticsProperties,
     experiments: [],
   };
 };
@@ -319,6 +512,7 @@ export const SiteAnalyticsScope = ({
         analyticsSessionId,
         locationHostname: window.location.hostname,
         referrer: document.referrer,
+        locationSearch: window.location.search,
         viewportWidth: window.innerWidth,
       }),
       options.beacon

@@ -91,6 +91,61 @@ def test_validate_analytics_event_payload_rejects_personal_information_propertie
     assert exc_info.value.status_code == 400
 
 
+def test_validate_analytics_event_payload_accepts_campaign_and_qa_properties():
+    properties = {
+        "entry_path": "/",
+        "traffic_type": "internal_qa",
+        "utm_source": "luma",
+        "utm_medium": "event_page",
+        "utm_campaign": "networking_promo_20260521",
+        "utm_content": "poster_a",
+        "referrer_domain_bucket": "luma",
+        "session_entry_route": "/",
+        "session_entry_referrer_type": "external",
+        "session_entry_referrer_domain_bucket": "luma",
+        "session_entry_utm_source": "luma",
+        "session_entry_utm_medium": "event_page",
+        "session_entry_utm_campaign": "networking_promo_20260521",
+    }
+
+    validated = validate_analytics_event_payload(
+        _request_payload(properties=properties, referrer_type="external"),
+        _request(headers={"origin": "https://bingo.pseudolab-devfactory.com"}),
+    )
+
+    assert validated["properties"] == properties
+
+
+def test_validate_analytics_event_payload_rejects_invalid_traffic_type():
+    with pytest.raises(HTTPException) as exc_info:
+        validate_analytics_event_payload(
+            _request_payload(properties={"traffic_type": "developer"}),
+            _request(),
+        )
+
+    assert exc_info.value.status_code == 400
+
+
+def test_validate_analytics_event_payload_rejects_unknown_utm_property():
+    with pytest.raises(HTTPException) as exc_info:
+        validate_analytics_event_payload(
+            _request_payload(properties={"utm_raw_url": "https_example.com"}),
+            _request(),
+        )
+
+    assert exc_info.value.status_code == 400
+
+
+def test_validate_analytics_event_payload_rejects_unsafe_campaign_value():
+    with pytest.raises(HTTPException) as exc_info:
+        validate_analytics_event_payload(
+            _request_payload(properties={"utm_campaign": "networking promo 20260521"}),
+            _request(),
+        )
+
+    assert exc_info.value.status_code == 400
+
+
 def test_create_analytics_event_returns_duplicate_without_second_insert(monkeypatch):
     calls = {"create": 0}
 
