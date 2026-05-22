@@ -12,6 +12,7 @@ from api.admin.console_services import (
     redact_expired_event_personal_data,
 )
 from api import api_router
+from api.events.seo_routes import event_seo_router
 from starlette.middleware.cors import CORSMiddleware
 from core.dependencies import authenticate_user
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -48,6 +49,7 @@ def get_openapi_spec(_=Depends(authenticate_user)):
 
 # 라우터 및 기타 설정
 app.include_router(api_router)
+app.include_router(event_seo_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
