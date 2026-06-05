@@ -164,6 +164,14 @@ def filter_visible_admin_events(actor: Admin, events: list[Event]) -> list[Event
     return [event for event in events if event.admin_id == actor.id]
 
 
+def build_visible_admin_events_query(actor: Admin):
+    query = select(Event).order_by(Event.start_time.desc())
+    if actor.role != AdminRole.ADMIN:
+        query = query.where(Event.admin_id == actor.id)
+
+    return query
+
+
 def validate_event_schedule(start_at: datetime, end_at: datetime) -> None:
     if end_at <= start_at:
         raise ValueError("행사 종료 시각은 시작 시각보다 늦어야 합니다.")

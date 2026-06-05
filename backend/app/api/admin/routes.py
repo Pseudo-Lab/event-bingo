@@ -30,10 +30,10 @@ from .console_services import (
     build_admin_event_bingo_progress_query,
     build_event_detail,
     build_event_rooms,
+    build_visible_admin_events_query,
     can_edit_event,
     can_view_event,
     ensure_admin_console_seed_data,
-    filter_visible_admin_events,
     kick_event_attendee,
     normalize_event_keywords,
     reset_event_runtime_data,
@@ -374,7 +374,8 @@ async def list_admin_events(
     from .schema import AdminEventSummary
 
     await ensure_admin_console_seed_data(db)
-    events = filter_visible_admin_events(actor, await Event.get_all(db))
+    event_rows = await db.execute(build_visible_admin_events_query(actor))
+    events = event_rows.scalars().all()
 
     if not events:
         return AdminEventListResponse(ok=True, message="이벤트 목록을 불러왔습니다.", events=[])
