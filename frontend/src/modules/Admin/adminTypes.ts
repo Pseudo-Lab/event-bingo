@@ -107,6 +107,7 @@ export type AdminEvent = {
   progressTotal: number;
   status: AdminEventStatus;
   canEdit: boolean;
+  canDelete: boolean;
   publicPath?: string;
   participants?: AdminEventParticipant[];
   analytics?: AdminEventAnalytics;

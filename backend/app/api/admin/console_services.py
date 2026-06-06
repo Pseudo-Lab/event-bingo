@@ -181,6 +181,10 @@ def can_manage_owner_scope(actor: Admin, event: Event) -> bool:
     return actor.role == AdminRole.ADMIN or actor.id == event.admin_id
 
 
+def can_delete_event(actor: Admin, event: Event, participant_count: int) -> bool:
+    return can_manage_owner_scope(actor, event) and participant_count == 0
+
+
 def build_visible_admin_events_query(actor: Admin):
     query = select(Event).order_by(Event.start_time.desc())
     if actor.role != AdminRole.ADMIN:
@@ -587,6 +591,7 @@ async def build_event_summary(
         progress_total=participant_count,
         status=resolve_event_status(event),
         can_edit=await can_edit_event(session, actor, event),
+        can_delete=can_delete_event(actor, event, participant_count),
     )
 
 
@@ -698,6 +703,7 @@ async def build_event_detail(
         progress_total=participant_count,
         status=resolve_event_status(event),
         can_edit=await can_edit_event(session, actor, event),
+        can_delete=can_delete_event(actor, event, participant_count),
     )
     return AdminEventDetail(
         **summary.model_dump(),
@@ -906,6 +912,28 @@ async def reset_event_runtime_data(
         "deleted_interactions": deleted_interactions,
         "skipped_shared_users": len(shared_user_id_set),
     }
+
+
+async def delete_empty_event(
+    session: AsyncSession,
+    event: Event,
+) -> None:
+    participant_count = await Event.get_participant_count(session, event.id)
+    if participant_count > 0:
+        raise ValueError("참가자가 없는 행사만 삭제할 수 있습니다.")
+
+    await session.execute(
+        delete(BingoInteraction).where(BingoInteraction.event_id == event.id)
+    )
+    await session.execute(delete(BingoBoards).where(BingoBoards.event_id == event.id))
+    await session.execute(delete(EventAttendee).where(EventAttendee.event_id == event.id))
+    await session.execute(delete(Team).where(Team.event_id == event.id))
+    await session.execute(delete(Room).where(Room.event_id == event.id))
+    await session.execute(delete(EventCoHost).where(EventCoHost.event_id == event.id))
+    await session.delete(event)
+    await session.commit()
+
+
 async def approve_event_manager_request(
     session: AsyncSession,
     request: EventManagerRequest,

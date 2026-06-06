@@ -153,6 +153,7 @@ type AdminEventPayload = {
   progress_total: number;
   status: EventStatusLiteral;
   can_edit: boolean;
+  can_delete: boolean;
   public_path?: string;
   participants?: AdminEventParticipantPayload[];
   analytics?: AdminEventAnalyticsPayload;
@@ -175,6 +176,10 @@ type AdminEventResetResponse = ApiResponseBase & {
     deleted_interactions: number;
     skipped_shared_users: number;
   } | null;
+};
+
+type AdminEventDeleteResponse = ApiResponseBase & {
+  deleted_event_id: number;
 };
 
 export type AdminEventUpsertInput = {
@@ -383,6 +388,7 @@ const mapAdminEvent = (payload: AdminEventPayload): AdminEvent => {
     progressTotal: payload.progress_total,
     status: payload.status,
     canEdit: payload.can_edit,
+    canDelete: payload.can_delete,
     publicPath: payload.public_path,
     participants: mapParticipants(payload.participants),
     analytics: mapAnalytics(payload.analytics),
@@ -598,6 +604,16 @@ export const resetAdminEventData = async (accessToken: string, eventId: number) 
     `/api/admin/events/${eventId}/reset-data`,
     {
       method: "POST",
+    },
+    accessToken
+  );
+};
+
+export const deleteAdminEvent = async (accessToken: string, eventId: number) => {
+  return requestJson<AdminEventDeleteResponse>(
+    `/api/admin/events/${eventId}`,
+    {
+      method: "DELETE",
     },
     accessToken
   );
