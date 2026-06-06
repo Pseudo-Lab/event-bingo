@@ -1,4 +1,5 @@
 import asyncio
+from collections import Counter
 
 import api.admin.console_services as console_services
 import pytest
@@ -7,6 +8,7 @@ from api.admin.console_services import (
     build_archive_participant_alias,
     build_admin_event_bingo_progress_query,
     build_admin_console_link,
+    build_event_keyword_rows,
     build_visible_admin_events_query,
     can_manage_owner_scope,
     can_view_event,
@@ -120,6 +122,30 @@ def test_normalize_event_keywords_deduplicates_and_trims_before_autofill():
     assert keywords[:2] == ["AI", "ML"]
     assert keywords[2] == "키워드 3"
     assert len(keywords) == 9
+
+
+def test_build_event_keyword_rows_includes_all_event_keywords_with_zero_counts():
+    rows = build_event_keyword_rows(
+        ["사업개발", "제휴", "시장조사", "전환율"],
+        Counter({"제휴": 2, "시장조사": 1}),
+    )
+
+    assert [(row.keyword, row.count) for row in rows] == [
+        ("제휴", 2),
+        ("시장조사", 1),
+        ("사업개발", 0),
+        ("전환율", 0),
+    ]
+
+
+def test_build_event_keyword_rows_keeps_selected_keywords_missing_from_event_config():
+    rows = build_event_keyword_rows(["사업개발"], Counter({"현장추가": 3}))
+
+    assert [(row.keyword, row.count) for row in rows] == [
+        ("현장추가", 3),
+        ("사업개발", 0),
+    ]
+
 
 def test_build_admin_console_link_uses_explicit_console_base(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(console_services, "ADMIN_CONSOLE_URL_BASE", "https://example.com/admin")

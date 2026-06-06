@@ -60,6 +60,8 @@ def _event_stub(event_id: int, admin_id: int, name: str):
         admin_email=f"owner-{admin_id}@example.com",
         bingo_size=5,
         success_condition=3,
+        expected_attendee_count=100,
+        restrict_before_start=True,
         keywords=["AI", "Networking"],
         game_mode=GameMode.INDIVIDUAL,
         team_size=1,
@@ -102,6 +104,8 @@ def test_list_admin_events_route_limits_event_manager_to_owned_events(monkeypatc
     assert [event.id for event in response.events] == [20]
     assert response.events[0].created_by_id == actor.id
     assert response.events[0].can_edit is True
+    assert response.events[0].expected_attendee_count == 100
+    assert response.events[0].restrict_before_start is True
 
 
 def test_list_admin_events_route_includes_co_host_events(monkeypatch):

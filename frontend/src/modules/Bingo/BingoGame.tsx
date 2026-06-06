@@ -171,7 +171,10 @@ const BingoGame = () => {
     return unlockTime - Date.now();
   });
   const [locked, setLocked] = useState(
-    () => !testModeEnabled && new Date().getTime() < unlockTime
+    () =>
+      eventProfile.restrictBeforeStart &&
+      !testModeEnabled &&
+      new Date().getTime() < unlockTime
   );
   const [showAllBingoModal, setShowAllBingoModal] = useState(false);
   const [isInitializingBoard, setIsInitializingBoard] = useState(false);
@@ -298,7 +301,7 @@ const BingoGame = () => {
   );
 
   useEffect(() => {
-    if (testModeEnabled) {
+    if (testModeEnabled || !eventProfile.restrictBeforeStart) {
       setLocked(false);
       setRemainingTime(0);
       return;
@@ -321,7 +324,7 @@ const BingoGame = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [testModeEnabled, unlockTime]);
+  }, [eventProfile.restrictBeforeStart, testModeEnabled, unlockTime]);
 
   useEffect(() => {
     bingoBoardRef.current = bingoBoard;

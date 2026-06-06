@@ -184,6 +184,7 @@ async def get_public_event_profile(
             end_at=event.end_time,
             board_size=event.bingo_size,
             bingo_mission_count=event.success_condition,
+            restrict_before_start=event.restrict_before_start,
             keywords=[str(keyword) for keyword in (event.keywords or [])],
         ),
     )

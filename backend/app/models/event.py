@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import String, Integer, DateTime, Enum, JSON, ForeignKey, select, func
+from sqlalchemy import String, Integer, DateTime, Enum, JSON, ForeignKey, select, func, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from core.db import AsyncSession
 from models.base import Base
@@ -32,6 +32,7 @@ class GameMode(enum.Enum):
 AUTO_EVENT_SLUG_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
 AUTO_EVENT_SLUG_LENGTH = 8
 AUTO_EVENT_SLUG_SALT = os.getenv("EVENT_SLUG_SALT", "event-bingo-auto-slug").strip() or "event-bingo-auto-slug"
+_UNSET = object()
 
 
 class Event(Base):
@@ -48,6 +49,8 @@ class Event(Base):
     admin_email: Mapped[str] = mapped_column(String(100), nullable=False)  # 중복 저장 (조회 편의성)
     bingo_size: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     success_condition: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    expected_attendee_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    restrict_before_start: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     keywords: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
     game_mode: Mapped[GameMode] = mapped_column(
         Enum(GameMode), nullable=False, default=GameMode.INDIVIDUAL
@@ -131,6 +134,8 @@ class Event(Base):
         admin_email: str,
         bingo_size: int = 5,
         success_condition: int = 5,
+        expected_attendee_count: Optional[int] = None,
+        restrict_before_start: bool = True,
         keywords: list = None,
         game_mode: "GameMode" = None,
         team_size: int = 1,
@@ -163,6 +168,8 @@ class Event(Base):
             admin_email=admin_email,
             bingo_size=bingo_size,
             success_condition=success_condition,
+            expected_attendee_count=expected_attendee_count,
+            restrict_before_start=restrict_before_start,
             keywords=keywords,
             game_mode=game_mode,
             team_size=team_size,
@@ -211,6 +218,8 @@ class Event(Base):
         end_time: Optional[datetime] = None,
         bingo_size: Optional[int] = None,
         success_condition: Optional[int] = None,
+        expected_attendee_count: Optional[int] | object = _UNSET,
+        restrict_before_start: Optional[bool] = None,
         keywords: Optional[list] = None,
         admin_email: Optional[str] = None,
         game_mode: Optional["GameMode"] = None,
@@ -239,6 +248,10 @@ class Event(Base):
             event.bingo_size = bingo_size
         if success_condition is not None:
             event.success_condition = success_condition
+        if expected_attendee_count is not _UNSET:
+            event.expected_attendee_count = expected_attendee_count
+        if restrict_before_start is not None:
+            event.restrict_before_start = restrict_before_start
         if keywords is not None:
             event.keywords = keywords
         if game_mode is not None:

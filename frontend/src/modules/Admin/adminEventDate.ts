@@ -32,3 +32,34 @@ export const getEventDateParts = (value: string): AdminEventDateParts => {
     }).format(parsedDate),
   };
 };
+
+const getEventTimeText = (value: string) => {
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    hourCycle: "h23",
+    timeZone: ADMIN_EVENT_TIME_ZONE,
+  }).formatToParts(parsedDate);
+
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+
+  return `${hour}:${minute}`;
+};
+
+export const getEventTimeRangeLabel = (startAt: string, endAt: string) => {
+  const startLabel = getEventTimeText(startAt);
+  const endLabel = getEventTimeText(endAt);
+
+  if (!startLabel || !endLabel) {
+    return startAt;
+  }
+
+  return `${startLabel} - ${endLabel}`;
+};

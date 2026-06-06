@@ -225,6 +225,48 @@ def normalize_event_keywords(keywords: list[str] | None, board_size: int) -> lis
     return [*normalized_keywords, *generated_keywords]
 
 
+def build_event_keyword_rows(
+    event_keywords: list[str] | None,
+    keyword_counter: Counter[str],
+) -> list[AdminEventKeywordRow]:
+    keyword_order: dict[str, int] = {}
+    ordered_keywords: list[str] = []
+
+    for keyword in event_keywords or []:
+        normalized_keyword = str(keyword).strip()
+        if not normalized_keyword or normalized_keyword in keyword_order:
+            continue
+
+        keyword_order[normalized_keyword] = len(ordered_keywords)
+        ordered_keywords.append(normalized_keyword)
+
+    for keyword in keyword_counter:
+        normalized_keyword = str(keyword).strip()
+        if not normalized_keyword or normalized_keyword in keyword_order:
+            continue
+
+        keyword_order[normalized_keyword] = len(ordered_keywords)
+        ordered_keywords.append(normalized_keyword)
+
+    sorted_keywords = sorted(
+        ordered_keywords,
+        key=lambda keyword: (
+            -keyword_counter.get(keyword, 0),
+            keyword_order[keyword],
+            keyword,
+        ),
+    )
+
+    return [
+        AdminEventKeywordRow(
+            rank=index,
+            keyword=keyword,
+            count=keyword_counter.get(keyword, 0),
+        )
+        for index, keyword in enumerate(sorted_keywords, start=1)
+    ]
+
+
 def validate_event_manager_request_transition(
     current_status: EventManagerRequestStatus,
     next_status: EventManagerRequestStatus,
@@ -535,6 +577,8 @@ async def build_event_summary(
         admin_email=event.admin_email,
         board_size=event.bingo_size,
         bingo_mission_count=event.success_condition,
+        expected_attendee_count=event.expected_attendee_count,
+        restrict_before_start=event.restrict_before_start,
         keywords=[str(keyword) for keyword in (event.keywords or [])],
         game_mode=event.game_mode.value,
         team_size=event.team_size,
@@ -623,10 +667,10 @@ async def build_event_detail(
         for line_count in range(event.success_condition + 1)
     ]
 
-    keyword_rows = [
-        AdminEventKeywordRow(rank=index, keyword=keyword, count=count)
-        for index, (keyword, count) in enumerate(keyword_counter.most_common(5), start=1)
-    ]
+    keyword_rows = build_event_keyword_rows(
+        [str(keyword) for keyword in (event.keywords or [])],
+        keyword_counter,
+    )
 
     creator = await Admin.get_by_id(session, event.admin_id)
     progress_current = bingo_distribution.get(event.success_condition, 0)
@@ -644,6 +688,8 @@ async def build_event_detail(
         admin_email=event.admin_email,
         board_size=event.bingo_size,
         bingo_mission_count=event.success_condition,
+        expected_attendee_count=event.expected_attendee_count,
+        restrict_before_start=event.restrict_before_start,
         keywords=[str(k) for k in (event.keywords or [])],
         game_mode=event.game_mode.value,
         team_size=event.team_size,

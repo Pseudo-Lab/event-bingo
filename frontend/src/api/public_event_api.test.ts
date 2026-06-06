@@ -60,6 +60,38 @@ describe("getPublicEventProfile", () => {
 
     expect(fetchSpy).toHaveBeenCalledWith("http://localhost:8000/api/events/!!!");
   });
+
+  it("maps the entry lock setting from the public event profile", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        createJsonResponse(
+          {
+            ok: true,
+            message: "이벤트 설정을 불러왔습니다.",
+            event: {
+              id: 1,
+              slug: "summer-meetup",
+              name: "Summer Meetup",
+              location: "서울",
+              event_team: "DevFactory",
+              start_at: "2026-06-10T15:00:00+09:00",
+              end_at: "2026-06-10T18:00:00+09:00",
+              board_size: 5,
+              bingo_mission_count: 3,
+              restrict_before_start: false,
+              keywords: ["AI", "네트워킹"],
+            },
+          },
+          200
+        )
+      )
+    );
+
+    const profile = await getPublicEventProfile("summer-meetup");
+
+    expect(profile.restrictBeforeStart).toBe(false);
+  });
 });
 
 describe("submitEventManagerApplication", () => {

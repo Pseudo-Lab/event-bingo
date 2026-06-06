@@ -6,6 +6,7 @@ import {
   shouldLoadAdminApplications,
   shouldLoadAdminEvents,
   shouldLoadAdminMembers,
+  shouldLoadAdminPolicyTemplates,
 } from "./adminConsoleLoaders";
 
 describe("adminConsoleLoaders", () => {
@@ -23,6 +24,10 @@ describe("adminConsoleLoaders", () => {
     expect(shouldLoadAdminApplications("applications", "admin")).toBe(true);
     expect(shouldLoadAdminApplications("members", "admin")).toBe(false);
     expect(shouldLoadAdminApplications("dashboard", "event_manager")).toBe(false);
+
+    expect(shouldLoadAdminPolicyTemplates("policies", "admin")).toBe(true);
+    expect(shouldLoadAdminPolicyTemplates("dashboard", "admin")).toBe(false);
+    expect(shouldLoadAdminPolicyTemplates("policies", "event_manager")).toBe(false);
   });
 
   it("normalizes event ids before deciding whether detail fetch is needed", () => {

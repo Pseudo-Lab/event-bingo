@@ -45,7 +45,7 @@ frontend
 
 - 저장된 문안은 백엔드 DB를 단일 소스로 사용합니다.
 - `{host}`와 `{eventTeam}`는 실제 행사 팀명으로 치환됩니다.
-- Event Manager는 읽기 전용이고, Admin만 수정할 수 있습니다.
+- 이 탭은 Admin 전용입니다. Event Manager는 행사 공개 링크의 `/event/:slug/privacy`에서 참가자 안내를 확인합니다.
 
 ## 개발 명령어
 

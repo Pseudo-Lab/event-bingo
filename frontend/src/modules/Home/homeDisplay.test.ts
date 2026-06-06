@@ -18,6 +18,7 @@ const buildEventProfile = (overrides: Partial<EventProfile> = {}): EventProfile 
   boardSize: 5,
   exchangeKeywordCount: 3,
   bingoMissionCount: 3,
+  restrictBeforeStart: true,
   keywords: Array.from({ length: 25 }, (_, index) => `키워드 ${index + 1}`),
   ...overrides,
 });
