@@ -12,13 +12,14 @@ import smtplib
 from urllib.parse import urlsplit, urlunsplit
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, delete, func, select
+from sqlalchemy import and_, delete, func, or_, select
 
 from core.db import AsyncSession
 from models.admin import Admin, AdminRole
 from models.bingo.bingo_boards import BingoBoards
 from models.bingo.bingo_interaction import BingoInteraction
 from models.event import Event, EventStatus
+from models.event_co_host import EventCoHost
 from models.event_attendee import EventAttendee
 from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 from models.policy_template import PolicyTemplate
@@ -149,12 +150,24 @@ async def serialize_policy_template(
     )
 
 
-def can_edit_event(actor: Admin, event: Event) -> bool:
-    return can_view_event(actor, event)
+async def is_event_co_host(session: AsyncSession, actor: Admin, event: Event) -> bool:
+    if actor.role == AdminRole.ADMIN or actor.id == event.admin_id:
+        return False
+
+    co_host = await EventCoHost.get_by_event_and_admin(session, event.id, actor.id)
+    return co_host is not None
 
 
-def can_view_event(actor: Admin, event: Event) -> bool:
-    return actor.role == AdminRole.ADMIN or actor.id == event.admin_id
+async def can_edit_event(session: AsyncSession, actor: Admin, event: Event) -> bool:
+    return can_manage_owner_scope(actor, event)
+
+
+async def can_view_event(session: AsyncSession, actor: Admin, event: Event) -> bool:
+    return (
+        actor.role == AdminRole.ADMIN
+        or actor.id == event.admin_id
+        or await is_event_co_host(session, actor, event)
+    )
 
 
 def filter_visible_admin_events(actor: Admin, events: list[Event]) -> list[Event]:
@@ -164,10 +177,22 @@ def filter_visible_admin_events(actor: Admin, events: list[Event]) -> list[Event
     return [event for event in events if event.admin_id == actor.id]
 
 
+def can_manage_owner_scope(actor: Admin, event: Event) -> bool:
+    return actor.role == AdminRole.ADMIN or actor.id == event.admin_id
+
+
 def build_visible_admin_events_query(actor: Admin):
     query = select(Event).order_by(Event.start_time.desc())
     if actor.role != AdminRole.ADMIN:
-        query = query.where(Event.admin_id == actor.id)
+        co_host_exists = (
+            select(EventCoHost.id)
+            .where(
+                EventCoHost.event_id == Event.id,
+                EventCoHost.admin_id == actor.id,
+            )
+            .exists()
+        )
+        query = query.where(or_(Event.admin_id == actor.id, co_host_exists))
 
     return query
 
@@ -517,7 +542,7 @@ async def build_event_summary(
         progress_current=progress_current,
         progress_total=participant_count,
         status=resolve_event_status(event),
-        can_edit=can_edit_event(actor, event),
+        can_edit=await can_edit_event(session, actor, event),
     )
 
 
@@ -626,7 +651,7 @@ async def build_event_detail(
         progress_current=progress_current,
         progress_total=participant_count,
         status=resolve_event_status(event),
-        can_edit=can_edit_event(actor, event),
+        can_edit=await can_edit_event(session, actor, event),
     )
     return AdminEventDetail(
         **summary.model_dump(),

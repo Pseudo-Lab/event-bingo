@@ -25,6 +25,9 @@ class _FakeExecuteResult:
     def scalars(self):
         return _FakeScalarResult(self._scalar_items)
 
+    def scalar_one_or_none(self):
+        return self._scalar_items[0] if self._scalar_items else None
+
     def __iter__(self):
         return iter(self._rows)
 
@@ -99,6 +102,33 @@ def test_list_admin_events_route_limits_event_manager_to_owned_events(monkeypatc
     assert [event.id for event in response.events] == [20]
     assert response.events[0].created_by_id == actor.id
     assert response.events[0].can_edit is True
+
+
+def test_list_admin_events_route_includes_co_host_events(monkeypatch):
+    async def skip_seed(_db):
+        return None
+
+    actor = _admin_stub(2, AdminRole.EVENT_MANAGER)
+    co_host_event = _event_stub(30, 3, "공동 운영 행사")
+    creator = _admin_stub(3, AdminRole.EVENT_MANAGER)
+    db = _AdminEventListDb(
+        [
+            _FakeExecuteResult(scalar_items=[co_host_event]),
+            _FakeExecuteResult(scalar_items=[creator]),
+            _FakeExecuteResult(rows=[]),
+            _FakeExecuteResult(rows=[]),
+            _FakeExecuteResult(scalar_items=[SimpleNamespace(id=1)]),
+        ]
+    )
+    monkeypatch.setattr(admin_routes, "ensure_admin_console_seed_data", skip_seed)
+
+    response = asyncio.run(admin_routes.list_admin_events(db, actor))
+
+    assert "event_co_hosts" in db.statements[0]
+    assert response.ok is True
+    assert [event.id for event in response.events] == [30]
+    assert response.events[0].created_by_id == 3
+    assert response.events[0].can_edit is False
 
 
 def test_list_admin_events_route_keeps_full_scope_for_admin(monkeypatch):

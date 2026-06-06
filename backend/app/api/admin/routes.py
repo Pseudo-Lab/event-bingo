@@ -32,6 +32,7 @@ from .console_services import (
     build_event_rooms,
     build_visible_admin_events_query,
     can_edit_event,
+    can_manage_owner_scope,
     can_view_event,
     ensure_admin_console_seed_data,
     kick_event_attendee,
@@ -432,7 +433,7 @@ async def list_admin_events(
                 progress_current=progress_current,
                 progress_total=participant_count,
                 status=resolve_event_status(event),
-                can_edit=can_edit_event(actor, event),
+                can_edit=can_manage_owner_scope(actor, event),
             )
         )
 
@@ -455,7 +456,7 @@ async def get_admin_event(
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
-    if not can_view_event(actor, event):
+    if not await can_view_event(db, actor, event):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="이 이벤트를 조회할 권한이 없습니다.",
@@ -516,7 +517,7 @@ async def update_admin_event(
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
-    if not can_edit_event(actor, event):
+    if not can_manage_owner_scope(actor, event):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="이 이벤트는 읽기 전용입니다.",
@@ -564,10 +565,10 @@ async def reset_admin_event_data(
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
-    if not can_edit_event(actor, event):
+    if not can_manage_owner_scope(actor, event):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="이 이벤트는 읽기 전용입니다.",
+            detail="이 이벤트 데이터를 초기화할 권한이 없습니다.",
         )
 
     stats = await reset_event_runtime_data(db, event)
@@ -594,7 +595,7 @@ async def list_admin_event_rooms(
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
-    if not can_view_event(actor, event):
+    if not await can_view_event(db, actor, event):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="이 이벤트를 조회할 권한이 없습니다.",
@@ -626,7 +627,7 @@ async def kick_admin_event_attendee(
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
-    if not can_edit_event(actor, event):
+    if not can_manage_owner_scope(actor, event):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="이 이벤트를 관리할 권한이 없습니다.",
