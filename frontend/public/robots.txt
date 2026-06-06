@@ -1,7 +1,10 @@
 User-agent: *
 Allow: /
+Allow: /event/
 Disallow: /admin
 Disallow: /api
-Disallow: /event/
+Disallow: /event/*/admin*
+Disallow: /event/*/bingo
+Disallow: /event/*/privacy
 
 Sitemap: https://bingo.pseudolab-devfactory.com/sitemap.xml
