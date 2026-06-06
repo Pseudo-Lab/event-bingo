@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import api.events.routes as event_routes
 from api.events.routes import (
     events_router,
+    get_public_event_profile,
     get_public_policy_template,
     list_public_events,
     normalize_event_manager_request_purpose,
@@ -36,6 +37,30 @@ def test_public_catalog_does_not_enumerate_events(monkeypatch):
 
     assert response.ok is True
     assert response.events == []
+
+
+def test_public_event_profile_includes_entry_lock_setting(monkeypatch):
+    async def fake_get_by_slug(_session, slug):
+        return SimpleNamespace(
+            id=7,
+            slug=slug,
+            name="테스트 행사",
+            location="서울",
+            event_team="DevFactory",
+            start_time=datetime(2026, 6, 1, 15, 0, tzinfo=timezone.utc),
+            end_time=datetime(2026, 6, 1, 18, 0, tzinfo=timezone.utc),
+            bingo_size=5,
+            success_condition=3,
+            restrict_before_start=False,
+            keywords=["AI"],
+        )
+
+    monkeypatch.setattr(Event, "get_by_slug", fake_get_by_slug)
+
+    response = asyncio.run(get_public_event_profile("summer-meetup", object()))
+
+    assert response.ok is True
+    assert response.event.restrict_before_start is False
 
 
 def test_public_platform_policy_endpoint_returns_code_defined_static_policy():

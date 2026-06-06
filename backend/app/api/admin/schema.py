@@ -143,6 +143,8 @@ class AdminEventSummary(BaseModel):
     admin_email: str
     board_size: int
     bingo_mission_count: int
+    expected_attendee_count: Optional[int] = None
+    restrict_before_start: bool = True
     keywords: list[str] = Field(default_factory=list)
     game_mode: str
     team_size: int
@@ -179,6 +181,8 @@ class AdminEventUpsertRequest(BaseModel):
     admin_email: str = Field(..., min_length=3, max_length=100)
     board_size: Literal[3, 4, 5]
     bingo_mission_count: int = Field(..., ge=1, le=5)
+    expected_attendee_count: Optional[int] = Field(default=None, ge=1, le=100000)
+    restrict_before_start: bool = True
     keywords: list[str] = Field(default_factory=list)
     game_mode: Literal["individual", "team"] = "individual"
     team_size: int = Field(default=1, ge=1, le=50)

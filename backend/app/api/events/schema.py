@@ -16,6 +16,7 @@ class PublicEventProfileItem(BaseModel):
     end_at: datetime
     board_size: int
     bingo_mission_count: int
+    restrict_before_start: bool = True
     keywords: list[str] = Field(default_factory=list)
 
 

@@ -80,6 +80,8 @@ def upgrade() -> None:
     sa.Column('admin_email', sa.String(length=100), nullable=False),
     sa.Column('bingo_size', sa.Integer(), nullable=False),
     sa.Column('success_condition', sa.Integer(), nullable=False),
+    sa.Column('expected_attendee_count', sa.Integer(), nullable=True),
+    sa.Column('restrict_before_start', sa.Boolean(), nullable=False),
     sa.Column('keywords', sa.JSON(), nullable=True),
     sa.Column('game_mode', sa.Enum('INDIVIDUAL', 'TEAM', name='gamemode'), nullable=False),
     sa.Column('team_size', sa.Integer(), nullable=False),
