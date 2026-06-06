@@ -1,7 +1,7 @@
 ﻿# Event Bingo Project Agents
 
 Status: active
-Last-Validated: 2026-03-22
+Last-Validated: 2026-06-07
 
 ## Product Goals
 - Help organizers create events quickly.
@@ -30,9 +30,13 @@ Last-Validated: 2026-03-22
 - Do not create a new doc by default for minor single-domain work; prefer code, commit, or PR context unless handoff or impact requires a durable record.
 
 ## Workspace Isolation Policy
-- Use `git worktree` by default for task work. Treat the repository root as the `main` sync and coordination workspace; create a separate worktree per task, agent window, or role before editing files.
-- One task worktree should own one branch and one bounded write scope. Do not share the same working directory across concurrent sessions.
-- Worktree isolation is a baseline workspace rule. It does not enable Team Lead Mode, spawn agents, or imply multi-agent delegation by itself.
+- Use the repository root workspace for a single active task when no concurrent branch, worktree, or agent session is editing the same repository.
+- Keep Docker Compose and Caddy runtime mounts fixed to the repository root by default so `bingo-private` verification always points at the same workspace.
+- The root workspace may be checked out to a task branch during a single active task, but after the task is merged or finished it should return to `main` and be synced before final runtime verification.
+- Use `git worktree` for parallel, long-running, experimental, high-risk, or multi-agent tasks, or whenever two branches need to be active at the same time.
+- When using a separate worktree, state the worktree path and branch at task start so the active workspace is explicit.
+- One task workspace should own one branch and one bounded write scope. Do not share the same working directory across concurrent sessions.
+- Worktree isolation is an optional isolation rule for concurrency and risk control. It does not enable Team Lead Mode, spawn agents, or imply multi-agent delegation by itself.
 
 ## Multi-Agent Compatibility Policy
 - Codex, Claude, and Gemini contributors follow the same source-priority and handoff format.
