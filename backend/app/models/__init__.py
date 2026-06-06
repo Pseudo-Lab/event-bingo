@@ -3,6 +3,7 @@ from models.user import BingoUser
 from models.bingo import BingoBoards, BingoInteraction
 from models.admin import Admin, AdminRole
 from models.event import Event, EventStatus, EventPublishState
+from models.event_co_host import EventCoHost
 from models.event_manager_request import EventManagerRequest, EventManagerRequestStatus
 from models.room import Room
 from models.team import Team, TeamColor

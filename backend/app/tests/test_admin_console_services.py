@@ -1,3 +1,5 @@
+import asyncio
+
 import api.admin.console_services as console_services
 import pytest
 
@@ -6,6 +8,7 @@ from api.admin.console_services import (
     build_admin_event_bingo_progress_query,
     build_admin_console_link,
     build_visible_admin_events_query,
+    can_manage_owner_scope,
     can_view_event,
     filter_visible_admin_events,
     is_event_personal_data_expired,
@@ -56,6 +59,17 @@ def test_filter_visible_admin_events_limits_event_manager_to_owned_events():
     assert filter_visible_admin_events(actor, [owned_event, other_event]) == [owned_event]
 
 
+def test_can_manage_owner_scope_allows_admin_and_owner_only():
+    admin = type("AdminStub", (), {"id": 1, "role": AdminRole.ADMIN})()
+    owner = type("AdminStub", (), {"id": 2, "role": AdminRole.EVENT_MANAGER})()
+    co_host = type("AdminStub", (), {"id": 3, "role": AdminRole.EVENT_MANAGER})()
+    event = type("EventStub", (), {"id": 30, "admin_id": 2})()
+
+    assert can_manage_owner_scope(admin, event) is True
+    assert can_manage_owner_scope(owner, event) is True
+    assert can_manage_owner_scope(co_host, event) is False
+
+
 def test_build_visible_admin_events_query_allows_admin_to_query_all_events():
     actor = type("AdminStub", (), {"id": 1, "role": AdminRole.ADMIN})()
 
@@ -65,20 +79,30 @@ def test_build_visible_admin_events_query_allows_admin_to_query_all_events():
     assert "ORDER BY events.start_time DESC" in statement
 
 
-def test_build_visible_admin_events_query_limits_event_manager_to_owned_events():
+def test_build_visible_admin_events_query_limits_event_manager_to_owned_or_co_host_events():
     actor = type("AdminStub", (), {"id": 2, "role": AdminRole.EVENT_MANAGER})()
 
     statement = str(build_visible_admin_events_query(actor))
 
     assert "WHERE events.admin_id = " in statement
+    assert "event_co_hosts" in statement
     assert "ORDER BY events.start_time DESC" in statement
 
 
 def test_can_view_event_blocks_event_manager_from_other_owner_event():
     actor = type("AdminStub", (), {"id": 2, "role": AdminRole.EVENT_MANAGER})()
-    event = type("EventStub", (), {"admin_id": 3})()
+    event = type("EventStub", (), {"id": 30, "admin_id": 3})()
 
-    assert can_view_event(actor, event) is False
+    class DbStub:
+        async def execute(self, _statement):
+            class Result:
+                @staticmethod
+                def scalar_one_or_none():
+                    return None
+
+            return Result()
+
+    assert asyncio.run(can_view_event(DbStub(), actor, event)) is False
 
 
 def test_normalize_event_keywords_autofills_remaining_slots():
