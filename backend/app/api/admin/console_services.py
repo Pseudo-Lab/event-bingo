@@ -246,7 +246,7 @@ def build_admin_console_link() -> str:
 
 def _build_access_granted_email(name: str, console_url: str) -> EmailMessage:
     message = EmailMessage()
-    message["Subject"] = "[Event Bingo] 관리자 권한이 승인되었습니다"
+    message["Subject"] = "[Event Bingo] 이벤트 관리자 권한이 승인되었습니다"
     message["From"] = formataddr((ADMIN_SMTP_FROM_NAME, ADMIN_SMTP_FROM_EMAIL or "no-reply@example.com"))
     if ADMIN_SMTP_REPLY_TO:
         message["Reply-To"] = ADMIN_SMTP_REPLY_TO
@@ -256,8 +256,8 @@ def _build_access_granted_email(name: str, console_url: str) -> EmailMessage:
                 f"{name}님, 안녕하세요.",
                 "",
                 "DevFactory 운영팀입니다.",
-                "Event Bingo 관리자 권한 신청이 승인되었습니다.",
-                "이제 승인된 이메일로 Google 로그인하면 관리자 페이지에 접속할 수 있습니다.",
+                "Event Bingo 이벤트 관리자 권한 신청이 승인되었습니다.",
+                "이제 승인된 이메일로 Google 로그인하면 이벤트 관리 페이지에 접속할 수 있습니다.",
                 "Gmail 주소가 아니어도 Google 계정에 연결된 이메일이면 사용할 수 있습니다.",
                 "",
                 console_url,

@@ -136,9 +136,11 @@ def test_build_access_granted_email_sets_event_bingo_sender_and_reply_to(
 
     message = console_services._build_access_granted_email("운영자", "https://example.com/admin")
 
-    assert message["Subject"] == "[Event Bingo] 관리자 권한이 승인되었습니다"
+    assert message["Subject"] == "[Event Bingo] 이벤트 관리자 권한이 승인되었습니다"
     assert message["Reply-To"] == "devfactory.ops@gmail.com"
     assert "DevFactory 운영팀입니다." in message.get_content()
+    assert "Event Bingo 이벤트 관리자 권한 신청이 승인되었습니다." in message.get_content()
+    assert "이벤트 관리 페이지에 접속할 수 있습니다." in message.get_content()
     assert "devfactory.ops@gmail.com" in message.get_content()
 
 
