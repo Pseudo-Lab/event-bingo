@@ -5,6 +5,7 @@ from api.admin.console_services import (
     build_archive_participant_alias,
     build_admin_event_bingo_progress_query,
     build_admin_console_link,
+    build_visible_admin_events_query,
     can_view_event,
     filter_visible_admin_events,
     is_event_personal_data_expired,
@@ -53,6 +54,24 @@ def test_filter_visible_admin_events_limits_event_manager_to_owned_events():
     other_event = type("EventStub", (), {"id": 30, "admin_id": 3})()
 
     assert filter_visible_admin_events(actor, [owned_event, other_event]) == [owned_event]
+
+
+def test_build_visible_admin_events_query_allows_admin_to_query_all_events():
+    actor = type("AdminStub", (), {"id": 1, "role": AdminRole.ADMIN})()
+
+    statement = str(build_visible_admin_events_query(actor))
+
+    assert "WHERE" not in statement
+    assert "ORDER BY events.start_time DESC" in statement
+
+
+def test_build_visible_admin_events_query_limits_event_manager_to_owned_events():
+    actor = type("AdminStub", (), {"id": 2, "role": AdminRole.EVENT_MANAGER})()
+
+    statement = str(build_visible_admin_events_query(actor))
+
+    assert "WHERE events.admin_id = " in statement
+    assert "ORDER BY events.start_time DESC" in statement
 
 
 def test_can_view_event_blocks_event_manager_from_other_owner_event():
