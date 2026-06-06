@@ -10,13 +10,59 @@ export type EventKeywordPresetDefinition = {
   keywords: string[];
 };
 
+export const DEFAULT_EVENT_BOARD_SIZE = "4" as const;
+export const DEFAULT_EVENT_BINGO_MISSION_COUNT = "3";
+
 const SUPPORTED_BOARD_SIZES = [3, 4, 5] as const;
+const DEFAULT_NUMERIC_BOARD_SIZE = Number(DEFAULT_EVENT_BOARD_SIZE) as 4;
 
 const toBoardSize = (boardSize: AdminKeywordBoardSize) => {
   const numericBoardSize = Number(boardSize);
   return SUPPORTED_BOARD_SIZES.includes(numericBoardSize as 3 | 4 | 5)
     ? (numericBoardSize as 3 | 4 | 5)
-    : 5;
+    : DEFAULT_NUMERIC_BOARD_SIZE;
+};
+
+export const BOARD_SIZE_RECOMMENDATIONS: Array<{
+  boardSize: "3" | "4" | "5";
+  attendeeRange: string;
+  keywordCount: number;
+  description: string;
+}> = [
+  {
+    boardSize: "3",
+    attendeeRange: "30명 이하",
+    keywordCount: 9,
+    description: "소규모 행사에서 빠르게 완성되는 가벼운 보드입니다.",
+  },
+  {
+    boardSize: "4",
+    attendeeRange: "31-100명",
+    keywordCount: 16,
+    description: "대부분의 네트워킹 행사에 맞는 기본 권장 보드입니다.",
+  },
+  {
+    boardSize: "5",
+    attendeeRange: "101명 이상",
+    keywordCount: 25,
+    description: "참가자가 많고 키워드 풀이 충분할 때 적합합니다.",
+  },
+];
+
+export const getRecommendedBoardSize = (expectedAttendeeCount?: number | null) => {
+  if (!expectedAttendeeCount || expectedAttendeeCount < 1) {
+    return DEFAULT_EVENT_BOARD_SIZE;
+  }
+
+  if (expectedAttendeeCount <= 30) {
+    return "3";
+  }
+
+  if (expectedAttendeeCount <= 100) {
+    return "4";
+  }
+
+  return "5";
 };
 
 const EVENT_KEYWORD_PRESETS: EventKeywordPresetDefinition[] = [

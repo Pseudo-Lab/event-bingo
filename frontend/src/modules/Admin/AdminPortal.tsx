@@ -102,14 +102,19 @@ import {
   type SortState,
 } from "./adminDetailSortUtils";
 import {
+  BOARD_SIZE_RECOMMENDATIONS,
   buildAutoFilledKeywordList,
   buildEventKeywordPresetKeywords,
   clampKeywordList,
+  DEFAULT_EVENT_BINGO_MISSION_COUNT,
+  DEFAULT_EVENT_BOARD_SIZE,
   describeKeywordAutofill,
+  getRecommendedBoardSize,
   getEventKeywordPresetDefinitions,
   type EventKeywordPresetId,
 } from "./adminKeywordUtils";
 import { interpolateConsentTemplate } from "../../utils/consentTemplate";
+import { formatAttendeeRangeCount } from "../../utils/attendeeRange";
 
 type AdminSection = AdminConsoleSection;
 type EventDetailTab = "overview" | "dashboard" | "participants" | "share";
@@ -431,8 +436,8 @@ const createEventFormState = (
     name: "",
     location: "",
     eventTeam: "",
-    boardSize: "5",
-    bingoMissionCount: "3",
+    boardSize: DEFAULT_EVENT_BOARD_SIZE,
+    bingoMissionCount: DEFAULT_EVENT_BINGO_MISSION_COUNT,
     keywords: [],
     keywordDraft: "",
     date: "",
@@ -2289,6 +2294,38 @@ const AdminConsolePage = ({
     eventForm.keywords,
     eventForm.boardSize,
   );
+  const keywordProgressPercent =
+    keywordAutofillSummary.goalCount > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (keywordAutofillSummary.currentCount /
+              keywordAutofillSummary.goalCount) *
+              100,
+          ),
+        )
+      : 0;
+  const expectedAttendeeCountForRecommendation = eventForm.expectedAttendeeCount.trim()
+    ? Number(eventForm.expectedAttendeeCount)
+    : undefined;
+  const recommendedBoardSize = getRecommendedBoardSize(
+    Number.isFinite(expectedAttendeeCountForRecommendation)
+      ? expectedAttendeeCountForRecommendation
+      : undefined,
+  );
+  const hasExpectedAttendeeCountForRecommendation = Boolean(
+    expectedAttendeeCountForRecommendation &&
+      Number.isFinite(expectedAttendeeCountForRecommendation) &&
+      expectedAttendeeCountForRecommendation > 0,
+  );
+  const boardRecommendationBasis = hasExpectedAttendeeCountForRecommendation
+    ? `예상 ${(expectedAttendeeCountForRecommendation ?? 0).toLocaleString(
+        "ko-KR",
+      )}명 기준`
+    : "예상 참가자 수 미입력 시 기본";
+  const boardRecommendationLabel = hasExpectedAttendeeCountForRecommendation
+    ? "권장"
+    : "기본값";
   const canEditPolicyTemplate = session?.role === "admin";
   const activePolicyTemplate = policyTemplates[selectedPolicyKey] ?? null;
   const policyDraft = policyDrafts[selectedPolicyKey] ?? "";
@@ -2901,7 +2938,10 @@ const AdminConsolePage = ({
                             </p>
                             {requestItem.expectedAttendeeCount ? (
                               <p className="mt-1 text-xs font-bold text-brand-700">
-                                예상 {requestItem.expectedAttendeeCount}명
+                                예상{" "}
+                                {formatAttendeeRangeCount(
+                                  requestItem.expectedAttendeeCount,
+                                )}
                               </p>
                             ) : null}
                             {requestItem.reviewedByName ? (
@@ -4337,42 +4377,96 @@ const AdminConsolePage = ({
 
                 <div className="space-y-2">
                   <Label>빙고 크기</Label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {(["3", "4", "5"] as const).map((size) => (
-                      <Button
-                        key={size}
-                        variant="outline"
-                        className={cn(
-                          "h-12 rounded-xl border-2 bg-white text-base font-semibold shadow-sm transition-colors",
-                          eventForm.boardSize === size
-                            ? "border-brand-700 text-slate-900 ring-1 ring-brand-200 hover:bg-brand-50"
-                            : "border-slate-300 text-slate-600 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700",
-                        )}
-                        onClick={() =>
-                          setEventForm((previousValue) => {
-                            const nextGoal = previousValue.bingoMissionCount;
-                            const nextKeywords = selectedKeywordPresetId
-                              ? buildEventKeywordPresetKeywords(
-                                  selectedKeywordPresetId,
-                                  size,
-                                )
-                              : clampKeywordList(previousValue.keywords, size);
+                  <div className="rounded-2xl border border-brand-100 bg-brand-50/70 px-4 py-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-black text-slate-900">
+                          참가자 규모별 권장 보드
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                          {boardRecommendationBasis}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-brand-700 ring-1 ring-brand-100">
+                        {boardRecommendationLabel} {recommendedBoardSize}x
+                        {recommendedBoardSize}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                      {BOARD_SIZE_RECOMMENDATIONS.map((recommendation) => {
+                        const isRecommended =
+                          recommendation.boardSize === recommendedBoardSize;
+                        const isSelected =
+                          eventForm.boardSize === recommendation.boardSize;
 
-                            return {
-                              ...previousValue,
-                              boardSize: size,
-                              bingoMissionCount:
-                                Number(nextGoal) > Number(size)
-                                  ? size
-                                  : nextGoal,
-                              keywords: nextKeywords,
-                            };
-                          })
-                        }
-                      >
-                        {size}X{size}
-                      </Button>
-                    ))}
+                        return (
+                          <button
+                            key={recommendation.boardSize}
+                            type="button"
+                            className={cn(
+                              "rounded-xl border bg-white px-3 py-3 text-left shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
+                              isSelected
+                                ? "border-brand-700 ring-1 ring-brand-200"
+                                : isRecommended
+                                  ? "border-brand-200 hover:border-brand-300"
+                                  : "border-slate-200 hover:border-brand-200",
+                            )}
+                            onClick={() =>
+                              setEventForm((previousValue) => {
+                                const nextGoal = previousValue.bingoMissionCount;
+                                const nextKeywords = selectedKeywordPresetId
+                                  ? buildEventKeywordPresetKeywords(
+                                      selectedKeywordPresetId,
+                                      recommendation.boardSize,
+                                    )
+                                  : clampKeywordList(
+                                      previousValue.keywords,
+                                      recommendation.boardSize,
+                                    );
+
+                                return {
+                                  ...previousValue,
+                                  boardSize: recommendation.boardSize,
+                                  bingoMissionCount:
+                                    Number(nextGoal) >
+                                    Number(recommendation.boardSize)
+                                      ? recommendation.boardSize
+                                      : nextGoal,
+                                  keywords: nextKeywords,
+                                };
+                              })
+                            }
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-black text-brand-700">
+                                {`${recommendation.boardSize}x${recommendation.boardSize}`}
+                              </span>
+                              <span className="text-xs font-bold text-slate-400">
+                                {recommendation.keywordCount}개 키워드
+                              </span>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {isSelected ? (
+                                <span className="rounded-full bg-brand-700 px-2 py-0.5 text-[0.68rem] font-black text-white">
+                                  선택됨
+                                </span>
+                              ) : null}
+                              {isRecommended ? (
+                                <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[0.68rem] font-black text-brand-700">
+                                  {boardRecommendationLabel}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-1 text-xs font-bold text-slate-600">
+                              {recommendation.attendeeRange}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                              {recommendation.description}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -4397,104 +4491,98 @@ const AdminConsolePage = ({
                   />
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <Label>키워드 관리</Label>
-                      <p className="mt-1 text-xs text-brand-700">
-                        현재 키워드: {keywordAutofillSummary.currentCount}개,
-                        필요 키워드 {keywordAutofillSummary.goalCount}개
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        카테고리를 고르면 행사 분위기에 맞는 기본 키워드가 바로
-                        채워집니다.
-                      </p>
-                      {keywordAutofillSummary.missingCount > 0 ? (
-                        <p className="mt-1 text-xs text-amber-700">
-                          저장 시 부족한 {keywordAutofillSummary.missingCount}
-                          개는 &quot;
-                          {keywordAutofillSummary.generatedKeywords[0]}
-                          &quot;부터 자동으로 채워집니다.
+                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <Label>키워드 관리</Label>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                          빙고판에 들어갈 키워드를 추천 카테고리나 직접 입력으로
+                          준비하세요.
                         </p>
-                      ) : (
-                        <p className="mt-1 text-xs text-emerald-700">
-                          저장 시 현재 키워드 목록이 그대로 사용됩니다.
-                        </p>
-                      )}
+                      </div>
+                      <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black text-brand-700 ring-1 ring-brand-100">
+                        키워드 {keywordAutofillSummary.currentCount} /{" "}
+                        {keywordAutofillSummary.goalCount}개
+                      </span>
+                    </div>
+                    <div className="mt-3 h-2 rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-brand-500 transition-all"
+                        style={{ width: `${keywordProgressPercent}%` }}
+                      />
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="h-7 rounded-md bg-brand-100 px-3 text-[0.72rem] font-bold text-brand-800 hover:bg-brand-200"
-                        onClick={() =>
-                          setIsImportEventPanelOpen(
-                            (previousValue) => !previousValue,
-                          )
-                        }
-                      >
-                        {isImportEventPanelOpen
-                          ? "가져오기 닫기"
-                          : "기존 행사에서 가져오기"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-7 rounded-md bg-brand-700 px-3 text-[0.72rem] font-bold hover:bg-brand-800"
-                        onClick={() => {
-                          setSelectedKeywordPresetId("");
-                          setEventForm((previousValue) => ({
-                            ...previousValue,
-                            keywords: [],
-                            keywordDraft: "",
-                          }));
-                        }}
-                      >
-                        전체 삭제
-                      </Button>
-                    </div>
-                  </div>
+                    <div className="border-t border-slate-100 pt-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="mr-1 text-xs font-black text-slate-500">
+                          추천 카테고리
+                        </p>
+                        {EVENT_KEYWORD_PRESET_OPTIONS.map((preset) => {
+                          const isSelected =
+                            selectedKeywordPresetId === preset.id;
 
-                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="mr-1 text-xs font-black text-slate-500">
-                        추천 카테고리
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              className={cn(
+                                "rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
+                                isSelected
+                                  ? "border-brand-700 bg-brand-700 text-white"
+                                  : "border-slate-200 bg-white text-brand-800 hover:border-brand-300 hover:bg-brand-50",
+                              )}
+                              onClick={() => handleApplyKeywordPreset(preset.id)}
+                            >
+                              {preset.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <p className="mt-2 text-xs leading-5 text-slate-600">
+                        {selectedKeywordPreset
+                          ? selectedKeywordPreset.description
+                          : `선택하면 ${keywordAutofillSummary.goalCount}개 키워드가 자동으로 채워집니다.`}
                       </p>
-                      {EVENT_KEYWORD_PRESET_OPTIONS.map((preset) => {
-                        const isSelected = selectedKeywordPresetId === preset.id;
+                    </div>
 
-                        return (
-                          <button
-                            key={preset.id}
-                            type="button"
-                            className={cn(
-                              "rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors",
-                              isSelected
-                                ? "border-brand-700 bg-brand-700 text-white"
-                                : "border-slate-200 bg-white text-brand-800 hover:border-brand-300 hover:bg-brand-50",
-                            )}
-                            onClick={() => handleApplyKeywordPreset(preset.id)}
+                    <div className="border-t border-slate-100 pt-4">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-black text-slate-500">
+                          직접 추가
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-xs font-semibold text-slate-400">
+                            Enter로 추가, 키워드 클릭 시 삭제
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 rounded-md px-2 text-[0.7rem] font-bold text-rose-600 hover:bg-rose-50"
+                            disabled={
+                              eventForm.keywords.length === 0 &&
+                              !eventForm.keywordDraft.trim()
+                            }
+                            onClick={() => {
+                              setSelectedKeywordPresetId("");
+                              setEventForm((previousValue) => ({
+                                ...previousValue,
+                                keywords: [],
+                                keywordDraft: "",
+                              }));
+                            }}
                           >
-                            {preset.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <p className="mt-2 text-xs text-slate-600">
-                      {selectedKeywordPreset
-                        ? selectedKeywordPreset.description
-                        : "원하는 분위기 카테고리를 골라 키워드를 바로 채우세요."}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                    <div className="flex flex-wrap gap-2">
+                            전체 삭제
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex min-h-12 flex-wrap gap-2 rounded-lg bg-slate-50 px-2 py-2 ring-1 ring-slate-100">
                       {eventForm.keywords.map((keyword) => (
                         <button
                           key={keyword}
                           type="button"
-                          className="rounded-md bg-brand-100 px-3 py-1 text-sm font-semibold text-brand-700"
+                          className="rounded-md bg-brand-100 px-3 py-1 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
                           onClick={() => {
                             setSelectedKeywordPresetId("");
                             setEventForm((previousValue) => ({
@@ -4538,10 +4626,54 @@ const AdminConsolePage = ({
                             ? "키워드를 입력하고 Enter를 누르세요."
                             : ""
                         }
-                        className="min-w-[10rem] flex-1 border-0 bg-transparent px-2 py-1 text-sm text-slate-700 outline-none"
+                        className="min-w-[12rem] flex-1 border-0 bg-transparent px-2 py-1 text-sm text-slate-700 outline-none placeholder:text-slate-400"
                       />
+                      </div>
                     </div>
-                  </div>
+
+                    <div className="flex flex-col gap-3 border-t border-slate-100 pt-4">
+                      <div className="flex flex-wrap items-center gap-2 text-xs font-semibold leading-5">
+                        <span
+                          className={cn(
+                            "rounded-full px-2.5 py-1",
+                            keywordAutofillSummary.missingCount > 0
+                              ? "bg-amber-50 text-amber-800 ring-1 ring-amber-100"
+                              : "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100",
+                          )}
+                          aria-live="polite"
+                        >
+                          {keywordAutofillSummary.missingCount > 0 ? (
+                            <>
+                              부족한 {keywordAutofillSummary.missingCount}개는
+                              저장 시 자동으로 채워집니다.
+                            </>
+                          ) : (
+                            "현재 키워드 목록이 그대로 저장됩니다."
+                          )}
+                        </span>
+                        <span className="text-slate-500">
+                          키워드가 다양할수록 참가자가 서로 다른 사람을 찾기
+                          쉽습니다.
+                        </span>
+                      </div>
+
+                      <div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-9 rounded-lg bg-brand-100 px-3 text-xs font-bold text-brand-800 hover:bg-brand-200"
+                          onClick={() =>
+                            setIsImportEventPanelOpen(
+                              (previousValue) => !previousValue,
+                            )
+                          }
+                        >
+                          {isImportEventPanelOpen
+                            ? "가져오기 닫기"
+                            : "기존 행사에서 가져오기"}
+                        </Button>
+                      </div>
+                    </div>
 
                   {isImportEventPanelOpen ? (
                     <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/70 px-4 py-4">
@@ -4608,6 +4740,7 @@ const AdminConsolePage = ({
                       {keywordRecommendationError}
                     </p>
                   ) : null}
+                  </div>
                 </div>
 
                 <div className="space-y-2">

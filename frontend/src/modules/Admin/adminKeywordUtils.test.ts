@@ -1,15 +1,23 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BOARD_SIZE_RECOMMENDATIONS,
   buildAutoFilledKeywordList,
   buildEventKeywordPresetKeywords,
   clampKeywordList,
+  DEFAULT_EVENT_BOARD_SIZE,
   describeKeywordAutofill,
   getEventKeywordPresetDefinitions,
   getKeywordGoalCount,
+  getRecommendedBoardSize,
 } from "./adminKeywordUtils";
 
 describe("adminKeywordUtils", () => {
+  it("uses 4x4 as the default board size for new events", () => {
+    expect(DEFAULT_EVENT_BOARD_SIZE).toBe("4");
+    expect(getKeywordGoalCount(DEFAULT_EVENT_BOARD_SIZE)).toBe(16);
+  });
+
   it("resolves the required keyword count from board size", () => {
     expect(getKeywordGoalCount("3")).toBe(9);
     expect(getKeywordGoalCount("4")).toBe(16);
@@ -65,6 +73,20 @@ describe("adminKeywordUtils", () => {
       expect.objectContaining({ id: "community", label: "커뮤니티" }),
       expect.objectContaining({ id: "tech", label: "테크" }),
       expect.objectContaining({ id: "maker", label: "메이커" }),
+    ]);
+  });
+
+  it("recommends board sizes by expected attendee count", () => {
+    expect(getRecommendedBoardSize()).toBe("4");
+    expect(getRecommendedBoardSize(0)).toBe("4");
+    expect(getRecommendedBoardSize(30)).toBe("3");
+    expect(getRecommendedBoardSize(31)).toBe("4");
+    expect(getRecommendedBoardSize(100)).toBe("4");
+    expect(getRecommendedBoardSize(101)).toBe("5");
+    expect(BOARD_SIZE_RECOMMENDATIONS.map((item) => item.keywordCount)).toEqual([
+      9,
+      16,
+      25,
     ]);
   });
 

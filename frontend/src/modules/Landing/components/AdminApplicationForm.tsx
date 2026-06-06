@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { submitEventManagerApplication } from "../../../api/public_event_api";
 import { Dialog } from "../../../components/ui/dialog";
+import { ATTENDEE_RANGE_OPTIONS } from "../../../utils/attendeeRange";
 import { useSiteAnalytics, useSiteSectionExposure } from "../siteAnalytics";
 
 type ApplicationFormState = {
@@ -21,13 +22,6 @@ const initialFormState: ApplicationFormState = {
   expectedAttendeeRange: "",
   eventPurpose: "",
 };
-
-const ATTENDEE_RANGE_OPTIONS = [
-  { value: "50", label: "50명 이하" },
-  { value: "100", label: "51-100명" },
-  { value: "200", label: "101-200명" },
-  { value: "201", label: "201명 이상" },
-] as const;
 
 const getFilledFieldCount = (form: ApplicationFormState) =>
   Object.values(form).filter((value) => value.trim().length > 0).length;
