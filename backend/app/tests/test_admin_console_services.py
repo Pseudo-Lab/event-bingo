@@ -7,6 +7,7 @@ import pytest
 from api.admin.console_services import (
     build_archive_participant_alias,
     build_admin_event_bingo_progress_query,
+    build_admin_applications_link,
     build_admin_console_link,
     build_event_keyword_rows,
     build_visible_admin_events_query,
@@ -153,6 +154,12 @@ def test_build_admin_console_link_uses_explicit_console_base(monkeypatch: pytest
     assert build_admin_console_link() == "https://example.com/admin"
 
 
+def test_build_admin_applications_link_extends_console_base(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(console_services, "ADMIN_CONSOLE_URL_BASE", "https://example.com/admin/")
+
+    assert build_admin_applications_link() == "https://example.com/admin/applications"
+
+
 def test_build_access_granted_email_sets_event_bingo_sender_and_reply_to(
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -204,6 +211,82 @@ def test_build_manager_request_received_email_uses_placeholder_for_missing_optio
 
     assert "예상 행사 일자: 미입력" in message.get_content()
     assert "예상 참가자 수: 미입력" in message.get_content()
+
+
+def test_build_manager_request_admin_webhook_payload_minimizes_personal_data():
+    payload = console_services._build_manager_request_admin_webhook_payload(
+        request_id=42,
+        event_name="네트워킹 데이",
+        expected_event_date=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        expected_attendee_count=100,
+        applications_url="https://example.com/admin/applications",
+    )
+
+    content = payload["content"]
+
+    assert "[Event Bingo] 새 이벤트 관리자 신청이 접수되었습니다." in content
+    assert "- 신청 ID: 42" in content
+    assert "- 행사명: 네트워킹 데이" in content
+    assert "- 예상 행사 일자: 2026-06-01" in content
+    assert "- 예상 참가자 수: 51-100명" in content
+    assert "- 확인: https://example.com/admin/applications" in content
+    assert "홍길동" not in content
+    assert "organizer@example.com" not in content
+
+
+def test_post_admin_manager_request_webhook_skips_when_url_missing(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(console_services, "ADMIN_MANAGER_REQUEST_WEBHOOK_URL", "")
+
+    def fail_post(*_args, **_kwargs):
+        raise AssertionError("webhook must not be posted without a URL")
+
+    monkeypatch.setattr(console_services.httpx, "post", fail_post)
+
+    assert console_services._post_admin_manager_request_webhook({"content": "test"}) is False
+
+
+def test_post_admin_manager_request_webhook_blocks_unsupported_provider(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(console_services, "ADMIN_MANAGER_REQUEST_WEBHOOK_URL", "https://example.com/webhook")
+    monkeypatch.setattr(console_services, "ADMIN_MANAGER_REQUEST_WEBHOOK_PROVIDER", "slack")
+
+    def fail_post(*_args, **_kwargs):
+        raise AssertionError("unsupported provider must not be posted")
+
+    monkeypatch.setattr(console_services.httpx, "post", fail_post)
+
+    assert console_services._post_admin_manager_request_webhook({"content": "test"}) is False
+
+
+def test_post_admin_manager_request_webhook_sends_discord_payload(monkeypatch: pytest.MonkeyPatch):
+    captured = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+    def fake_post(url, *, json, headers, timeout):
+        captured.update(
+            {
+                "url": url,
+                "json": json,
+                "headers": headers,
+                "timeout": timeout,
+            }
+        )
+        return FakeResponse()
+
+    monkeypatch.setattr(console_services, "ADMIN_MANAGER_REQUEST_WEBHOOK_URL", "https://example.com/webhook")
+    monkeypatch.setattr(console_services, "ADMIN_MANAGER_REQUEST_WEBHOOK_PROVIDER", "discord")
+    monkeypatch.setattr(console_services, "ADMIN_MANAGER_REQUEST_WEBHOOK_USER_AGENT", "EventBingoWebhook/1.0")
+    monkeypatch.setattr(console_services.httpx, "post", fake_post)
+
+    assert console_services._post_admin_manager_request_webhook({"content": "test"}) is True
+    assert captured == {
+        "url": "https://example.com/webhook",
+        "json": {"content": "test"},
+        "headers": {"User-Agent": "EventBingoWebhook/1.0"},
+        "timeout": 10.0,
+    }
 
 
 def test_validate_event_manager_request_transition_allows_pending_review():

@@ -12,6 +12,7 @@ import smtplib
 from urllib.parse import urlsplit, urlunsplit
 from zoneinfo import ZoneInfo
 
+import httpx
 from sqlalchemy import and_, delete, func, or_, select
 
 from core.db import AsyncSession
@@ -53,6 +54,14 @@ ARCHIVED_AUTH_PROVIDER = "archived"
 ARCHIVED_PARTICIPANT_NAME_PREFIX = "익명 참가자"
 DEFAULT_ADMIN_CONSOLE_URL_BASE = "http://localhost:3000/admin"
 ADMIN_CONSOLE_URL_BASE = os.getenv("ADMIN_CONSOLE_URL_BASE", DEFAULT_ADMIN_CONSOLE_URL_BASE).strip()
+ADMIN_MANAGER_REQUEST_WEBHOOK_URL = os.getenv("ADMIN_MANAGER_REQUEST_WEBHOOK_URL", "").strip()
+ADMIN_MANAGER_REQUEST_WEBHOOK_PROVIDER = (
+    os.getenv("ADMIN_MANAGER_REQUEST_WEBHOOK_PROVIDER", "discord").strip().lower() or "discord"
+)
+ADMIN_MANAGER_REQUEST_WEBHOOK_USER_AGENT = (
+    os.getenv("ADMIN_MANAGER_REQUEST_WEBHOOK_USER_AGENT", "EventBingoWebhook/1.0").strip()
+    or "EventBingoWebhook/1.0"
+)
 RESERVED_EVENT_SLUGS = {"admin", "login", "bingo", "api", "assets"}
 SLUG_PATTERN = re.compile(r"^[a-z0-9\uAC00-\uD7A3-]{3,50}$")
 DEFAULT_ADMIN_PASSWORD = "Admin1234!"
@@ -291,6 +300,10 @@ def build_admin_console_link() -> str:
     return urlunsplit((parsed_url.scheme, parsed_url.netloc, parsed_url.path, "", ""))
 
 
+def build_admin_applications_link() -> str:
+    return f"{build_admin_console_link().rstrip('/')}/applications"
+
+
 def _build_access_granted_email(name: str, console_url: str) -> EmailMessage:
     message = EmailMessage()
     message["Subject"] = "[Event Bingo] 이벤트 관리자 권한이 승인되었습니다"
@@ -385,6 +398,65 @@ def _send_email_message(message: EmailMessage) -> bool:
     except Exception as error:  # pragma: no cover - external integration
         print(f"Failed to send email: {error}")
         return False
+
+
+def _build_manager_request_admin_webhook_payload(
+    *,
+    request_id: int,
+    event_name: str,
+    expected_event_date: datetime | None,
+    expected_attendee_count: int | None,
+    applications_url: str,
+) -> dict[str, str]:
+    content = "\n".join(
+        [
+            "[Event Bingo] 새 이벤트 관리자 신청이 접수되었습니다.",
+            f"- 신청 ID: {request_id}",
+            f"- 행사명: {event_name}",
+            f"- 예상 행사 일자: {format_manager_request_email_date(expected_event_date)}",
+            f"- 예상 참가자 수: {format_manager_request_attendee_count(expected_attendee_count)}",
+            f"- 확인: {applications_url}",
+        ]
+    )
+    return {"content": content}
+
+
+def _post_admin_manager_request_webhook(payload: dict[str, str]) -> bool:
+    if not ADMIN_MANAGER_REQUEST_WEBHOOK_URL:
+        return False
+    if ADMIN_MANAGER_REQUEST_WEBHOOK_PROVIDER != "discord":
+        print(f"Unsupported manager request webhook provider: {ADMIN_MANAGER_REQUEST_WEBHOOK_PROVIDER}")
+        return False
+
+    try:
+        response = httpx.post(
+            ADMIN_MANAGER_REQUEST_WEBHOOK_URL,
+            json=payload,
+            headers={"User-Agent": ADMIN_MANAGER_REQUEST_WEBHOOK_USER_AGENT},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        return True
+    except httpx.HTTPError as error:  # pragma: no cover - external integration
+        print(f"Failed to send manager request webhook: {error}")
+        return False
+
+
+def send_event_manager_request_admin_webhook(
+    *,
+    request_id: int,
+    event_name: str,
+    expected_event_date: datetime | None = None,
+    expected_attendee_count: int | None = None,
+) -> bool:
+    payload = _build_manager_request_admin_webhook_payload(
+        request_id=request_id,
+        event_name=event_name,
+        expected_event_date=expected_event_date,
+        expected_attendee_count=expected_attendee_count,
+        applications_url=build_admin_applications_link(),
+    )
+    return _post_admin_manager_request_webhook(payload)
 
 
 def send_event_manager_request_received_email(
