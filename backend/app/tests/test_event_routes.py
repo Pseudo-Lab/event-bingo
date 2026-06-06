@@ -100,8 +100,10 @@ def test_event_manager_request_purpose_normalization_uses_placeholder_for_blank_
 
 def test_create_event_manager_request_sends_receipt_email(monkeypatch):
     created_at = datetime(2026, 5, 14, tzinfo=timezone.utc)
+    expected_event_date = datetime(2026, 6, 1, tzinfo=timezone.utc)
     create_payload = {}
     sent_payload = {}
+    webhook_payload = {}
 
     async def fake_create(_session, **kwargs):
         create_payload.update(kwargs)
@@ -115,11 +117,20 @@ def test_create_event_manager_request_sends_receipt_email(monkeypatch):
         sent_payload.update(kwargs)
         return True
 
+    def fake_send_event_manager_request_admin_webhook(**kwargs):
+        webhook_payload.update(kwargs)
+        return False
+
     monkeypatch.setattr(EventManagerRequest, "create", fake_create)
     monkeypatch.setattr(
         event_routes,
         "send_event_manager_request_received_email",
         fake_send_event_manager_request_received_email,
+    )
+    monkeypatch.setattr(
+        event_routes,
+        "send_event_manager_request_admin_webhook",
+        fake_send_event_manager_request_admin_webhook,
     )
 
     response = asyncio.run(
@@ -129,7 +140,7 @@ def test_create_event_manager_request_sends_receipt_email(monkeypatch):
                 email=" Organizer@Example.COM ",
                 event_name=" 네트워킹 데이 ",
                 event_purpose=" ",
-                expected_event_date=datetime(2026, 6, 1, tzinfo=timezone.utc),
+                expected_event_date=expected_event_date,
                 expected_attendee_count=100,
             ),
             object(),
@@ -146,6 +157,12 @@ def test_create_event_manager_request_sends_receipt_email(monkeypatch):
         "recipient_email": "organizer@example.com",
         "recipient_name": "홍길동",
         "event_name": "네트워킹 데이",
-        "expected_event_date": datetime(2026, 6, 1, tzinfo=timezone.utc),
+        "expected_event_date": expected_event_date,
+        "expected_attendee_count": 100,
+    }
+    assert webhook_payload == {
+        "request_id": 42,
+        "event_name": "네트워킹 데이",
+        "expected_event_date": expected_event_date,
         "expected_attendee_count": 100,
     }
