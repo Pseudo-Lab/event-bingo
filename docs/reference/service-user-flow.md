@@ -12,6 +12,8 @@
 - Generated board layout stays fixed after first generation.
 - User keyword assignment for the board is fixed after initial generation.
 - Exchange behavior must support both individual mode and team mode.
+- Events default to blocking participant entry before the configured start time.
+- Event managers may disable the pre-start entry lock for rehearsal or early access; if disabled, participants can enter and create boards before the event starts.
 
 ## Service Screens
 1. Login screen:
