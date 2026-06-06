@@ -51,14 +51,15 @@ PRIVACY_REDACTION_RUN_ON_STARTUP = (
 )
 ARCHIVED_AUTH_PROVIDER = "archived"
 ARCHIVED_PARTICIPANT_NAME_PREFIX = "익명 참가자"
-ADMIN_CONSOLE_URL_BASE = os.getenv("ADMIN_CONSOLE_URL_BASE", "http://localhost:5173/admin").strip()
+DEFAULT_ADMIN_CONSOLE_URL_BASE = "http://localhost:3000/admin"
+ADMIN_CONSOLE_URL_BASE = os.getenv("ADMIN_CONSOLE_URL_BASE", DEFAULT_ADMIN_CONSOLE_URL_BASE).strip()
 RESERVED_EVENT_SLUGS = {"admin", "login", "bingo", "api", "assets"}
 SLUG_PATTERN = re.compile(r"^[a-z0-9\uAC00-\uD7A3-]{3,50}$")
 DEFAULT_ADMIN_PASSWORD = "Admin1234!"
 DEFAULT_BOOTSTRAP_ADMIN_EMAIL = "superadmin@laivdata.com"
 DEFAULT_BOOTSTRAP_ADMIN_NAME = "어드민의 아버지"
 ADMIN_INVITE_TOKEN_EXPIRE_HOURS = int(os.getenv("ADMIN_INVITE_TOKEN_EXPIRE_HOURS", "72"))
-ADMIN_INVITE_URL_BASE = os.getenv("ADMIN_INVITE_URL_BASE", "http://localhost:5173/admin/invite")
+ADMIN_INVITE_URL_BASE = os.getenv("ADMIN_INVITE_URL_BASE", "http://localhost:3000/admin/invite")
 ADMIN_SMTP_HOST = os.getenv("ADMIN_SMTP_HOST", "").strip()
 ADMIN_SMTP_PORT = int(os.getenv("ADMIN_SMTP_PORT", "587"))
 ADMIN_SMTP_USERNAME = os.getenv("ADMIN_SMTP_USERNAME", "").strip()
@@ -286,7 +287,7 @@ def build_admin_console_link() -> str:
     if ADMIN_CONSOLE_URL_BASE:
         return ADMIN_CONSOLE_URL_BASE
 
-    parsed_url = urlsplit("http://localhost:5173/admin")
+    parsed_url = urlsplit(DEFAULT_ADMIN_CONSOLE_URL_BASE)
     return urlunsplit((parsed_url.scheme, parsed_url.netloc, parsed_url.path, "", ""))
 
 

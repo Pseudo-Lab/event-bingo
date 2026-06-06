@@ -7,6 +7,9 @@ services:
         - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
         - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
         - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+        - VITE_TEST_MODE=${VITE_TEST_MODE:-false}
+        - VITE_APP_VERSION=${VITE_APP_VERSION:-}
+        - VITE_GIT_SHA=${VITE_GIT_SHA:-}
     environment:
       - VITE_DEV_API_PROXY_TARGET=http://backend:8000
       - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
@@ -28,12 +31,16 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
+      ENV: ${ENV:-development}
       DB_URL: ${DB_URL:?set in .env}
       SWAGGER_USERNAME: ${SWAGGER_USERNAME:?set in .env}
       SWAGGER_PASSWORD: ${SWAGGER_PASSWORD:?set in .env}
       SUPABASE_URL: ${SUPABASE_URL:?set in .env}
       SUPABASE_KEY: ${SUPABASE_KEY:?set in .env}
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
+      ADMIN_CONSOLE_URL_BASE: ${ADMIN_CONSOLE_URL_BASE:-http://localhost:3001/admin}
+      ADMIN_INVITE_TOKEN_EXPIRE_HOURS: ${ADMIN_INVITE_TOKEN_EXPIRE_HOURS:-72}
+      ADMIN_INVITE_URL_BASE: ${ADMIN_INVITE_URL_BASE:-http://localhost:3001/admin/invite}
       ADMIN_SMTP_HOST: ${ADMIN_SMTP_HOST:-}
       ADMIN_SMTP_PORT: ${ADMIN_SMTP_PORT:-587}
       ADMIN_SMTP_USERNAME: ${ADMIN_SMTP_USERNAME:-}
@@ -43,6 +50,13 @@ services:
       ADMIN_SMTP_REPLY_TO: ${ADMIN_SMTP_REPLY_TO:-}
       ADMIN_SMTP_USE_TLS: ${ADMIN_SMTP_USE_TLS:-true}
       ADMIN_SMTP_USE_SSL: ${ADMIN_SMTP_USE_SSL:-false}
+      PRIVACY_PERSONAL_DATA_RETENTION_DAYS: ${PRIVACY_PERSONAL_DATA_RETENTION_DAYS:-365}
+      PRIVACY_REDACTION_RUN_ON_STARTUP: ${PRIVACY_REDACTION_RUN_ON_STARTUP:-false}
+      EVENT_SLUG_SALT: ${EVENT_SLUG_SALT:-event-bingo-auto-slug}
+      PUBLIC_SITE_ORIGIN: ${PUBLIC_SITE_ORIGIN:-http://localhost:3001}
+      PUBLIC_OG_IMAGE_URL: ${PUBLIC_OG_IMAGE_URL:-http://localhost:3001/images/hero-networking.jpg}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://frontend:3000}
+      FRONTEND_INDEX_URL: ${FRONTEND_INDEX_URL:-http://frontend:3000/}
     command: >
       /bin/sh -c "
         cd /app &&
