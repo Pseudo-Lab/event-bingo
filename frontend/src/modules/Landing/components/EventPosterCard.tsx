@@ -56,6 +56,9 @@ const EventPosterCard = ({ event, index }: EventPosterCardProps) => {
             ))}
           </div>
           <div className="mt-5 space-y-1">
+            <p className="text-xs font-bold leading-5 text-slate-500">
+              {event.organizerMeta}
+            </p>
             <p className={`text-sm font-semibold ${theme.date}`}>
               {formatEventCaseDate(event.startAt)}
             </p>
