@@ -6,7 +6,7 @@ from api.admin import auth as admin_auth
 import api.admin.routes as admin_routes
 from api.admin.routes import admin_router
 from models.admin import AdminRole
-from models.event import EventStatus, GameMode
+from models.event import Event, EventStatus, GameMode
 
 
 class _FakeScalarResult:
@@ -104,6 +104,7 @@ def test_list_admin_events_route_limits_event_manager_to_owned_events(monkeypatc
     assert [event.id for event in response.events] == [20]
     assert response.events[0].created_by_id == actor.id
     assert response.events[0].can_edit is True
+    assert response.events[0].can_delete is True
     assert response.events[0].expected_attendee_count == 100
     assert response.events[0].restrict_before_start is True
 
@@ -133,6 +134,7 @@ def test_list_admin_events_route_includes_co_host_events(monkeypatch):
     assert [event.id for event in response.events] == [30]
     assert response.events[0].created_by_id == 3
     assert response.events[0].can_edit is False
+    assert response.events[0].can_delete is False
 
 
 def test_list_admin_events_route_keeps_full_scope_for_admin(monkeypatch):
@@ -158,6 +160,109 @@ def test_list_admin_events_route_keeps_full_scope_for_admin(monkeypatch):
     assert response.ok is True
     assert [event.id for event in response.events] == [10, 20]
     assert all(event.can_edit for event in response.events)
+    assert [event.can_delete for event in response.events] == [True, True]
+
+
+def test_delete_admin_event_allows_owner_empty_event(monkeypatch):
+    actor = _admin_stub(2, AdminRole.EVENT_MANAGER)
+    event = _event_stub(20, 2, "삭제할 행사")
+    deleted = {}
+
+    async def fake_get_by_id(_db, event_id):
+        assert event_id == event.id
+        return event
+
+    async def fake_get_participant_count(_db, event_id):
+        assert event_id == event.id
+        return 0
+
+    async def fake_delete_empty_event(_db, target_event):
+        deleted["event_id"] = target_event.id
+
+    monkeypatch.setattr(Event, "get_by_id", fake_get_by_id)
+    monkeypatch.setattr(Event, "get_participant_count", fake_get_participant_count)
+    monkeypatch.setattr(admin_routes, "delete_empty_event", fake_delete_empty_event)
+
+    response = asyncio.run(admin_routes.delete_admin_event(event.id, object(), actor))
+
+    assert response.ok is True
+    assert response.deleted_event_id == event.id
+    assert deleted == {"event_id": event.id}
+
+
+def test_delete_admin_event_allows_admin_empty_event(monkeypatch):
+    actor = _admin_stub(1, AdminRole.ADMIN)
+    event = _event_stub(20, 2, "관리자 삭제 행사")
+    deleted = {}
+
+    async def fake_get_by_id(_db, event_id):
+        assert event_id == event.id
+        return event
+
+    async def fake_get_participant_count(_db, event_id):
+        assert event_id == event.id
+        return 0
+
+    async def fake_delete_empty_event(_db, target_event):
+        deleted["event_id"] = target_event.id
+
+    monkeypatch.setattr(Event, "get_by_id", fake_get_by_id)
+    monkeypatch.setattr(Event, "get_participant_count", fake_get_participant_count)
+    monkeypatch.setattr(admin_routes, "delete_empty_event", fake_delete_empty_event)
+
+    response = asyncio.run(admin_routes.delete_admin_event(event.id, object(), actor))
+
+    assert response.ok is True
+    assert response.deleted_event_id == event.id
+    assert deleted == {"event_id": event.id}
+
+
+def test_delete_admin_event_blocks_non_owner_event_manager(monkeypatch):
+    actor = _admin_stub(3, AdminRole.EVENT_MANAGER)
+    event = _event_stub(20, 2, "남의 행사")
+
+    async def fake_get_by_id(_db, event_id):
+        assert event_id == event.id
+        return event
+
+    async def fake_get_participant_count(_db, event_id):
+        assert event_id == event.id
+        return 0
+
+    monkeypatch.setattr(Event, "get_by_id", fake_get_by_id)
+    monkeypatch.setattr(Event, "get_participant_count", fake_get_participant_count)
+
+    try:
+        asyncio.run(admin_routes.delete_admin_event(event.id, object(), actor))
+    except admin_routes.HTTPException as error:
+        assert error.status_code == 403
+        assert "삭제할 권한" in error.detail
+    else:
+        raise AssertionError("Expected HTTPException")
+
+
+def test_delete_admin_event_blocks_event_with_participants(monkeypatch):
+    actor = _admin_stub(2, AdminRole.EVENT_MANAGER)
+    event = _event_stub(20, 2, "참가자 있는 행사")
+
+    async def fake_get_by_id(_db, event_id):
+        assert event_id == event.id
+        return event
+
+    async def fake_get_participant_count(_db, event_id):
+        assert event_id == event.id
+        return 1
+
+    monkeypatch.setattr(Event, "get_by_id", fake_get_by_id)
+    monkeypatch.setattr(Event, "get_participant_count", fake_get_participant_count)
+
+    try:
+        asyncio.run(admin_routes.delete_admin_event(event.id, object(), actor))
+    except admin_routes.HTTPException as error:
+        assert error.status_code == 400
+        assert "먼저 데이터 초기화" in error.detail
+    else:
+        raise AssertionError("Expected HTTPException")
 
 
 def test_fetch_supabase_user_payload_uses_supabase_auth_user(monkeypatch):

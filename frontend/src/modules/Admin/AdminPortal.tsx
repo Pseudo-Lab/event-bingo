@@ -14,6 +14,7 @@ import {
   AdminApiError,
   createAdminEvent,
   createAdminMember,
+  deleteAdminEvent,
   deleteAdminMember,
   getAdminEventDetail,
   getAdminEventManagerRequests,
@@ -1135,6 +1136,7 @@ const AdminConsolePage = ({
     number | null
   >(null);
   const [resettingEventId, setResettingEventId] = useState<number | null>(null);
+  const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
   const [newAdminForm, setNewAdminForm] = useState({
     email: "",
     name: "",
@@ -2048,6 +2050,39 @@ const AdminConsolePage = ({
       );
     } finally {
       setResettingEventId(null);
+    }
+  };
+
+  const handleDeleteSelectedEvent = async () => {
+    if (!session || !selectedEvent || !selectedEvent.canDelete) {
+      return;
+    }
+
+    const isConfirmed = window.confirm(
+      `"${selectedEvent.name}" 행사를 삭제할까요?\n행사 소유자는 참가자 데이터가 없는 행사만 삭제할 수 있으며, 이 작업은 되돌릴 수 없습니다.`,
+    );
+    if (!isConfirmed) {
+      return;
+    }
+
+    try {
+      setDeletingEventId(selectedEvent.id);
+      setPageError("");
+
+      await deleteAdminEvent(session.accessToken, selectedEvent.id);
+      setEvents((currentEvents) =>
+        currentEvents.filter((eventItem) => eventItem.id !== selectedEvent.id),
+      );
+      setSelectedEventDetail(null);
+      setPageNotice("행사를 삭제했습니다.");
+      navigate(getAdminPath("event-settings"), { replace: true });
+      contentScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      setPageError(
+        error instanceof Error ? error.message : "행사를 삭제하지 못했습니다.",
+      );
+    } finally {
+      setDeletingEventId(null);
     }
   };
 
@@ -2994,6 +3029,26 @@ const AdminConsolePage = ({
                                   {resettingEventId === selectedEvent.id
                                     ? "초기화 중"
                                     : "데이터 초기화"}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  className="h-10 rounded-full border-rose-200 bg-white px-4 text-sm font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 disabled:border-slate-100 disabled:text-slate-300"
+                                  disabled={
+                                    !selectedEvent.canDelete ||
+                                    deletingEventId === selectedEvent.id
+                                  }
+                                  title={
+                                    selectedEvent.canDelete
+                                      ? "참가자가 없는 행사를 삭제합니다."
+                                      : "참가자 데이터가 있는 행사는 데이터 초기화 후 삭제할 수 있습니다."
+                                  }
+                                  onClick={() =>
+                                    void handleDeleteSelectedEvent()
+                                  }
+                                >
+                                  {deletingEventId === selectedEvent.id
+                                    ? "삭제 중"
+                                    : "행사 삭제"}
                                 </Button>
                               </>
                             ) : null}

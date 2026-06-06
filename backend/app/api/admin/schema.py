@@ -153,6 +153,7 @@ class AdminEventSummary(BaseModel):
     progress_total: int
     status: EventStatusLiteral
     can_edit: bool
+    can_delete: bool
 
 
 class AdminEventDetail(AdminEventSummary):
@@ -226,3 +227,7 @@ class AdminEventResetStats(BaseModel):
 
 class AdminEventResetResponse(BaseSchema):
     stats: AdminEventResetStats = Field(default_factory=AdminEventResetStats)
+
+
+class AdminEventDeleteResponse(BaseSchema):
+    deleted_event_id: int

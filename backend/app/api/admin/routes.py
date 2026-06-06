@@ -31,9 +31,10 @@ from .console_services import (
     build_event_detail,
     build_event_rooms,
     build_visible_admin_events_query,
-    can_edit_event,
+    can_delete_event,
     can_manage_owner_scope,
     can_view_event,
+    delete_empty_event,
     ensure_admin_console_seed_data,
     kick_event_attendee,
     normalize_event_keywords,
@@ -48,6 +49,7 @@ from .console_services import (
 )
 from .schema import (
     AdminEventDetailResponse,
+    AdminEventDeleteResponse,
     AdminEventListResponse,
     AdminEventManagerRequestListResponse,
     AdminEventManagerRequestResponse,
@@ -369,7 +371,7 @@ async def list_admin_events(
 ):
     from collections import defaultdict
     from .console_services import (
-        can_edit_event,
+        can_delete_event,
         resolve_event_status,
     )
     from .schema import AdminEventSummary
@@ -436,6 +438,7 @@ async def list_admin_events(
                 progress_total=participant_count,
                 status=resolve_event_status(event),
                 can_edit=can_manage_owner_scope(actor, event),
+                can_delete=can_delete_event(actor, event, participant_count),
             )
         )
 
@@ -553,6 +556,41 @@ async def update_admin_event(
         ok=True,
         message="이벤트를 수정했습니다.",
         event=await build_event_detail(db, updated_event, actor),
+    )
+
+
+@admin_router.delete(
+    "/events/{event_id}",
+    response_model=AdminEventDeleteResponse,
+    summary="빈 이벤트 삭제",
+)
+async def delete_admin_event(
+    event_id: int,
+    db: AsyncSessionDepends,
+    actor: Admin = Depends(authenticate_admin_session),
+):
+    try:
+        event = await Event.get_by_id(db, event_id)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    participant_count = await Event.get_participant_count(db, event.id)
+    if not can_manage_owner_scope(actor, event):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="이 행사를 삭제할 권한이 없습니다.",
+        )
+    if not can_delete_event(actor, event, participant_count):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="참가자 데이터가 있는 행사는 먼저 데이터 초기화 후 삭제할 수 있습니다.",
+        )
+
+    await delete_empty_event(db, event)
+    return AdminEventDeleteResponse(
+        ok=True,
+        message="행사를 삭제했습니다.",
+        deleted_event_id=event_id,
     )
 
 

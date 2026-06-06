@@ -29,6 +29,7 @@ const makeEvent = (overrides: Partial<AdminEvent>): AdminEvent => ({
   progressTotal: 0,
   status: "scheduled",
   canEdit: true,
+  canDelete: true,
   ...overrides,
 });
 
