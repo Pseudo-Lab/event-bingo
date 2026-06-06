@@ -20,6 +20,11 @@ export const shouldLoadAdminApplications = (
   role: AdminRole
 ) => role === "admin" && (section === "dashboard" || section === "applications");
 
+export const shouldLoadAdminPolicyTemplates = (
+  section: AdminConsoleSection,
+  role: AdminRole
+) => role === "admin" && section === "policies";
+
 export const normalizeAdminEventId = (value?: string | number | null) => {
   const nextEventId = Number(value);
   if (!Number.isInteger(nextEventId) || nextEventId <= 0) {

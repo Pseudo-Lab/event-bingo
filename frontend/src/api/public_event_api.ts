@@ -42,6 +42,7 @@ type PublicEventPayload = {
   end_at: string;
   board_size: 3 | 4 | 5;
   bingo_mission_count: number;
+  restrict_before_start?: boolean | null;
   keywords: string[];
 };
 
@@ -192,6 +193,7 @@ const mergeEventProfile = (
     eventTeam: payload.event_team || fallbackProfile.eventTeam,
     boardSize,
     bingoMissionCount: payload.bingo_mission_count,
+    restrictBeforeStart: payload.restrict_before_start ?? true,
     keywords: buildBoardKeywordPool(payload.keywords ?? fallbackProfile.keywords, boardCellCount),
   };
 };

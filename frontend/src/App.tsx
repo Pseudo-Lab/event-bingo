@@ -12,11 +12,8 @@ import PublicTermsPage from "./modules/Landing/PublicTermsPage.tsx";
 import {
   AdminApplicationsPage,
   AdminDashboardPage,
-  AdminEventDashboardPage,
-  AdminEventOverviewPage,
-  AdminEventParticipantsPage,
+  AdminEventDetailPage,
   AdminEventSettingsPage,
-  AdminEventSharePage,
   AdminMembersPage,
   AdminPoliciesPage,
   AdminRoutesLoginPage,
@@ -43,16 +40,16 @@ function AppRoutes() {
           <Route path="/admin/members" element={<AdminMembersPage />} />
           <Route path="/admin/applications" element={<AdminApplicationsPage />} />
           <Route path="/admin/events" element={<AdminEventSettingsPage />} />
-          <Route path="/admin/events/:adminEventId" element={<AdminEventOverviewPage />} />
+          <Route path="/admin/events/:adminEventId" element={<AdminEventDetailPage />} />
           <Route
             path="/admin/events/:adminEventId/dashboard"
-            element={<AdminEventDashboardPage />}
+            element={<AdminEventDetailPage />}
           />
           <Route
             path="/admin/events/:adminEventId/participants"
-            element={<AdminEventParticipantsPage />}
+            element={<AdminEventDetailPage />}
           />
-          <Route path="/admin/events/:adminEventId/share" element={<AdminEventSharePage />} />
+          <Route path="/admin/events/:adminEventId/share" element={<AdminEventDetailPage />} />
           <Route path="/admin/policies" element={<AdminPoliciesPage />} />
           <Route path="/event/:eventSlug" element={<Home />} />
           <Route path="/event/:eventSlug/privacy" element={<PublicEventPrivacyPage />} />

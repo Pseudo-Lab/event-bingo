@@ -9,7 +9,7 @@ import {
 } from "react";
 import QRCode from "qrcode";
 import ReactMarkdown from "react-markdown";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   AdminApiError,
   createAdminEvent,
@@ -27,7 +27,6 @@ import {
   updateAdminEvent,
 } from "../../api/admin_api";
 import {
-  formatEventDateLabel,
   getAdminPath,
   getEventHomePath,
 } from "../../config/eventProfiles";
@@ -68,8 +67,6 @@ import adminSidebarLogo from "../../assets/brand/admin-logo-sidebar.svg";
 import type {
   AdminEventManagerRequest,
   AdminEvent,
-  AdminEventBingoRow,
-  AdminEventKeywordRow,
   AdminEventManagerRequestReviewResult,
   AdminEventParticipant,
   AdminEventStatus,
@@ -84,9 +81,25 @@ import {
   shouldLoadAdminApplications,
   shouldLoadAdminEvents,
   shouldLoadAdminMembers,
+  shouldLoadAdminPolicyTemplates,
   type AdminConsoleSection,
 } from "./adminConsoleLoaders";
-import { getEventDateParts } from "./adminEventDate";
+import { getEventDateParts, getEventTimeRangeLabel } from "./adminEventDate";
+import {
+  ADMIN_DASHBOARD_STATUS_FILTERS,
+  buildAdminDashboardSummary,
+  filterAdminDashboardEventsByStatus,
+  sortAdminDashboardEventsByRecency,
+  type AdminDashboardStatusFilter,
+} from "./adminDashboardUtils";
+import {
+  sortBingoRows,
+  sortKeywordRows,
+  type BingoSortKey,
+  type KeywordSortKey,
+  type SortDirection,
+  type SortState,
+} from "./adminDetailSortUtils";
 import {
   buildAutoFilledKeywordList,
   buildEventKeywordPresetKeywords,
@@ -100,13 +113,6 @@ import { interpolateConsentTemplate } from "../../utils/consentTemplate";
 type AdminSection = AdminConsoleSection;
 type EventDetailTab = "overview" | "dashboard" | "participants" | "share";
 type AdminLayoutVariant = "before" | "after";
-type SortDirection = "asc" | "desc";
-type SortState<Key extends string> = {
-  key: Key;
-  direction: SortDirection;
-};
-type BingoSortKey = "line" | "count" | "rate";
-type KeywordSortKey = "rank" | "keyword" | "count";
 type ParticipantSortKey = "name" | "email" | "progress" | "keywords";
 
 type EventFormState = {
@@ -122,6 +128,8 @@ type EventFormState = {
   startTime: string;
   endTime: string;
   adminEmail: string;
+  expectedAttendeeCount: string;
+  restrictBeforeStart: boolean;
   participantCount: string;
   progressCurrent: string;
   progressTotal: string;
@@ -232,19 +240,6 @@ const formatEventRowDate = (value: string) => {
   }
 };
 
-const formatTimeText = (value: string) => {
-  try {
-    return new Intl.DateTimeFormat("ko-KR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: "Asia/Seoul",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
-};
-
 const toDateInputValue = (value: string) => {
   const parsedDate = new Date(value);
   if (Number.isNaN(parsedDate.getTime())) {
@@ -323,7 +318,7 @@ const sortAdminEvents = (items: AdminEvent[]) => {
     const leftTime = new Date(left.startAt).getTime();
     const rightTime = new Date(right.startAt).getTime();
     if (leftTime !== rightTime) {
-      return leftTime - rightTime;
+      return rightTime - leftTime;
     }
     return left.name.localeCompare(right.name, "ko-KR");
   });
@@ -343,7 +338,7 @@ const applySortDirection = (result: number, direction: SortDirection) =>
   direction === "asc" ? result : -result;
 
 const getDefaultSortDirection = (key: string): SortDirection =>
-  ["line", "rank", "keyword", "name", "email"].includes(key) ? "asc" : "desc";
+  ["keyword", "name", "email"].includes(key) ? "asc" : "desc";
 
 const getNextSortDirection = <Key extends string>(
   previousValue: SortState<Key>,
@@ -354,57 +349,6 @@ const getNextSortDirection = <Key extends string>(
       ? "asc"
       : "desc"
     : getDefaultSortDirection(key);
-
-const getBingoLineSortValue = (lineLabel: string) => {
-  const matchedNumber = lineLabel.match(/\d+/);
-  return matchedNumber ? Number(matchedNumber[0]) : Number.MAX_SAFE_INTEGER;
-};
-
-const sortBingoRows = (
-  rows: AdminEventBingoRow[],
-  sortState: SortState<BingoSortKey>,
-) => {
-  return [...rows].sort((left, right) => {
-    let result = 0;
-    if (sortState.key === "line") {
-      result =
-        getBingoLineSortValue(left.lineLabel) -
-          getBingoLineSortValue(right.lineLabel) ||
-        compareText(left.lineLabel, right.lineLabel);
-    }
-    if (sortState.key === "count") {
-      result =
-        left.count - right.count ||
-        compareText(left.lineLabel, right.lineLabel);
-    }
-    if (sortState.key === "rate") {
-      result =
-        left.rate - right.rate || compareText(left.lineLabel, right.lineLabel);
-    }
-
-    return applySortDirection(result, sortState.direction);
-  });
-};
-
-const sortKeywordRows = (
-  rows: AdminEventKeywordRow[],
-  sortState: SortState<KeywordSortKey>,
-) => {
-  return [...rows].sort((left, right) => {
-    let result = 0;
-    if (sortState.key === "rank") {
-      result = left.rank - right.rank;
-    }
-    if (sortState.key === "keyword") {
-      result = compareText(left.keyword, right.keyword);
-    }
-    if (sortState.key === "count") {
-      result = left.count - right.count || left.rank - right.rank;
-    }
-
-    return applySortDirection(result, sortState.direction);
-  });
-};
 
 const sortParticipants = (
   participants: AdminEventParticipant[],
@@ -441,42 +385,6 @@ const getAdminEventDetailPath = (
   return tab === "overview" ? basePath : `${basePath}/${tab}`;
 };
 
-const getTimeRangeLabel = (startAt: string, endAt: string) => {
-  const startDate = new Date(startAt);
-  const endDate = new Date(endAt);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-    return startAt;
-  }
-
-  const formatTime = (date: Date) => {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-      timeZone: "Asia/Seoul",
-    }).formatToParts(date);
-
-    const hour = parts.find((part) => part.type === "hour")?.value ?? "";
-    const minute = parts.find((part) => part.type === "minute")?.value ?? "";
-    const dayPeriod =
-      parts.find((part) => part.type === "dayPeriod")?.value ?? "";
-
-    return {
-      label: `${hour}.${minute}`,
-      dayPeriod,
-    };
-  };
-
-  const startLabel = formatTime(startDate);
-  const endLabel = formatTime(endDate);
-
-  if (startLabel.dayPeriod === endLabel.dayPeriod) {
-    return `${startLabel.label} - ${endLabel.label} ${endLabel.dayPeriod}`;
-  }
-
-  return `${startLabel.label} ${startLabel.dayPeriod} - ${endLabel.label} ${endLabel.dayPeriod}`;
-};
-
 const formatDurationLabel = (minutes: number) => {
   const safeMinutes = Math.max(0, minutes);
   const hours = Math.floor(safeMinutes / 60);
@@ -507,6 +415,10 @@ const createEventFormState = (
       startTime: toTimeInputValue(eventItem.startAt),
       endTime: toTimeInputValue(eventItem.endAt),
       adminEmail: eventItem.adminEmail,
+      expectedAttendeeCount: eventItem.expectedAttendeeCount
+        ? String(eventItem.expectedAttendeeCount)
+        : "",
+      restrictBeforeStart: eventItem.restrictBeforeStart,
       participantCount: String(eventItem.participantCount),
       progressCurrent: String(eventItem.progressCurrent),
       progressTotal: String(eventItem.progressTotal),
@@ -526,6 +438,8 @@ const createEventFormState = (
     startTime: "15:00",
     endTime: "18:00",
     adminEmail,
+    expectedAttendeeCount: "",
+    restrictBeforeStart: true,
     participantCount: "0",
     progressCurrent: "0",
     progressTotal: "0",
@@ -653,14 +567,6 @@ const ExternalLinkIcon = () => (
   </IconBase>
 );
 
-const InfoIcon = () => (
-  <IconBase className="h-4 w-4">
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 10v6" />
-    <path d="M12 7h.01" />
-  </IconBase>
-);
-
 const navigationItems: Array<{
   key: AdminSection;
   label: string;
@@ -671,7 +577,7 @@ const navigationItems: Array<{
   { key: "members", label: "회원 관리", Icon: UsersIcon, adminOnly: true },
   { key: "applications", label: "신청 관리", Icon: UsersIcon, adminOnly: true },
   { key: "event-settings", label: "이벤트 관리", Icon: EventIcon },
-  { key: "policies", label: "개인정보 처리 안내", Icon: FileIcon },
+  { key: "policies", label: "개인정보 처리 안내", Icon: FileIcon, adminOnly: true },
 ];
 
 const AdminBrand = ({ compact = false }: { compact?: boolean }) => {
@@ -743,26 +649,49 @@ const EventStatusBadge = ({ status }: { status: AdminEventStatus }) => {
 const EventProgress = ({
   current,
   total,
+  compact = false,
 }: {
   current: number;
   total: number;
+  compact?: boolean;
 }) => {
   const progress = getProgressPercent(current, total);
 
   return (
-    <div className="flex items-center gap-3">
+    <div
+      className={cn(
+        "min-w-0",
+        compact ? "space-y-1.5" : "flex items-center gap-3",
+      )}
+    >
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
         <div
           className="h-full rounded-full bg-brand-500"
           style={{ width: `${progress}%` }}
         />
       </div>
-      <div className="whitespace-nowrap text-right">
-        <span className="text-xl font-black tracking-tight text-slate-800">
+      <div
+        className={cn(
+          "whitespace-nowrap text-right",
+          compact && "flex items-center justify-between gap-2 text-left",
+        )}
+      >
+        <span
+          className={cn(
+            "font-black tracking-tight text-slate-800",
+            compact ? "text-sm" : "text-xl",
+          )}
+        >
           {progress}%
         </span>
-        <span className="ml-2 text-sm text-slate-400">
-          ({current}/{total})
+        <span
+          className={cn(
+            "text-slate-400",
+            compact ? "text-xs" : "ml-2 text-sm",
+          )}
+        >
+          완료 {current.toLocaleString("en-US")}명 / 참여{" "}
+          {total.toLocaleString("en-US")}명
         </span>
       </div>
     </div>
@@ -884,14 +813,14 @@ const EventQrShareCard = ({
               참가 링크 공유
             </p>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-              현장에서 QR을 바로 보여주거나, 이미지와 URL을 저장해 참가자에게
+              참가자가 빙고에 참여할 수 있는 행사 페이지를 QR 또는 URL로
               공유할 수 있습니다.
             </p>
           </div>
 
           <div className="space-y-2">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-              Event URL
+              참가자 페이지 URL
             </p>
             <code className="block break-all rounded-2xl bg-[#f7fbf2] px-4 py-3 text-sm font-semibold leading-6 text-brand-700 ring-1 ring-brand-100">
               {shareUrl}
@@ -917,15 +846,6 @@ const EventQrShareCard = ({
             >
               URL 복사
             </Button>
-            <a
-              href={shareUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-brand-700 bg-white px-5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-            >
-              열어보기
-              <ExternalLinkIcon />
-            </a>
           </div>
 
           {feedback ? (
@@ -939,10 +859,10 @@ const EventQrShareCard = ({
           ) : null}
 
           <div className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-500 ring-1 ring-slate-100 max-sm:hidden">
-            <p>· QR은 참가자가 스캔하면 이벤트 홈으로 이동합니다.</p>
-            <p>· 행사장 화면에는 이 탭을 열어 QR을 바로 보여줄 수 있습니다.</p>
+            <p>· 참가자는 QR을 스캔하거나 URL을 열어 행사 빙고 페이지로 이동합니다.</p>
+            <p>· 현장 안내 화면에는 QR을 크게 띄워 참가자가 바로 입장할 수 있게 하세요.</p>
             <p>
-              · 인쇄물이나 안내 메시지에는 QR 저장 또는 URL 복사를 사용하세요.
+              · 인쇄물과 안내 메시지에는 QR 저장 또는 URL 복사를 사용하세요.
             </p>
           </div>
         </div>
@@ -1173,7 +1093,7 @@ const AdminConsolePage = ({
   const [participantPage, setParticipantPage] = useState(1);
   const [bingoSort, setBingoSort] = useState<SortState<BingoSortKey>>({
     key: "line",
-    direction: "asc",
+    direction: "desc",
   });
   const [keywordSort, setKeywordSort] = useState<SortState<KeywordSortKey>>({
     key: "count",
@@ -1185,6 +1105,8 @@ const AdminConsolePage = ({
     key: "progress",
     direction: "desc",
   });
+  const [dashboardStatusFilter, setDashboardStatusFilter] =
+    useState<AdminDashboardStatusFilter>("all");
   const [eventSearchQuery, setEventSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
@@ -1205,7 +1127,6 @@ const AdminConsolePage = ({
   const [policyNotice, setPolicyNotice] = useState("");
   const [policyError, setPolicyError] = useState("");
   const [isSessionBootstrapped, setIsSessionBootstrapped] = useState(false);
-  const [isConsoleLoading, setIsConsoleLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isPolicyLoading, setIsPolicyLoading] = useState(false);
   const [isPolicySaving, setIsPolicySaving] = useState(false);
@@ -1222,8 +1143,6 @@ const AdminConsolePage = ({
   const [selectedKeywordPresetId, setSelectedKeywordPresetId] = useState<
     EventKeywordPresetId | ""
   >("");
-  const [isKeywordPresetPanelOpen, setIsKeywordPresetPanelOpen] =
-    useState(false);
   const [isImportEventPanelOpen, setIsImportEventPanelOpen] = useState(false);
   const [importSourceEventId, setImportSourceEventId] = useState("");
   const [keywordRecommendationNotice, setKeywordRecommendationNotice] =
@@ -1357,7 +1276,6 @@ const AdminConsolePage = ({
       applications.length === 0;
 
     if (!needsEvents && !needsMembers && !needsApplications) {
-      setIsConsoleLoading(false);
       return;
     }
 
@@ -1365,7 +1283,6 @@ const AdminConsolePage = ({
 
     const loadConsoleData = async () => {
       try {
-        setIsConsoleLoading(true);
         setPageError("");
 
         const [eventItems, memberItems, applicationPayload] = await Promise.all(
@@ -1412,10 +1329,6 @@ const AdminConsolePage = ({
               : "관리자 데이터를 불러오지 못했습니다.",
           );
         }
-      } finally {
-        if (!cancelled) {
-          setIsConsoleLoading(false);
-        }
       }
     };
 
@@ -1436,7 +1349,11 @@ const AdminConsolePage = ({
   ]);
 
   useEffect(() => {
-    if (section !== "policies" || !session || !isSessionBootstrapped) {
+    if (
+      !session ||
+      !isSessionBootstrapped ||
+      !shouldLoadAdminPolicyTemplates(section, session.role)
+    ) {
       return;
     }
 
@@ -1547,7 +1464,6 @@ const AdminConsolePage = ({
     );
   }, [adminEventId, eventDetailTab, events, selectedEventDetail]);
 
-  const featuredEvent = selectedEvent ?? events[0] ?? null;
   const canManageApplications = session?.role === "admin";
   const canEditSelectedEvent = !!selectedEvent?.canEdit;
   const pendingApplicationCount = useMemo(
@@ -1555,6 +1471,18 @@ const AdminConsolePage = ({
       applications.filter((requestItem) => requestItem.status === "pending")
         .length,
     [applications],
+  );
+  const dashboardSummary = useMemo(
+    () => buildAdminDashboardSummary(events),
+    [events],
+  );
+  const dashboardFilteredEvents = useMemo(
+    () => filterAdminDashboardEventsByStatus(events, dashboardStatusFilter),
+    [dashboardStatusFilter, events],
+  );
+  const dashboardRecentEvents = useMemo(
+    () => sortAdminDashboardEventsByRecency(dashboardFilteredEvents).slice(0, 6),
+    [dashboardFilteredEvents],
   );
 
   const selectedEventInsights = useMemo(() => {
@@ -1813,7 +1741,6 @@ const AdminConsolePage = ({
   const openEventModal = (eventItem?: AdminEvent) => {
     setEventFormError("");
     setSelectedKeywordPresetId("");
-    setIsKeywordPresetPanelOpen(false);
     setIsImportEventPanelOpen(false);
     setImportSourceEventId("");
     setKeywordRecommendationNotice("");
@@ -1893,7 +1820,6 @@ const AdminConsolePage = ({
     }
 
     setSelectedKeywordPresetId(presetId);
-    setIsKeywordPresetPanelOpen(false);
     setKeywordRecommendationNotice(
       `"${selectedPreset.label}" 카테고리 키워드를 적용했습니다.`,
     );
@@ -2229,6 +2155,19 @@ const AdminConsolePage = ({
       return;
     }
 
+    const expectedAttendeeCount = eventForm.expectedAttendeeCount.trim()
+      ? Number(eventForm.expectedAttendeeCount)
+      : undefined;
+    if (
+      expectedAttendeeCount !== undefined &&
+      (!Number.isInteger(expectedAttendeeCount) ||
+        expectedAttendeeCount < 1 ||
+        expectedAttendeeCount > 100000)
+    ) {
+      setEventFormError("예상 참가자 수는 1명 이상 100,000명 이하로 입력해 주세요.");
+      return;
+    }
+
     if (keywordAutofillSummary.currentCount === 0) {
       setEventFormError("키워드를 한 개 이상 추가해 주세요.");
       return;
@@ -2266,6 +2205,8 @@ const AdminConsolePage = ({
             adminEmail: eventForm.adminEmail,
             boardSize: Number(eventForm.boardSize) as 3 | 4 | 5,
             bingoMissionCount: Number(eventForm.bingoMissionCount),
+            expectedAttendeeCount,
+            restrictBeforeStart: eventForm.restrictBeforeStart,
             keywords: keywordsForSave,
           })
         : await createAdminEvent(session.accessToken, {
@@ -2277,6 +2218,8 @@ const AdminConsolePage = ({
             adminEmail: eventForm.adminEmail,
             boardSize: Number(eventForm.boardSize) as 3 | 4 | 5,
             bingoMissionCount: Number(eventForm.bingoMissionCount),
+            expectedAttendeeCount,
+            restrictBeforeStart: eventForm.restrictBeforeStart,
             keywords: keywordsForSave,
           });
 
@@ -2305,7 +2248,7 @@ const AdminConsolePage = ({
     ? getAbsolutePublicUrl(selectedEventHomePath)
     : "";
   const selectedEventTimeRange = selectedEvent
-    ? getTimeRangeLabel(selectedEvent.startAt, selectedEvent.endAt)
+    ? getEventTimeRangeLabel(selectedEvent.startAt, selectedEvent.endAt)
     : "";
   const keywordAutofillSummary = describeKeywordAutofill(
     eventForm.keywords,
@@ -2337,6 +2280,10 @@ const AdminConsolePage = ({
   }
 
   if (section === "applications" && session.role !== "admin") {
+    return null;
+  }
+
+  if (section === "policies" && session.role !== "admin") {
     return null;
   }
 
@@ -2372,7 +2319,14 @@ const AdminConsolePage = ({
 
       <aside className="flex flex-col justify-between gap-8 px-5 py-8 text-white">
         <div>
-          <AdminBrand compact />
+          <button
+            type="button"
+            className="block w-full rounded-2xl transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            aria-label="대시보드로 이동"
+            onClick={() => goToSection("dashboard")}
+          >
+            <AdminBrand compact />
+          </button>
 
           <nav className="grid gap-2" aria-label="admin navigation">
             {navigationItems
@@ -2399,16 +2353,22 @@ const AdminConsolePage = ({
                   </span>
                 </Button>
               ))}
+          </nav>
+
+          <div className="mt-8 border-t border-white/20 pt-5">
+            <p className="px-2 text-xs font-black uppercase tracking-[0.18em] text-white/45">
+              바로가기
+            </p>
             <a
               href="/"
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-flex h-auto w-full items-center justify-start gap-2.5 rounded-2xl px-5 py-4 text-[1.05rem] font-bold text-white/80 ring-1 ring-white/20 transition-colors hover:bg-white/15 hover:text-white"
+              className="mt-3 inline-flex h-11 w-full items-center justify-between rounded-xl px-4 text-sm font-bold text-white/75 ring-1 ring-white/15 transition-colors hover:bg-white/10 hover:text-white hover:ring-white/25"
             >
+              <span>서비스 홈 열기</span>
               <ExternalLinkIcon />
-              <span>서비스 홈</span>
             </a>
-          </nav>
+          </div>
         </div>
 
         <div className="flex w-full flex-col items-center gap-2 pb-2 text-center">
@@ -2461,45 +2421,67 @@ const AdminConsolePage = ({
                   {pageError}
                 </div>
               ) : null}
-              {isConsoleLoading ? (
-                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
-                  관리자 데이터를 불러오는 중입니다.
-                </div>
-              ) : null}
-
               {section === "dashboard" ? (
                 <>
                   <SectionHeader
                     title="대시보드"
-                    description="이벤트 현황과 현재 라우팅, 관리자 구성, 빙고 설정을 한 화면에서 빠르게 확인할 수 있습니다."
+                    description="권한 내 전체 행사 운영 현황과 최근 행사 진행 상태를 한 화면에서 확인할 수 있습니다."
                     layoutVariant={layoutVariant}
+                    action={
+                      <Button
+                        variant="outline"
+                        className="rounded-full px-5"
+                        onClick={() => navigate(getAdminPath("event-settings"))}
+                      >
+                        전체 행사 보기
+                        <ChevronRightIcon />
+                      </Button>
+                    }
                   />
 
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {[
                       {
-                        label: "대표 이벤트",
-                        value: featuredEvent
-                          ? featuredEvent.name
-                          : "이벤트 없음",
+                        label: "총 행사 수",
+                        value: `${dashboardSummary.totalEventCount.toLocaleString("en-US")}개`,
+                        helper: "권한 내 전체 행사",
                       },
                       {
-                        label: "관리자 수",
-                        value: `${members.length}명`,
+                        label: "진행 중",
+                        value: `${dashboardSummary.statusCounts.in_progress.toLocaleString("en-US")}개`,
+                        helper: "현재 운영 중인 행사",
                       },
                       {
-                        label: "총 이벤트 수",
-                        value: `${events.length}개`,
+                        label: "예정 행사",
+                        value: `${dashboardSummary.statusCounts.scheduled.toLocaleString("en-US")}개`,
+                        helper: "시작 전 행사",
                       },
                       {
-                        label: "진행/예정 행사 수",
-                        value: `${events.filter((eventItem) => eventItem.status !== "ended").length}개`,
+                        label: "종료 행사",
+                        value: `${dashboardSummary.statusCounts.ended.toLocaleString("en-US")}개`,
+                        helper: "결과 확인 대상",
+                      },
+                      {
+                        label: "총 참가자 수",
+                        value: `${dashboardSummary.totalParticipantCount.toLocaleString("en-US")}명`,
+                        helper: "행사별 참가자 합계",
+                      },
+                      {
+                        label: "빙고 달성 인원",
+                        value: `${dashboardSummary.totalBingoCompletionCount.toLocaleString("en-US")}명`,
+                        helper: "전체 참가자 기준",
+                      },
+                      {
+                        label: "전체 완료율",
+                        value: `${dashboardSummary.completionRate}%`,
+                        helper: "빙고 달성 인원 / 참가자",
                       },
                       ...(canManageApplications
                         ? [
                             {
                               label: "승인 대기 신청",
-                              value: `${pendingApplicationCount}건`,
+                              value: `${pendingApplicationCount.toLocaleString("en-US")}건`,
+                              helper: "관리자 검토 필요",
                             },
                           ]
                         : []),
@@ -2508,11 +2490,16 @@ const AdminConsolePage = ({
                         key={item.label}
                         className="rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none"
                       >
-                        <CardContent className="flex min-h-[7.9rem] flex-col justify-between gap-4 px-6 pb-6 pt-7">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                            {item.label}
-                          </p>
-                          <p className="text-[1.45rem] font-black tracking-tight leading-tight text-slate-900 xl:text-[1.6rem]">
+                        <CardContent className="flex min-h-[8.4rem] flex-col justify-between gap-3 px-6 pb-6 pt-7">
+                          <div className="space-y-2">
+                            <p className="text-sm font-black tracking-tight text-slate-700">
+                              {item.label}
+                            </p>
+                            <p className="text-[0.72rem] font-semibold leading-5 text-slate-400">
+                              {item.helper}
+                            </p>
+                          </div>
+                          <p className="text-[1.8rem] font-black leading-none tracking-tight text-slate-950 xl:text-[2rem]">
                             {item.value}
                           </p>
                         </CardContent>
@@ -2520,90 +2507,159 @@ const AdminConsolePage = ({
                     ))}
                   </div>
 
-                  <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-                    <Card className="rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
-                      <CardHeader className="space-y-2 p-7 pb-0">
-                        <CardTitle>이벤트 개요</CardTitle>
+                  <Card className="rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
+                    <CardHeader className="flex flex-col gap-4 p-7 pb-0 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="space-y-2">
+                        <CardTitle>최근 행사 현황</CardTitle>
                         <CardDescription>
-                          대표 이벤트의 핵심 운영 정보를 빠르게 확인할 수
+                          상태별로 최근 행사를 확인하고 상세 리포트로 이동할 수
                           있습니다.
                         </CardDescription>
-                      </CardHeader>
-                      <CardContent className="grid gap-4 p-7 pt-6">
-                        {featuredEvent ? (
-                          [
-                            ["행사명", featuredEvent.name],
-                            ["Event team", featuredEvent.eventTeam],
-                            ["행사 위치", featuredEvent.location],
-                            [
-                              "행사 일정",
-                              `${formatEventDateLabel(featuredEvent.startAt)} - ${formatTimeText(featuredEvent.endAt)}`,
-                            ],
-                            ["담당 관리자", featuredEvent.adminEmail],
-                            [
-                              "빙고 크기",
-                              `${featuredEvent.boardSize}X${featuredEvent.boardSize}`,
-                            ],
-                            [
-                              "성공 조건",
-                              `${featuredEvent.bingoMissionCount}줄`,
-                            ],
-                          ].map(([label, value]) => (
-                            <div
-                              key={label}
-                              className="grid gap-2 rounded-[1.4rem] border border-white/90 bg-white/90 px-4 py-4"
-                            >
-                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                                {label}
-                              </p>
-                              <p className="text-sm font-semibold leading-6 text-slate-700">
-                                {value}
-                              </p>
-                            </div>
-                          ))
-                        ) : (
-                          <EmptyPanelState
-                            className="min-h-[16rem]"
-                            message="아직 등록된 이벤트가 없습니다."
-                          />
-                        )}
-                      </CardContent>
-                    </Card>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {ADMIN_DASHBOARD_STATUS_FILTERS.map((filterItem) => {
+                          const filterCount =
+                            filterItem.key === "all"
+                              ? dashboardSummary.totalEventCount
+                              : dashboardSummary.statusCounts[filterItem.key];
 
-                    <Card className="rounded-[1.75rem] border-[#e8efe0] bg-[#fbfcf8] shadow-none">
-                      <CardHeader className="space-y-2 p-7 pb-0">
-                        <CardTitle>라우팅 안내</CardTitle>
-                        <CardDescription>
-                          관리자 URL은 고정되고, 이벤트 페이지는{" "}
-                          <code>/event/{"{token}"}</code> 형식을 사용합니다.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4 p-7 pt-6">
-                        {[
-                          [
-                            "이벤트 홈",
-                            featuredEvent
-                              ? getEventHomePath(featuredEvent.slug)
-                              : "/event/{token}",
-                          ],
-                          ["관리자 로그인", getAdminPath()],
-                          ["이벤트 관리", getAdminPath("event-settings")],
-                        ].map(([label, value]) => (
-                          <div
-                            key={label}
-                            className="space-y-2 rounded-[1.4rem] border border-white/90 bg-white/90 px-4 py-4"
-                          >
-                            <p className="text-sm font-semibold text-slate-500">
-                              {label}
+                          return (
+                            <button
+                              key={filterItem.key}
+                              type="button"
+                              className={cn(
+                                "inline-flex h-9 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-colors",
+                                dashboardStatusFilter === filterItem.key
+                                  ? "bg-brand-700 text-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
+                                  : "bg-white text-slate-500 ring-1 ring-slate-100 hover:bg-brand-50 hover:text-brand-700",
+                              )}
+                              onClick={() =>
+                                setDashboardStatusFilter(filterItem.key)
+                              }
+                            >
+                              <span>{filterItem.label}</span>
+                              <span
+                                className={cn(
+                                  "rounded-full px-2 py-0.5 text-xs",
+                                  dashboardStatusFilter === filterItem.key
+                                    ? "bg-white/20 text-white"
+                                    : "bg-slate-100 text-slate-400",
+                                )}
+                              >
+                                {filterCount.toLocaleString("en-US")}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4 p-7 pt-6">
+                      {dashboardRecentEvents.length > 0 ? (
+                        <>
+                          <div className="rounded-[1.25rem] bg-white px-5 py-4 ring-1 ring-slate-100">
+                            <p className="text-sm font-semibold leading-6 text-slate-500">
+                              선택한 상태의 행사{" "}
+                              <span className="font-black text-slate-900">
+                                {dashboardFilteredEvents.length.toLocaleString(
+                                  "en-US",
+                                )}
+                                개
+                              </span>{" "}
+                              중 최근{" "}
+                              {dashboardRecentEvents.length.toLocaleString(
+                                "en-US",
+                              )}
+                              개를 표시합니다.
                             </p>
-                            <code className="block break-all rounded-2xl bg-brand-50 px-4 py-3 text-sm font-semibold leading-6 text-brand-700">
-                              {value}
-                            </code>
                           </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  </div>
+
+                          <div className="overflow-hidden rounded-[1.6rem] border border-slate-100 bg-white">
+                            <Table className="table-fixed">
+                              <TableHeader className="bg-[#f6f8ef]">
+                                <TableRow className="border-none hover:bg-transparent">
+                                  <TableHead className="w-[36%]">
+                                    행사명
+                                  </TableHead>
+                                  <TableHead className="w-[17%] whitespace-nowrap">
+                                    일정
+                                  </TableHead>
+                                  <TableHead className="w-[12%] whitespace-nowrap text-center">
+                                    참여자수
+                                  </TableHead>
+                                  <TableHead className="w-[11%]">
+                                    상태
+                                  </TableHead>
+                                  <TableHead className="w-[24%]">
+                                    완료율
+                                  </TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {dashboardRecentEvents.map((eventItem) => (
+                                  <TableRow
+                                    key={eventItem.id}
+                                    className="cursor-pointer hover:bg-[#fbfcf8]"
+                                    onClick={() =>
+                                      goToEventDetail(eventItem.id, "dashboard")
+                                    }
+                                  >
+                                    <TableCell>
+                                      <div className="space-y-2">
+                                        <p className="truncate font-black leading-6 text-slate-900">
+                                          {eventItem.name}
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                                          <span className="rounded-full bg-brand-50 px-2.5 py-1 font-semibold text-brand-700">
+                                            {eventItem.eventTeam}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap">
+                                      <span className="inline-flex rounded-lg bg-slate-100 px-3 py-2 font-medium text-slate-700">
+                                        {formatEventRowDate(eventItem.startAt)}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap text-center">
+                                      <span className="text-base font-black tracking-tight text-slate-900">
+                                        {eventItem.participantCount.toLocaleString(
+                                          "en-US",
+                                        )}
+                                      </span>
+                                      <span className="ml-0.5 text-sm font-bold text-slate-500">
+                                        명
+                                      </span>
+                                    </TableCell>
+                                    <TableCell>
+                                      <EventStatusBadge
+                                        status={eventItem.status}
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <EventProgress
+                                        current={eventItem.progressCurrent}
+                                        total={eventItem.progressTotal}
+                                        compact
+                                      />
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </>
+                      ) : (
+                        <EmptyPanelState
+                          className="min-h-[18rem]"
+                          message={
+                            events.length === 0
+                              ? "아직 등록된 이벤트가 없습니다."
+                              : "선택한 상태에 해당하는 이벤트가 없습니다."
+                          }
+                        />
+                      )}
+                    </CardContent>
+                  </Card>
                 </>
               ) : null}
 
@@ -2916,7 +2972,7 @@ const AdminConsolePage = ({
                               title={selectedEventHomePath}
                               className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
                             >
-                              이벤트 홈
+                              참가 페이지 열기
                               <ExternalLinkIcon />
                             </a>
                             {canEditSelectedEvent ? (
@@ -2968,123 +3024,126 @@ const AdminConsolePage = ({
                       </div>
 
                       {eventDetailTab === "overview" ? (
-                        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]">
-                          <div className="rounded-[1.75rem] bg-white p-6 shadow-[0_18px_48px_rgba(15,23,42,0.07)] ring-1 ring-slate-100">
-                            <div className="flex flex-col gap-6 md:flex-row md:items-stretch">
-                              <div className="flex shrink-0 items-center justify-between rounded-[1.35rem] bg-[#f7fbf2] px-5 py-4 ring-1 ring-brand-100 md:w-[10rem] md:flex-col md:justify-center">
-                                <div className="flex flex-wrap items-center gap-2 md:justify-center">
-                                  <span className="whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[0.7rem] font-bold text-slate-500">
-                                    {selectedEventDateParts?.yearLabel}
-                                  </span>
-                                  <span className="whitespace-nowrap rounded-full bg-brand-100 px-2.5 py-1 text-[0.7rem] font-bold text-brand-700">
-                                    {selectedEventDateParts?.monthLabel}
-                                  </span>
-                                </div>
-                                <div className="text-right md:mt-5 md:text-center">
-                                  <div className="text-5xl font-black tracking-tight text-slate-900 sm:text-6xl">
-                                    {selectedEventDateParts?.day}
-                                  </div>
-                                  <div className="mt-1 text-xs font-bold uppercase tracking-[0.28em] text-slate-400">
-                                    {selectedEventDateParts?.weekday}
-                                  </div>
-                                </div>
+                        <div className="space-y-4">
+                          <div className="rounded-[1.5rem] bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)] ring-1 ring-slate-100">
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-300">
+                                행사 정보
+                              </p>
+                              <div className="mt-3 flex flex-wrap items-center gap-3">
+                                <h2 className="break-words text-[1.8rem] font-black leading-tight tracking-tight text-slate-900 sm:text-[2.1rem]">
+                                  {selectedEvent.name}
+                                </h2>
+                                <EventStatusBadge status={selectedEvent.status} />
                               </div>
-
-                              <div className="flex min-w-0 flex-1 flex-col justify-between gap-6">
-                                <div className="space-y-3">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <EventStatusBadge
-                                      status={selectedEvent.status}
-                                    />
-                                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
-                                      {selectedEventTimeRange}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">
-                                      Event Overview
-                                    </p>
-                                    <h2 className="mt-2 text-[2rem] font-black leading-tight tracking-tight text-slate-900 sm:text-[2.35rem]">
-                                      {selectedEvent.name}
-                                    </h2>
-                                  </div>
-                                </div>
-
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                  <div className="rounded-2xl bg-[#f7fbf2] px-4 py-3">
-                                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-                                      운영팀
-                                    </p>
-                                    <p className="mt-2 text-sm font-bold text-brand-700">
-                                      {selectedEvent.eventTeam}
-                                    </p>
-                                  </div>
-                                  <div className="rounded-2xl bg-[#f7fbf2] px-4 py-3">
-                                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-                                      장소
-                                    </p>
-                                    <p className="mt-2 text-sm font-bold text-slate-700">
-                                      {selectedEvent.location}
-                                    </p>
-                                  </div>
-                                </div>
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+                                  {selectedEventDateParts?.yearLabel}{" "}
+                                  {selectedEventDateParts?.monthLabel}{" "}
+                                  {selectedEventDateParts?.day}일{" "}
+                                  {selectedEventDateParts?.weekday}
+                                </span>
+                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+                                  {selectedEventTimeRange}
+                                </span>
                               </div>
+                            </div>
+
+                            <div className="mt-5 grid gap-3 md:grid-cols-3">
+                              <div className="rounded-2xl bg-[#f7fbf2] px-4 py-3">
+                                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                                  운영팀
+                                </p>
+                                <p className="mt-2 truncate text-sm font-bold text-brand-700">
+                                  {selectedEvent.eventTeam}
+                                </p>
+                              </div>
+                              <div className="rounded-2xl bg-[#f7fbf2] px-4 py-3">
+                                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                                  장소
+                                </p>
+                                <p className="mt-2 truncate text-sm font-bold text-slate-700">
+                                  {selectedEvent.location}
+                                </p>
+                              </div>
+                              <div className="rounded-2xl bg-[#f7fbf2] px-4 py-3">
+                                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                                  예상 인원
+                                </p>
+                                <p className="mt-2 text-sm font-bold text-slate-700">
+                                  {selectedEvent.expectedAttendeeCount
+                                    ? `${selectedEvent.expectedAttendeeCount.toLocaleString("en-US")}명`
+                                    : "미설정"}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 flex flex-wrap items-center gap-2.5 border-t border-slate-100 pt-4">
+                              <p className="mr-1 text-sm font-black text-slate-900">
+                                운영 설정
+                              </p>
+                              {[
+                                {
+                                  label: "보드",
+                                  value: `${selectedEvent.boardSize}x${selectedEvent.boardSize}`,
+                                },
+                                {
+                                  label: "미션",
+                                  value: `${selectedEvent.bingoMissionCount}줄`,
+                                },
+                                {
+                                  label: "키워드",
+                                  value: `${selectedEvent.keywords.length}개`,
+                                },
+                                {
+                                  label: "현재 참가자",
+                                  value: `${selectedEvent.participantCount.toLocaleString("en-US")}명`,
+                                },
+                                {
+                                  label: "행사 전 참가",
+                                  value: selectedEvent.restrictBeforeStart
+                                    ? "제한"
+                                    : "허용",
+                                },
+                              ].map((settingItem) => (
+                                <div
+                                  key={settingItem.label}
+                                  className="inline-flex min-h-10 items-center gap-2 rounded-full bg-slate-50 px-3 py-2 ring-1 ring-slate-100"
+                                >
+                                  <span className="text-xs font-bold text-slate-400">
+                                    {settingItem.label}
+                                  </span>
+                                  <span className="text-sm font-black text-brand-700">
+                                    {settingItem.value}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           </div>
 
-                          <div className="space-y-4">
-                            <div className="rounded-[1.5rem] bg-[#f7fbf2] p-5 ring-1 ring-white/70">
-                              <p className="text-sm font-black text-slate-900">
-                                빙고 설정
-                              </p>
-                              <div className="mt-4 grid grid-cols-3 gap-2">
-                                <div className="rounded-2xl bg-white px-3 py-3 text-center ring-1 ring-slate-100">
-                                  <p className="text-xs font-bold text-slate-400">
-                                    보드
-                                  </p>
-                                  <p className="mt-1 text-lg font-black text-brand-700">
-                                    {selectedEvent.boardSize}x
-                                    {selectedEvent.boardSize}
-                                  </p>
-                                </div>
-                                <div className="rounded-2xl bg-white px-3 py-3 text-center ring-1 ring-slate-100">
-                                  <p className="text-xs font-bold text-slate-400">
-                                    미션
-                                  </p>
-                                  <p className="mt-1 text-lg font-black text-brand-700">
-                                    {selectedEvent.bingoMissionCount}
-                                  </p>
-                                </div>
-                                <div className="rounded-2xl bg-white px-3 py-3 text-center ring-1 ring-slate-100">
-                                  <p className="text-xs font-bold text-slate-400">
-                                    키워드
-                                  </p>
-                                  <p className="mt-1 text-lg font-black text-brand-700">
-                                    {selectedEvent.keywords.length}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="rounded-[1.5rem] bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.05)] ring-1 ring-slate-100">
-                              <div className="mb-4 flex items-center justify-between gap-3">
-                                <p className="text-sm font-black text-slate-900">
-                                  키워드
+                          <div className="rounded-[1.5rem] bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.05)] ring-1 ring-slate-100">
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-base font-black text-slate-900">
+                                  키워드 요약
                                 </p>
-                                <span className="whitespace-nowrap rounded-full bg-brand-50 px-3 py-1 text-xs font-black text-brand-700">
-                                  {selectedEvent.keywords.length}개
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                  참가자가 선택할 수 있는 전체 빙고 키워드입니다.
+                                </p>
+                              </div>
+                              <span className="whitespace-nowrap rounded-full bg-brand-50 px-3 py-1 text-xs font-black text-brand-700">
+                                {selectedEvent.keywords.length}개
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedEvent.keywords.map((keyword) => (
+                                <span
+                                  key={keyword}
+                                  className="max-w-full truncate rounded-xl bg-brand-100 px-3 py-1.5 text-sm font-semibold text-brand-700"
+                                >
+                                  {keyword}
                                 </span>
-                              </div>
-                              <div className="flex max-h-[12rem] flex-wrap gap-2 overflow-y-auto pr-1 [scrollbar-gutter:stable_both-edges]">
-                                {selectedEvent.keywords.map((keyword) => (
-                                  <span
-                                    key={keyword}
-                                    className="rounded-xl bg-brand-100 px-3 py-1.5 text-sm font-semibold text-brand-700"
-                                  >
-                                    {keyword}
-                                  </span>
-                                ))}
-                              </div>
+                              ))}
                             </div>
                           </div>
                         </div>
@@ -3100,7 +3159,7 @@ const AdminConsolePage = ({
                       {eventDetailTab === "dashboard" ? (
                         selectedEventInsights ? (
                           <div className="space-y-7">
-                            <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+                            <div className="grid gap-4 md:grid-cols-3">
                               {[
                                 {
                                   label: "참여자 수",
@@ -3109,7 +3168,6 @@ const AdminConsolePage = ({
                                       "en-US",
                                     ),
                                   unit: "명",
-                                  priority: "primary",
                                 },
                                 {
                                   label: "총 키워드 교환 횟수",
@@ -3118,89 +3176,27 @@ const AdminConsolePage = ({
                                       "en-US",
                                     ),
                                   unit: "회",
-                                  priority: "primary",
-                                },
-                                {
-                                  label: "리뷰 참여자",
-                                  value:
-                                    selectedEventInsights.reviewParticipants.toLocaleString(
-                                      "en-US",
-                                    ),
-                                  unit: "명",
-                                  priority: "secondary",
-                                },
-                                {
-                                  label: "리뷰 평균 점수",
-                                  value:
-                                    selectedEventInsights.averageReviewScore.toFixed(
-                                      1,
-                                    ),
-                                  unit: "/5",
-                                  priority: "secondary",
-                                },
-                                {
-                                  label: "리뷰 참여율",
-                                  value:
-                                    selectedEventInsights.participationRate.toFixed(
-                                      1,
-                                    ),
-                                  unit: "%",
-                                  priority: "primary",
                                 },
                                 {
                                   label: "운영 시간",
                                   value: formatDurationLabel(
                                     selectedEventInsights.operatingMinutes,
                                   ),
-                                  priority: "secondary",
                                 },
                               ].map((metricItem) => (
                                 <div
                                   key={metricItem.label}
-                                  className={cn(
-                                    "rounded-[1.5rem] px-6 transition-shadow xl:col-span-2",
-                                    metricItem.priority === "primary"
-                                      ? "bg-white py-7 shadow-[0_18px_48px_rgba(15,23,42,0.08)] ring-1 ring-brand-100"
-                                      : "bg-[#f7fbf2] py-5 ring-1 ring-white/70",
-                                  )}
+                                  className="rounded-[1rem] bg-white px-5 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.05)] ring-1 ring-slate-100"
                                 >
-                                  <p
-                                    className={cn(
-                                      "font-black",
-                                      metricItem.priority === "primary"
-                                        ? "text-sm text-brand-700"
-                                        : "text-xs uppercase tracking-[0.14em] text-slate-400",
-                                    )}
-                                  >
+                                  <p className="min-h-10 text-sm font-black leading-5 text-brand-700">
                                     {metricItem.label}
                                   </p>
-                                  <div
-                                    className={cn(
-                                      "flex items-end gap-2",
-                                      metricItem.priority === "primary"
-                                        ? "mt-8"
-                                        : "mt-5",
-                                    )}
-                                  >
-                                    <span
-                                      className={cn(
-                                        "font-black tracking-tight text-slate-900",
-                                        metricItem.priority === "primary"
-                                          ? "text-[2.35rem]"
-                                          : "text-[1.7rem]",
-                                      )}
-                                    >
+                                  <div className="mt-3 flex items-end gap-1.5">
+                                    <span className="text-[1.8rem] font-black tracking-tight text-slate-900">
                                       {metricItem.value}
                                     </span>
                                     {metricItem.unit ? (
-                                      <span
-                                        className={cn(
-                                          "pb-1 font-black",
-                                          metricItem.priority === "primary"
-                                            ? "text-xl text-brand-700"
-                                            : "text-sm text-slate-400",
-                                        )}
-                                      >
+                                      <span className="pb-1 text-xs font-black text-brand-700">
                                         {metricItem.unit}
                                       </span>
                                     ) : null}
@@ -3210,21 +3206,16 @@ const AdminConsolePage = ({
                             </div>
 
                             <div className="grid gap-5 xl:grid-cols-2">
-                              <div className="flex h-[24rem] flex-col rounded-[1.6rem] bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)] ring-1 ring-slate-100">
-                                <div className="flex items-start justify-between gap-4">
-                                  <div>
-                                    <p className="text-base font-black text-slate-900">
+                                <div className="rounded-[1.35rem] bg-[#f7fbf2] px-8 py-7 ring-1 ring-white/70">
+                                  <div className="text-center">
+                                    <p className="text-base font-black text-brand-700">
                                       빙고 정보
                                     </p>
                                     <p className="mt-1 text-xs font-semibold text-slate-400">
                                       달성 줄 수별 완료 분포
                                     </p>
                                   </div>
-                                  <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black text-brand-700">
-                                    Board
-                                  </span>
-                                </div>
-                                <div className="mt-6 grid grid-cols-[1.2fr_0.8fr_0.7fr] gap-x-4 rounded-2xl bg-[#f7fbf2] px-3 py-2">
+                                <div className="mt-6 grid grid-cols-[1.2fr_0.8fr_0.7fr] gap-x-4 rounded-2xl bg-white/70 px-3 py-2">
                                   <SortHeaderButton
                                     active={bingoSort.key === "line"}
                                     direction={bingoSort.direction}
@@ -3251,12 +3242,12 @@ const AdminConsolePage = ({
                                   </SortHeaderButton>
                                 </div>
                                 {sortedBingoRows.length > 0 ? (
-                                  <div className="-mr-2 mt-3 flex-1 overflow-y-auto pr-4 [scrollbar-gutter:stable_both-edges]">
+                                  <div className="mt-3">
                                     <div className="space-y-1.5 pb-1">
                                       {sortedBingoRows.map((bingoRow) => (
                                         <div
                                           key={bingoRow.lineLabel}
-                                          className="grid grid-cols-[1.2fr_0.8fr_0.7fr] items-center gap-x-4 rounded-2xl px-3 py-2.5 text-sm text-slate-600 hover:bg-[#f7fbf2]"
+                                          className="grid grid-cols-[1.2fr_0.8fr_0.7fr] items-center gap-x-4 rounded-2xl px-3 py-2.5 text-sm text-slate-600 hover:bg-white/70"
                                         >
                                           <div className="flex items-center gap-2 leading-6">
                                             <span>{bingoRow.lineLabel}</span>
@@ -3285,29 +3276,16 @@ const AdminConsolePage = ({
                                 )}
                               </div>
 
-                              <div className="flex h-[24rem] flex-col rounded-[1.6rem] bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)] ring-1 ring-slate-100">
-                                <div className="flex items-start justify-between gap-4">
-                                  <div>
-                                    <p className="text-base font-black text-slate-900">
+                                <div className="rounded-[1.35rem] bg-[#f7fbf2] px-8 py-7 ring-1 ring-white/70">
+                                  <div className="text-center">
+                                    <p className="text-base font-black text-brand-700">
                                       키워드 별 선택 횟수
                                     </p>
                                     <p className="mt-1 text-xs font-semibold text-slate-400">
-                                      참가자가 많이 선택한 키워드
+                                      전체 키워드별 선택 현황
                                     </p>
                                   </div>
-                                  <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black text-brand-700">
-                                    Keywords
-                                  </span>
-                                </div>
-                                <div className="mt-6 grid grid-cols-[0.6fr_1.5fr_1fr] gap-x-4 rounded-2xl bg-[#f7fbf2] px-3 py-2">
-                                  <SortHeaderButton
-                                    active={keywordSort.key === "rank"}
-                                    direction={keywordSort.direction}
-                                    onClick={() => toggleKeywordSort("rank")}
-                                    className="text-sm"
-                                  >
-                                    순위
-                                  </SortHeaderButton>
+                                <div className="mt-6 grid grid-cols-[minmax(0,1fr)_9rem] gap-x-4 rounded-2xl bg-white/70 px-3 py-2">
                                   <SortHeaderButton
                                     active={keywordSort.key === "keyword"}
                                     direction={keywordSort.direction}
@@ -3326,14 +3304,13 @@ const AdminConsolePage = ({
                                   </SortHeaderButton>
                                 </div>
                                 {sortedKeywordRows.length > 0 ? (
-                                  <div className="-mr-2 mt-3 flex-1 overflow-y-auto pr-4 [scrollbar-gutter:stable_both-edges]">
+                                  <div className="mt-3">
                                     <div className="space-y-1.5 pb-1">
                                       {sortedKeywordRows.map((keywordRow) => (
                                         <div
                                           key={keywordRow.keyword}
-                                          className="grid grid-cols-[0.6fr_1.5fr_1fr] items-center gap-x-4 rounded-2xl px-3 py-2.5 text-sm text-slate-600 hover:bg-[#f7fbf2]"
+                                          className="grid grid-cols-[minmax(0,1fr)_9rem] items-center gap-x-4 rounded-2xl px-3 py-2.5 text-sm text-slate-600 hover:bg-white/70"
                                         >
-                                          <p>{keywordRow.rank}</p>
                                           <p className="break-words leading-6">
                                             {keywordRow.keyword}
                                           </p>
@@ -3365,142 +3342,120 @@ const AdminConsolePage = ({
                         )
                       ) : null}
 
-                      {eventDetailTab === "participants" ? (
-                        selectedEventInsights ? (
-                          <div className="space-y-5">
-                            <div className="flex flex-col gap-2 rounded-[1.25rem] bg-white px-5 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] ring-1 ring-slate-100 sm:flex-row sm:items-center sm:justify-between">
-                              <div>
-                                <p className="text-base font-black text-slate-900">
-                                  참가자 목록
-                                </p>
-                                <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
-                                  이름, 이메일, 진행률, 선택 키워드 수로 정렬해
-                                  현장 대응 대상을 빠르게 찾을 수 있습니다.
-                                </p>
-                              </div>
-                              <span className="whitespace-nowrap rounded-full bg-brand-50 px-4 py-2 text-sm font-black text-brand-700">
-                                총{" "}
-                                {sortedParticipants.length.toLocaleString(
-                                  "en-US",
-                                )}
-                                명
-                              </span>
-                            </div>
-                            <div className="overflow-hidden rounded-[1.6rem] border border-slate-100 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
-                              <div className="overflow-x-auto">
-                                <Table className="min-w-[940px]">
+                        {eventDetailTab === "participants" ? (
+                          selectedEventInsights ? (
+                            <div className="space-y-5">
+                                <div className="overflow-hidden rounded-[1.35rem] border border-brand-50 bg-white">
+                                <Table className="table-fixed">
                                   <TableHeader className="bg-[#f7fbf2]">
                                     <TableRow className="border-none hover:bg-transparent">
-                                      <TableHead className="w-[13rem]">
+                                      <TableHead className="w-[13%]">
                                         <SortHeaderButton
-                                          active={
-                                            participantSort.key === "name"
-                                          }
+                                          active={participantSort.key === "name"}
                                           direction={participantSort.direction}
-                                          onClick={() =>
-                                            toggleParticipantSort("name")
-                                          }
+                                          onClick={() => toggleParticipantSort("name")}
                                         >
                                           이름
                                         </SortHeaderButton>
                                       </TableHead>
-                                      <TableHead className="w-[16rem]">
+                                      <TableHead className="w-[20%]">
                                         <SortHeaderButton
-                                          active={
-                                            participantSort.key === "email"
-                                          }
+                                          active={participantSort.key === "email"}
                                           direction={participantSort.direction}
-                                          onClick={() =>
-                                            toggleParticipantSort("email")
-                                          }
+                                          onClick={() => toggleParticipantSort("email")}
                                         >
                                           이메일
                                         </SortHeaderButton>
                                       </TableHead>
-                                      <TableHead className="w-[15rem]">
+                                      <TableHead className="w-[28%]">
                                         <SortHeaderButton
-                                          active={
-                                            participantSort.key === "progress"
-                                          }
+                                          active={participantSort.key === "progress"}
                                           direction={participantSort.direction}
                                           onClick={() =>
                                             toggleParticipantSort("progress")
                                           }
                                         >
-                                          진행률
+                                          상태
                                         </SortHeaderButton>
                                       </TableHead>
-                                      <TableHead>
+                                      <TableHead className="w-[39%]">
                                         <SortHeaderButton
-                                          active={
-                                            participantSort.key === "keywords"
-                                          }
+                                          active={participantSort.key === "keywords"}
                                           direction={participantSort.direction}
                                           onClick={() =>
                                             toggleParticipantSort("keywords")
                                           }
                                         >
-                                          키워드 수
+                                          키워드
                                         </SortHeaderButton>
                                       </TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {visibleParticipants.map((participant) => (
-                                      <TableRow
-                                        key={participant.id}
-                                        className="hover:bg-[#fbfcf8]"
-                                      >
-                                        <TableCell className="w-[13rem] min-w-[13rem] whitespace-nowrap text-base font-bold tracking-tight text-slate-900">
-                                          {participant.name}
-                                        </TableCell>
-                                        <TableCell className="w-[16rem] min-w-[16rem] whitespace-nowrap text-sm text-slate-700">
-                                          {participant.email}
-                                        </TableCell>
-                                        <TableCell className="w-[12rem] min-w-[12rem]">
-                                          <div className="flex items-center gap-3">
-                                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
-                                              <div
-                                                className="h-full rounded-full bg-brand-500"
-                                                style={{
-                                                  width: `${participant.progressPercent}%`,
-                                                }}
-                                              />
+                                    {visibleParticipants.map((participant) => {
+                                      const visibleKeywords =
+                                        participant.keywords.slice(0, 4);
+                                      const hiddenKeywordCount = Math.max(
+                                        0,
+                                        participant.keywords.length -
+                                          visibleKeywords.length,
+                                      );
+
+                                      return (
+                                        <TableRow
+                                          key={participant.id}
+                                          className="hover:bg-[#fbfcf8]"
+                                        >
+                                          <TableCell className="truncate text-base font-bold tracking-tight text-slate-900">
+                                            {participant.name}
+                                          </TableCell>
+                                          <TableCell className="truncate text-sm text-slate-700">
+                                            {participant.email}
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="flex min-w-0 items-center gap-3">
+                                              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200">
+                                                <div
+                                                  className="h-full rounded-full bg-brand-500"
+                                                  style={{
+                                                    width: `${participant.progressPercent}%`,
+                                                  }}
+                                                />
+                                              </div>
+                                              <span className="w-11 text-right text-sm font-semibold text-slate-900">
+                                                {participant.progressPercent}%
+                                              </span>
                                             </div>
-                                            <span className="text-sm font-semibold text-slate-900">
-                                              {participant.progressPercent}%
-                                            </span>
-                                          </div>
-                                        </TableCell>
-                                        <TableCell className="min-w-[24rem]">
-                                          <div className="flex flex-wrap gap-3">
-                                            <span className="whitespace-nowrap rounded-xl bg-white px-3 py-1.5 text-sm font-bold text-slate-700 ring-1 ring-slate-100">
-                                              {participant.keywords.length}개
-                                            </span>
-                                            {participant.keywords.length > 0 ? (
-                                              participant.keywords.map(
-                                                (keyword) => (
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="flex min-w-0 flex-wrap gap-2">
+                                              {visibleKeywords.length > 0 ? (
+                                                visibleKeywords.map((keyword) => (
                                                   <span
                                                     key={`${participant.id}-${keyword}`}
-                                                    className="rounded-xl bg-brand-100 px-3 py-1.5 text-sm font-semibold text-brand-700"
+                                                    className="max-w-full truncate rounded-xl bg-brand-100 px-3 py-1.5 text-sm font-semibold text-brand-700"
                                                   >
                                                     {keyword}
                                                   </span>
-                                                ),
-                                              )
-                                            ) : (
-                                              <span className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-500">
-                                                키워드 선택 전
-                                              </span>
-                                            )}
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
+                                                ))
+                                              ) : (
+                                                <span className="rounded-xl bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-500">
+                                                  키워드 선택 전
+                                                </span>
+                                              )}
+                                              {hiddenKeywordCount > 0 ? (
+                                                <span className="rounded-xl bg-slate-100 px-3 py-1.5 text-sm font-bold text-slate-500">
+                                                  +{hiddenKeywordCount}
+                                                </span>
+                                              ) : null}
+                                            </div>
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
                                   </TableBody>
                                 </Table>
                               </div>
-                            </div>
 
                             <div className="flex items-center justify-center gap-1 text-slate-400">
                               <button
@@ -3615,92 +3570,79 @@ const AdminConsolePage = ({
                     </div>
 
                     <div className="overflow-hidden rounded-[1.6rem] border border-slate-100 bg-[#fbfcf8]">
-                      <div className="overflow-x-auto">
-                        <Table className="min-w-[1020px]">
-                          <TableHeader className="bg-[#f6f8ef]">
-                            <TableRow className="border-none hover:bg-transparent">
-                              <TableHead className="w-[6rem]">번호</TableHead>
-                              <TableHead className="min-w-[18rem]">
-                                행사명
-                              </TableHead>
-                              <TableHead className="w-[10rem] min-w-[10rem] whitespace-nowrap">
-                                날짜
-                              </TableHead>
-                              <TableHead className="w-[7rem] min-w-[7rem] whitespace-nowrap">
-                                참여자수
-                              </TableHead>
-                              <TableHead>상태</TableHead>
-                              <TableHead>진행도</TableHead>
-                              <TableHead className="w-[4rem]" />
+                      <Table className="table-fixed">
+                        <TableHeader className="bg-[#f6f8ef]">
+                          <TableRow className="border-none hover:bg-transparent">
+                            <TableHead className="w-[34%]">행사명</TableHead>
+                            <TableHead className="w-[11rem] whitespace-nowrap">
+                              날짜
+                            </TableHead>
+                            <TableHead className="w-[5.5rem] whitespace-nowrap text-center">
+                              참여자수
+                            </TableHead>
+                            <TableHead className="w-[6.25rem]">상태</TableHead>
+                            <TableHead className="w-[13rem] whitespace-nowrap">
+                              진행도
+                            </TableHead>
+                            <TableHead className="w-[3rem]" />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {visibleEvents.map((eventItem) => (
+                            <TableRow
+                              key={eventItem.id}
+                              className="cursor-pointer"
+                              onClick={() => goToEventDetail(eventItem.id)}
+                            >
+                              <TableCell className="font-semibold text-slate-800">
+                                <div className="min-w-0 space-y-2">
+                                  <p className="truncate text-base font-black text-slate-900">
+                                    {eventItem.name}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                <span className="inline-flex rounded-lg bg-slate-100 px-2.5 py-2 text-sm font-medium text-slate-700">
+                                  {formatEventRowDate(eventItem.startAt)}
+                                </span>
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-center">
+                                <span className="text-base font-black tracking-tight text-slate-900">
+                                  {eventItem.participantCount.toLocaleString(
+                                    "en-US",
+                                  )}
+                                </span>
+                                <span className="ml-0.5 text-sm font-bold text-slate-500">
+                                  명
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <EventStatusBadge status={eventItem.status} />
+                              </TableCell>
+                              <TableCell>
+                                <EventProgress
+                                  current={eventItem.progressCurrent}
+                                  total={eventItem.progressTotal}
+                                  compact
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <button
+                                  type="button"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-brand-500 hover:bg-brand-50"
+                                  aria-label={`${eventItem.name} 상세 보기`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    goToEventDetail(eventItem.id);
+                                  }}
+                                >
+                                  <ChevronRightIcon />
+                                </button>
+                              </TableCell>
                             </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {visibleEvents.map((eventItem, index) => (
-                              <TableRow
-                                key={eventItem.id}
-                                className="cursor-pointer"
-                                onClick={() => goToEventDetail(eventItem.id)}
-                              >
-                                <TableCell className="font-bold text-slate-900">
-                                  {(eventPage - 1) * ITEMS_PER_PAGE + index + 1}
-                                </TableCell>
-                                <TableCell className="min-w-[18rem] font-semibold text-slate-800">
-                                  <div className="space-y-2">
-                                    <p>{eventItem.name}</p>
-                                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                                      <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-500">
-                                        {getEventHomePath(eventItem.slug)}
-                                      </span>
-                                      <span
-                                        className={cn(
-                                          "rounded-full px-2.5 py-1 font-semibold",
-                                          eventItem.canEdit
-                                            ? "bg-brand-100 text-brand-700"
-                                            : "bg-slate-100 text-slate-500",
-                                        )}
-                                      >
-                                        {eventItem.canEdit
-                                          ? "내 행사"
-                                          : "읽기 전용"}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="whitespace-nowrap">
-                                  <span className="inline-flex rounded-lg bg-slate-100 px-3 py-2 font-medium text-slate-700">
-                                    {formatEventRowDate(eventItem.startAt)}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="whitespace-nowrap text-lg font-medium text-slate-800">
-                                  {eventItem.participantCount}
-                                </TableCell>
-                                <TableCell>
-                                  <EventStatusBadge status={eventItem.status} />
-                                </TableCell>
-                                <TableCell className="min-w-[20rem]">
-                                  <EventProgress
-                                    current={eventItem.progressCurrent}
-                                    total={eventItem.progressTotal}
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <button
-                                    type="button"
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-brand-500 hover:bg-brand-50"
-                                    aria-label={`${eventItem.name} 상세 보기`}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      goToEventDetail(eventItem.id);
-                                    }}
-                                  >
-                                    <ChevronRightIcon />
-                                  </button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                          ))}
                           </TableBody>
-                        </Table>
-                      </div>
+                      </Table>
                     </div>
 
                     <div className="flex items-center justify-center gap-1 text-slate-400">
@@ -3848,8 +3790,8 @@ const AdminConsolePage = ({
                             수정 권한
                           </p>
                           <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-                            Admin만 수정할 수 있고, Event Manager는 같은 문안을
-                            읽기 전용으로 확인합니다.
+                            Admin만 행사 참가자 안내 템플릿을 수정하고 게시할 수
+                            있습니다.
                           </p>
                         </div>
                         <div className="rounded-[1.35rem] border border-white/90 bg-white/90 px-4 py-4">
@@ -4138,8 +4080,8 @@ const AdminConsolePage = ({
                   {eventForm.id ? "이벤트 수정" : "새 이벤트 등록"}
                 </h2>
                 <p className="mt-2 text-sm text-slate-500">
-                  행사명, 위치, 시간, Event team, 키워드를 행사별로 설정할 수
-                  있습니다.
+                  행사명, 위치, 시간, 참가 설정, Event team, 키워드를 행사별로
+                  설정할 수 있습니다.
                 </p>
               </div>
 
@@ -4207,17 +4149,6 @@ const AdminConsolePage = ({
                   </div>
                 </div>
 
-                <div className="flex items-start gap-2 rounded-xl border border-brand-200 bg-brand-50 px-3 py-3 text-xs text-brand-800">
-                  <span className="mt-0.5 shrink-0">
-                    <InfoIcon />
-                  </span>
-                  <p className="font-semibold leading-5">
-                    이벤트 URL은 저장 후 자동 생성됩니다. 생성된 주소는
-                    <span className="mx-1 font-mono">{"/event/{token}"}</span>
-                    형식으로 발급되며, 상세 화면에서 바로 확인할 수 있습니다.
-                  </p>
-                </div>
-
                 <div className="grid gap-4 sm:grid-cols-[1.1fr_0.9fr_0.9fr]">
                   <div className="space-y-2">
                     <Label htmlFor="event-modal-date">날짜</Label>
@@ -4273,19 +4204,94 @@ const AdminConsolePage = ({
                   </div>
                 </div>
 
+                <div className="grid gap-4 rounded-2xl bg-[#f7fbf2] p-4 ring-1 ring-brand-100 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                  <div className="space-y-2">
+                    <Label htmlFor="event-modal-expected-attendee-count">
+                      예상 참가자 수
+                    </Label>
+                    <Input
+                      id="event-modal-expected-attendee-count"
+                      type="number"
+                      min="1"
+                      max="100000"
+                      value={eventForm.expectedAttendeeCount}
+                      onChange={(event) =>
+                        setEventForm((previousValue) => ({
+                          ...previousValue,
+                          expectedAttendeeCount: event.target.value,
+                        }))
+                      }
+                      placeholder="예: 100"
+                      className="h-12 rounded-xl bg-white"
+                    />
+                    <p className="text-xs font-semibold leading-5 text-slate-500">
+                      운영 참고용 인원입니다. 현재 참가자 수는 자동 집계됩니다.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col justify-between gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-slate-100">
+                    <div>
+                      <p className="text-sm font-black text-slate-900">
+                        시작 전 참가 제한
+                      </p>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                        켜짐이면 행사 시작 전에는 카운트다운을 보여주고, 시작
+                        시간이 되면 빙고 게임에 입장할 수 있습니다.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={eventForm.restrictBeforeStart}
+                      className={cn(
+                        "inline-flex h-11 w-full items-center justify-between rounded-full px-4 text-sm font-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
+                        eventForm.restrictBeforeStart
+                          ? "bg-brand-700 text-white"
+                          : "bg-slate-100 text-slate-500",
+                      )}
+                      onClick={() =>
+                        setEventForm((previousValue) => ({
+                          ...previousValue,
+                          restrictBeforeStart: !previousValue.restrictBeforeStart,
+                        }))
+                      }
+                    >
+                      <span>
+                        {eventForm.restrictBeforeStart
+                          ? "제한 켜짐"
+                          : "제한 꺼짐"}
+                      </span>
+                      <span
+                        className={cn(
+                          "h-6 w-6 rounded-full bg-white shadow-sm transition-transform",
+                          eventForm.restrictBeforeStart
+                            ? "translate-x-1"
+                            : "-translate-x-1",
+                        )}
+                        aria-hidden="true"
+                      />
+                    </button>
+                    {!eventForm.restrictBeforeStart ? (
+                      <p className="text-xs font-semibold leading-5 text-amber-700">
+                        꺼짐이면 시작 전에도 참가자가 빙고 게임에 입장할 수
+                        있습니다. 리허설 후에는 참가자 데이터 초기화를 권장합니다.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label>빙고 크기</Label>
                   <div className="grid grid-cols-3 gap-3">
                     {(["3", "4", "5"] as const).map((size) => (
                       <Button
                         key={size}
-                        variant={
-                          eventForm.boardSize === size ? "outline" : "secondary"
-                        }
+                        variant="outline"
                         className={cn(
-                          "h-12 rounded-xl border-brand-600 bg-white text-base font-semibold text-slate-700 hover:bg-brand-50",
-                          eventForm.boardSize !== size &&
-                            "border-slate-200 bg-white text-slate-400 hover:bg-slate-50",
+                          "h-12 rounded-xl border-2 bg-white text-base font-semibold shadow-sm transition-colors",
+                          eventForm.boardSize === size
+                            ? "border-brand-700 text-slate-900 ring-1 ring-brand-200 hover:bg-brand-50"
+                            : "border-slate-300 text-slate-600 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700",
                         )}
                         onClick={() =>
                           setEventForm((previousValue) => {
@@ -4366,22 +4372,6 @@ const AdminConsolePage = ({
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="h-7 rounded-md bg-emerald-100 px-3 text-[0.72rem] font-bold text-emerald-800 hover:bg-emerald-200"
-                        onClick={() =>
-                          setIsKeywordPresetPanelOpen(
-                            (previousValue) => !previousValue,
-                          )
-                        }
-                      >
-                        {isKeywordPresetPanelOpen
-                          ? "카테고리 닫기"
-                          : selectedKeywordPreset
-                            ? `카테고리: ${selectedKeywordPreset.label}`
-                            : "카테고리 고르기"}
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
                         className="h-7 rounded-md bg-brand-100 px-3 text-[0.72rem] font-bold text-brand-800 hover:bg-brand-200"
                         onClick={() =>
                           setIsImportEventPanelOpen(
@@ -4410,44 +4400,38 @@ const AdminConsolePage = ({
                     </div>
                   </div>
 
-                  {isKeywordPresetPanelOpen ? (
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        {EVENT_KEYWORD_PRESET_OPTIONS.map((preset) => {
-                          const isSelected =
-                            selectedKeywordPresetId === preset.id;
+                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="mr-1 text-xs font-black text-slate-500">
+                        추천 카테고리
+                      </p>
+                      {EVENT_KEYWORD_PRESET_OPTIONS.map((preset) => {
+                        const isSelected = selectedKeywordPresetId === preset.id;
 
-                          return (
-                            <button
-                              key={preset.id}
-                              type="button"
-                              className={cn(
-                                "rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors",
-                                isSelected
-                                  ? "border-emerald-500 bg-emerald-600 text-white"
-                                  : "border-emerald-200 bg-white text-emerald-900 hover:border-emerald-300",
-                              )}
-                              onClick={() =>
-                                handleApplyKeywordPreset(preset.id)
-                              }
-                            >
-                              {preset.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {selectedKeywordPreset ? (
-                        <p className="mt-2 text-xs text-slate-600">
-                          {selectedKeywordPreset.description}
-                        </p>
-                      ) : (
-                        <p className="mt-2 text-xs text-slate-600">
-                          원하는 분위기 카테고리를 골라 키워드를 바로 채우세요.
-                        </p>
-                      )}
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            className={cn(
+                              "rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors",
+                              isSelected
+                                ? "border-brand-700 bg-brand-700 text-white"
+                                : "border-slate-200 bg-white text-brand-800 hover:border-brand-300 hover:bg-brand-50",
+                            )}
+                            onClick={() => handleApplyKeywordPreset(preset.id)}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
                     </div>
-                  ) : null}
+
+                    <p className="mt-2 text-xs text-slate-600">
+                      {selectedKeywordPreset
+                        ? selectedKeywordPreset.description
+                        : "원하는 분위기 카테고리를 골라 키워드를 바로 채우세요."}
+                    </p>
+                  </div>
 
                   <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                     <div className="flex flex-wrap gap-2">
@@ -4623,16 +4607,18 @@ export const AdminApplicationsPage = () => (
 export const AdminEventSettingsPage = () => (
   <AdminConsolePage section="event-settings" />
 );
-export const AdminEventOverviewPage = () => (
-  <AdminConsolePage section="event-settings" eventDetailTab="overview" />
-);
-export const AdminEventDashboardPage = () => (
-  <AdminConsolePage section="event-settings" eventDetailTab="dashboard" />
-);
-export const AdminEventParticipantsPage = () => (
-  <AdminConsolePage section="event-settings" eventDetailTab="participants" />
-);
-export const AdminEventSharePage = () => (
-  <AdminConsolePage section="event-settings" eventDetailTab="share" />
-);
+export const AdminEventDetailPage = () => {
+  const { pathname } = useLocation();
+  const eventDetailTab: EventDetailTab = pathname.endsWith("/dashboard")
+    ? "dashboard"
+    : pathname.endsWith("/participants")
+      ? "participants"
+      : pathname.endsWith("/share")
+        ? "share"
+        : "overview";
+
+  return (
+    <AdminConsolePage section="event-settings" eventDetailTab={eventDetailTab} />
+  );
+};
 export const AdminPoliciesPage = () => <AdminConsolePage section="policies" />;

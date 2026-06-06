@@ -19,6 +19,7 @@ export type EventProfile = {
   boardSize: BoardSize;
   exchangeKeywordCount: number;
   bingoMissionCount: number;
+  restrictBeforeStart: boolean;
   keywords: string[];
 };
 
@@ -37,6 +38,7 @@ const DEFAULT_EVENT_PROFILE: EventProfile = {
   boardSize: DEFAULT_BOARD_SIZE as BoardSize,
   exchangeKeywordCount: DEFAULT_EXCHANGE_KEYWORD_COUNT,
   bingoMissionCount: DEFAULT_BINGO_MISSION_COUNT,
+  restrictBeforeStart: true,
   keywords: [...bingoKeywords],
 };
 
@@ -192,6 +194,10 @@ const sanitizeEventProfile = (eventSlug: string, source: EventProfileOverrides):
     boardSize,
     exchangeKeywordCount,
     bingoMissionCount,
+    restrictBeforeStart:
+      typeof legacySource.restrictBeforeStart === "boolean"
+        ? legacySource.restrictBeforeStart
+        : fallbackProfile.restrictBeforeStart,
     keywords: buildBoardKeywordPool(sourceKeywords, boardCellCount),
   };
 };

@@ -99,6 +99,8 @@ export type AdminEvent = {
   adminEmail: string;
   boardSize: 3 | 4 | 5;
   bingoMissionCount: number;
+  expectedAttendeeCount?: number;
+  restrictBeforeStart: boolean;
   keywords: string[];
   participantCount: number;
   progressCurrent: number;

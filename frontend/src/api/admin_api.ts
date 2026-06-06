@@ -145,6 +145,8 @@ type AdminEventPayload = {
   admin_email: string;
   board_size: 3 | 4 | 5;
   bingo_mission_count: number;
+  expected_attendee_count?: number | null;
+  restrict_before_start?: boolean | null;
   keywords: string[];
   participant_count: number;
   progress_current: number;
@@ -184,6 +186,8 @@ export type AdminEventUpsertInput = {
   adminEmail: string;
   boardSize: 3 | 4 | 5;
   bingoMissionCount: number;
+  expectedAttendeeCount?: number;
+  restrictBeforeStart: boolean;
   keywords: string[];
 };
 
@@ -371,6 +375,8 @@ const mapAdminEvent = (payload: AdminEventPayload): AdminEvent => {
     adminEmail: payload.admin_email,
     boardSize: payload.board_size,
     bingoMissionCount: payload.bingo_mission_count,
+    expectedAttendeeCount: payload.expected_attendee_count ?? undefined,
+    restrictBeforeStart: payload.restrict_before_start ?? true,
     keywords: payload.keywords ?? [],
     participantCount: payload.participant_count,
     progressCurrent: payload.progress_current,
@@ -539,6 +545,8 @@ export const createAdminEvent = async (accessToken: string, input: AdminEventUps
         admin_email: input.adminEmail,
         board_size: input.boardSize,
         bingo_mission_count: input.bingoMissionCount,
+        expected_attendee_count: input.expectedAttendeeCount,
+        restrict_before_start: input.restrictBeforeStart,
         keywords: input.keywords,
       }),
     },
@@ -570,6 +578,8 @@ export const updateAdminEvent = async (
         admin_email: input.adminEmail,
         board_size: input.boardSize,
         bingo_mission_count: input.bingoMissionCount,
+        expected_attendee_count: input.expectedAttendeeCount,
+        restrict_before_start: input.restrictBeforeStart,
         keywords: input.keywords,
       }),
     },

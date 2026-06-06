@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getEventDateParts } from "./adminEventDate";
+import { getEventDateParts, getEventTimeRangeLabel } from "./adminEventDate";
 
 describe("getEventDateParts", () => {
   it("formats the event date using the Seoul timezone", () => {
@@ -18,5 +18,22 @@ describe("getEventDateParts", () => {
       day: "--",
       weekday: "",
     });
+  });
+});
+
+describe("getEventTimeRangeLabel", () => {
+  it("formats the event time range with a fixed 24-hour Seoul time", () => {
+    expect(
+      getEventTimeRangeLabel(
+        "2026-06-05T06:00:00.000Z",
+        "2026-06-05T09:00:00.000Z",
+      ),
+    ).toBe("15:00 - 18:00");
+  });
+
+  it("returns the original start value when the range is invalid", () => {
+    expect(getEventTimeRangeLabel("not-a-date", "also-invalid")).toBe(
+      "not-a-date",
+    );
   });
 });
