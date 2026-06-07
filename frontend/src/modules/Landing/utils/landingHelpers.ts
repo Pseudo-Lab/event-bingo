@@ -13,13 +13,22 @@ export const formatLandingDate = (value: string) => {
 };
 
 export const formatEventCaseDate = (dateStr: string) => {
-  const d = new Date(dateStr);
-  const days = ["일", "월", "화", "수", "목", "금", "토"];
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const dow = days[d.getDay()];
-  return `${y}.${m}.${dd} (${dow})`;
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) {
+    return dateStr;
+  }
+
+  const parts = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  }).formatToParts(date);
+  const partValue = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+
+  return `${partValue("year")}.${partValue("month")}.${partValue("day")} (${partValue("weekday")})`;
 };
 
 /* ── Poster Themes ───────────────────────────────────────── */

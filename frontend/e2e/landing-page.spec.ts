@@ -59,12 +59,14 @@ test("landing page keeps the experience and admin entry points prominent", async
     page.getByText("신청을 제출하면 개인정보 수집 및 이용에 동의한 것으로 간주됩니다.", { exact: false })
   ).toBeVisible();
   await expect(page.getByRole("link", { name: /데모 체험하기/ }).first()).toBeVisible();
+  await expect(page.getByText("Codex Skillathon Meetup").first()).toBeVisible();
+  await expect(page.getByText("Search OS 주최 · Codex Ambassador 지원").first()).toBeVisible();
+  await expect(page.getByText("약 80명 규모").first()).toBeVisible();
   await expect(page.getByText("2025 Product DNA Open Forum").first()).toBeVisible();
   await expect(page.getByText("Korea Business Experimentation Symposium 2025").first()).toBeVisible();
+  await expect(page.getByText("한국경영정보학회 주최").first()).toBeVisible();
   await expect(page.getByText("PseudoCon 2025").first()).toBeVisible();
-  await expect(page.getByText("8th PseudoCon").first()).toBeVisible();
   await expect(page.getByText("100명 규모").first()).toBeVisible();
-  await expect(page.getByText("200명 규모").first()).toBeVisible();
   await expect(page.getByText("200명+ 규모").first()).toBeVisible();
 
   await page.getByLabel("이름").fill("홍길동");
