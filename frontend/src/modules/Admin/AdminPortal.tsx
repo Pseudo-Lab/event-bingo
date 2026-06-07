@@ -3156,7 +3156,7 @@ const AdminConsolePage = ({
                                 <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
                                   운영팀
                                 </p>
-                                <p className="mt-2 truncate text-sm font-bold text-brand-700">
+                                <p className="mt-2 break-words text-sm font-bold leading-relaxed text-brand-700">
                                   {selectedEvent.eventTeam}
                                 </p>
                               </div>
@@ -3164,7 +3164,7 @@ const AdminConsolePage = ({
                                 <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
                                   장소
                                 </p>
-                                <p className="mt-2 truncate text-sm font-bold text-slate-700">
+                                <p className="mt-2 break-words text-sm font-bold leading-relaxed text-slate-700">
                                   {selectedEvent.location}
                                 </p>
                               </div>
@@ -3173,7 +3173,7 @@ const AdminConsolePage = ({
                                   소유자
                                 </p>
                                 <p
-                                  className="mt-2 truncate text-sm font-bold text-slate-700"
+                                  className="mt-2 break-words text-sm font-bold leading-relaxed text-slate-700"
                                   title={selectedEventOwnerLabel}
                                 >
                                   {selectedEventOwnerLabel}
