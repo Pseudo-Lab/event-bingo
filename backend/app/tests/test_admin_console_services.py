@@ -1,5 +1,7 @@
 import asyncio
 from collections import Counter
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 
 import api.admin.console_services as console_services
 import pytest
@@ -20,12 +22,13 @@ from api.admin.console_services import (
     resolve_participant_name,
     resolve_selected_keywords,
     resolve_personal_data_cutoff,
+    serialize_admin_member,
     validate_admin_member_deletion,
     validate_event_manager_request_transition,
     validate_event_schedule,
 )
 from datetime import datetime, timedelta, timezone
-from models.admin import AdminRole
+from models.admin import AdminRole, now_kst_naive
 from models.event_manager_request import EventManagerRequestStatus
 
 
@@ -60,6 +63,34 @@ def test_filter_visible_admin_events_limits_event_manager_to_owned_events():
     other_event = type("EventStub", (), {"id": 30, "admin_id": 3})()
 
     assert filter_visible_admin_events(actor, [owned_event, other_event]) == [owned_event]
+
+
+def test_now_kst_naive_uses_kst_wall_clock():
+    actual = now_kst_naive()
+    expected = datetime.now(ZoneInfo("Asia/Seoul")).replace(tzinfo=None)
+
+    assert actual.tzinfo is None
+    assert abs((actual - expected).total_seconds()) < 2
+
+
+def test_serialize_admin_member_omits_unconnected_phone():
+    admin = SimpleNamespace(
+        id=7,
+        email="manager@example.com",
+        name="행사 매니저",
+        created_at=datetime(2026, 6, 7, 15, 30),
+        role=AdminRole.EVENT_MANAGER,
+    )
+
+    item = serialize_admin_member(admin)
+    data = item.model_dump()
+
+    assert data["id"] == 7
+    assert data["email"] == "manager@example.com"
+    assert data["name"] == "행사 매니저"
+    assert data["created_at"] == datetime(2026, 6, 7, 15, 30)
+    assert data["role"] == "event_manager"
+    assert "phone" not in data
 
 
 def test_can_manage_owner_scope_allows_admin_and_owner_only():

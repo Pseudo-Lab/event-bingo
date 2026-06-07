@@ -44,7 +44,6 @@ from .schema import (
 )
 
 
-DEFAULT_ADMIN_PHONE = "010-0000-0000"
 KST = ZoneInfo("Asia/Seoul")
 PERSONAL_DATA_RETENTION_DAYS = max(1, int(os.getenv("PRIVACY_PERSONAL_DATA_RETENTION_DAYS", "365")))
 PRIVACY_REDACTION_RUN_ON_STARTUP = (
@@ -137,7 +136,6 @@ def serialize_admin_member(admin: Admin) -> AdminMemberItem:
         id=admin.id,
         email=admin.email,
         name=admin.name,
-        phone=DEFAULT_ADMIN_PHONE,
         created_at=admin.created_at,
         role=admin.role.value,
     )

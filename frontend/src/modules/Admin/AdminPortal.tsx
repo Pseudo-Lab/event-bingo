@@ -2753,13 +2753,12 @@ const AdminConsolePage = ({
 
                   <div className="overflow-hidden rounded-[1.6rem] border border-slate-100 bg-[#fbfcf8]">
                     <div className="overflow-x-auto">
-                      <Table className="min-w-[760px]">
+                      <Table className="min-w-[680px]">
                         <TableHeader className="bg-[#f6f8ef]">
                           <TableRow className="border-none hover:bg-transparent">
                             <TableHead>번호</TableHead>
                             <TableHead>이름</TableHead>
                             <TableHead>계정</TableHead>
-                            <TableHead>전화번호</TableHead>
                             <TableHead>생성일</TableHead>
                             <TableHead>권한</TableHead>
                             <TableHead className="text-left">관리</TableHead>
@@ -2775,7 +2774,6 @@ const AdminConsolePage = ({
                                 {member.name}
                               </TableCell>
                               <TableCell>{member.email}</TableCell>
-                              <TableCell>{member.phone}</TableCell>
                               <TableCell>
                                 {formatAdminDate(member.createdAt)}
                               </TableCell>

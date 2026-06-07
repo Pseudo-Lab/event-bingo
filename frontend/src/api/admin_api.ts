@@ -46,7 +46,6 @@ type AdminMemberPayload = {
   id: number;
   email: string;
   name: string;
-  phone: string;
   created_at: string;
   role: AdminRoleLiteral;
 };
@@ -283,7 +282,6 @@ const mapAdminMember = (payload: AdminMemberPayload): AdminMember => {
     id: payload.id,
     email: payload.email,
     name: payload.name,
-    phone: payload.phone,
     createdAt: payload.created_at,
     role: payload.role,
   };
