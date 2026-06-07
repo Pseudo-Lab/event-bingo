@@ -148,7 +148,6 @@ export const mockAdminBootstrapRoutes = async ({
           id: session.id,
           email: session.email,
           name: session.name,
-          phone: "010-0000-0000",
           created_at: "2026-03-28T10:00:00+09:00",
           role: session.role,
         },

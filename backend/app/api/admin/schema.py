@@ -27,7 +27,6 @@ class AdminMemberItem(BaseModel):
     id: int
     email: str
     name: str
-    phone: str
     created_at: datetime
     role: AdminRoleLiteral
 

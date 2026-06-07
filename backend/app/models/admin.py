@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Optional
 import enum
 
@@ -7,6 +8,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 from core.db import AsyncSession
 from models.base import Base
 import bcrypt
+
+KST = ZoneInfo("Asia/Seoul")
+
+
+def now_kst_naive() -> datetime:
+    return datetime.now(KST).replace(tzinfo=None)
 
 
 class AdminRole(enum.Enum):
@@ -27,11 +34,11 @@ class Admin(Base):
     invite_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     invitation_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        default=datetime.now, nullable=False
+        default=now_kst_naive, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        default=datetime.now,
-        onupdate=datetime.now,
+        default=now_kst_naive,
+        onupdate=now_kst_naive,
         nullable=False,
     )
 
