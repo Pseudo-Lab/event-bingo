@@ -104,6 +104,7 @@ Last-Validated: 2026-06-07
 - Prefer `CSS Grid` plus `SVG` overlays for bingo board layout and completed-line rendering rather than canvas-heavy implementations.
 - Document API contract deltas for frontend and QA handoff.
 - Add or update tests for each behavior change.
+- When frontend behavior, admin UI, game flow, or E2E support fixtures change, run the relevant frontend unit tests and the full Playwright E2E suite before treating the change as verified. If full E2E cannot be run, explicitly report the skipped specs and why; do not treat CI public smoke coverage as full frontend regression coverage.
 - Track and verify regression around issue #81 behavior.
 
 ## Definition Of Done

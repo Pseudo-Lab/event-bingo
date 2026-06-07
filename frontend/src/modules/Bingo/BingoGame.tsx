@@ -507,7 +507,14 @@ const BingoGame = () => {
       }
 
       // 빙고 오픈 전이면 카운트다운만 표시 (API 호출 안 함)
-      if (locked) {
+      const now = new Date().getTime();
+      const isEntryLockedNow =
+        eventProfile.restrictBeforeStart &&
+        !testModeEnabled &&
+        (locked || now < unlockTime);
+      if (isEntryLockedNow) {
+        setLocked(true);
+        setRemainingTime(Math.max(0, unlockTime - now));
         setIsBootstrapping(false);
         return;
       }
@@ -607,10 +614,12 @@ const BingoGame = () => {
   }, [
     boardCellCount,
     cellValues,
+    eventProfile.restrictBeforeStart,
     eventHomePath,
     eventSlug,
     isEventProfileAvailable,
     locked,
+    unlockTime,
     navigate,
     showAlert,
     syncSessionDisplayName,

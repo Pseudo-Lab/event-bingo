@@ -47,7 +47,7 @@ jobs:
         run: npm run build
 
   frontend-e2e:
-    name: Frontend E2E Smoke
+    name: Frontend E2E
     runs-on: ubuntu-latest
     needs: frontend
     defaults:
@@ -70,8 +70,8 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
-      - name: Public smoke tests
-        run: npm run e2e -- landing-page.spec.ts home.smoke.spec.ts public-entrypoints.smoke.spec.ts
+      - name: Playwright E2E tests
+        run: npm run e2e
 
       - name: Upload Playwright report
         if: failure()

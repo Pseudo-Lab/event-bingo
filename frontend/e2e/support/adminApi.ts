@@ -14,7 +14,7 @@ type AdminEventPayloadOptions = {
   id: number;
   slug: string;
   name: string;
-  boardSize?: 3 | 5;
+  boardSize?: 3 | 4 | 5;
   bingoMissionCount?: number;
   keywords?: string[];
   publishState?: "draft" | "published" | "archived";

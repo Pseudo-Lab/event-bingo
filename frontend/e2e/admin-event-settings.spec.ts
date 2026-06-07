@@ -19,6 +19,7 @@ const existingEvent = buildAdminEventPayload({
   id: 101,
   slug: "existing-event",
   name: "기존 행사",
+  boardSize: 5,
   adminEmail: session.email,
 });
 
@@ -51,11 +52,12 @@ test("opens event modal and imports keywords from an existing event", async ({ p
 
     if (method === "POST") {
       createRequestBody = route.request().postDataJSON() as Record<string, unknown>;
+      const createdBoardSize = Number(createRequestBody.board_size);
       const createdEvent = buildAdminEventPayload({
         id: 202,
         slug: "new-token-2026",
         name: String(createRequestBody.name),
-        boardSize: Number(createRequestBody.board_size) === 3 ? 3 : 5,
+        boardSize: [3, 4, 5].includes(createdBoardSize) ? (createdBoardSize as 3 | 4 | 5) : 4,
         bingoMissionCount: Number(createRequestBody.bingo_mission_count),
         keywords: ((createRequestBody.keywords as string[]) ?? []).slice(),
         startAt: String(createRequestBody.start_at),
@@ -118,6 +120,7 @@ test("opens event modal and imports keywords from an existing event", async ({ p
 
   expect(createRequestBody).not.toBeNull();
   expect(createRequestBody?.slug).toBeUndefined();
-  expect(createRequestBody?.keywords).toHaveLength(25);
+  expect(createRequestBody?.board_size).toBe(4);
+  expect(createRequestBody?.keywords).toHaveLength(16);
   await expect(page).toHaveURL(/\/admin\/events\/202$/);
 });

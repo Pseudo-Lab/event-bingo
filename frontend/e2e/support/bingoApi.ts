@@ -62,10 +62,13 @@ export const mockPublicEventProfile = async (
   options: {
     startAt?: string;
     endAt?: string;
+    boardSize?: 3 | 4 | 5;
+    restrictBeforeStart?: boolean;
   } = {}
 ) => {
   const startAt = options.startAt ?? new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const endAt = options.endAt ?? new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const boardSize = options.boardSize ?? 5;
 
   await page.route(`**/api/events/${eventSlug}`, async (route) => {
     await fulfillJson(route, {
@@ -76,12 +79,13 @@ export const mockPublicEventProfile = async (
         slug: eventSlug,
         name: "Bingo Networking Event",
         location: "서울 컨벤션 센터",
-      event_team: "행사 운영팀",
+        event_team: "행사 운영팀",
         start_at: startAt,
         end_at: endAt,
-        board_size: 5,
+        board_size: boardSize,
         bingo_mission_count: 3,
-        keywords: Array.from({ length: 25 }, (_, index) => `키워드 ${index + 1}`),
+        restrict_before_start: options.restrictBeforeStart ?? false,
+        keywords: Array.from({ length: boardSize * boardSize }, (_, index) => `키워드 ${index + 1}`),
       },
     });
   });
@@ -94,7 +98,7 @@ export const mockPublicEventCatalog = async (
     slug: string;
     name: string;
     startAt: string;
-    boardSize: 3 | 5;
+    boardSize: 3 | 4 | 5;
     bingoMissionCount: number;
     status: "scheduled" | "in_progress" | "ended";
   }>
