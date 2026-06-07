@@ -86,6 +86,7 @@ import {
   type AdminConsoleSection,
 } from "./adminConsoleLoaders";
 import { getEventDateParts, getEventTimeRangeLabel } from "./adminEventDate";
+import { sortAdminMembersByCreatedAtDesc } from "./adminMemberUtils";
 import {
   ADMIN_DASHBOARD_STATUS_FILTERS,
   buildAdminDashboardSummary,
@@ -1429,7 +1430,10 @@ const AdminConsolePage = ({
 
   const visibleMembers = useMemo(() => {
     const startIndex = (memberPage - 1) * ITEMS_PER_PAGE;
-    return members.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    return sortAdminMembersByCreatedAtDesc(members).slice(
+      startIndex,
+      startIndex + ITEMS_PER_PAGE,
+    );
   }, [memberPage, members]);
 
   const filteredEvents = useMemo(() => {
