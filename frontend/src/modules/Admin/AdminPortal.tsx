@@ -2294,6 +2294,11 @@ const AdminConsolePage = ({
   const selectedEventTimeRange = selectedEvent
     ? getEventTimeRangeLabel(selectedEvent.startAt, selectedEvent.endAt)
     : "";
+  const selectedEventOwnerLabel = selectedEvent
+    ? selectedEvent.createdByName.trim() ||
+      selectedEvent.createdByEmail.trim() ||
+      "미확인"
+    : "";
   const keywordAutofillSummary = describeKeywordAutofill(
     eventForm.keywords,
     eventForm.boardSize,
@@ -3146,7 +3151,7 @@ const AdminConsolePage = ({
                               </div>
                             </div>
 
-                            <div className="mt-5 grid gap-3 md:grid-cols-3">
+                            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                               <div className="rounded-2xl bg-[#f7fbf2] px-4 py-3">
                                 <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
                                   운영팀
@@ -3161,6 +3166,17 @@ const AdminConsolePage = ({
                                 </p>
                                 <p className="mt-2 truncate text-sm font-bold text-slate-700">
                                   {selectedEvent.location}
+                                </p>
+                              </div>
+                              <div className="rounded-2xl bg-[#f7fbf2] px-4 py-3">
+                                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                                  소유자
+                                </p>
+                                <p
+                                  className="mt-2 truncate text-sm font-bold text-slate-700"
+                                  title={selectedEventOwnerLabel}
+                                >
+                                  {selectedEventOwnerLabel}
                                 </p>
                               </div>
                               <div className="rounded-2xl bg-[#f7fbf2] px-4 py-3">
