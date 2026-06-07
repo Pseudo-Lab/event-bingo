@@ -2686,7 +2686,7 @@ const AdminConsolePage = ({
                                   >
                                     <TableCell>
                                       <div className="space-y-2">
-                                        <p className="truncate font-black leading-6 text-slate-900">
+                                        <p className="line-clamp-2 break-words text-[0.95rem] font-black leading-6 text-slate-900">
                                           {eventItem.name}
                                         </p>
                                         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -3709,7 +3709,7 @@ const AdminConsolePage = ({
                             >
                               <TableCell className="font-semibold text-slate-800">
                                 <div className="min-w-0 space-y-2">
-                                  <p className="truncate text-base font-black text-slate-900">
+                                  <p className="line-clamp-2 break-words text-[0.95rem] font-black leading-6 text-slate-900">
                                     {eventItem.name}
                                   </p>
                                 </div>
