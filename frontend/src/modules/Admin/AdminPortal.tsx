@@ -2774,10 +2774,10 @@ const AdminConsolePage = ({
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {visibleMembers.map((member) => (
+                          {visibleMembers.map((member, index) => (
                             <TableRow key={member.id}>
                               <TableCell className="font-bold text-slate-900">
-                                {member.id}
+                                {(memberPage - 1) * ITEMS_PER_PAGE + index + 1}
                               </TableCell>
                               <TableCell className="font-semibold text-slate-800">
                                 {member.name}
