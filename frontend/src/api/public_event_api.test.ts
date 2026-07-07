@@ -80,7 +80,11 @@ describe("getPublicEventProfile", () => {
               board_size: 5,
               bingo_mission_count: 3,
               restrict_before_start: false,
+              english_support_enabled: true,
               keywords: ["AI", "네트워킹"],
+              keyword_translations: {
+                네트워킹: "Networking",
+              },
             },
           },
           200
@@ -91,6 +95,10 @@ describe("getPublicEventProfile", () => {
     const profile = await getPublicEventProfile("summer-meetup");
 
     expect(profile.restrictBeforeStart).toBe(false);
+    expect(profile.englishSupportEnabled).toBe(true);
+    expect(profile.keywordTranslations).toEqual({
+      네트워킹: "Networking",
+    });
   });
 });
 

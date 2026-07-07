@@ -51,6 +51,7 @@ class Event(Base):
     success_condition: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     expected_attendee_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     restrict_before_start: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    english_support_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     keywords: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
     game_mode: Mapped[GameMode] = mapped_column(
         Enum(GameMode), nullable=False, default=GameMode.INDIVIDUAL
@@ -136,6 +137,7 @@ class Event(Base):
         success_condition: int = 5,
         expected_attendee_count: Optional[int] = None,
         restrict_before_start: bool = True,
+        english_support_enabled: bool = False,
         keywords: list = None,
         game_mode: "GameMode" = None,
         team_size: int = 1,
@@ -170,6 +172,7 @@ class Event(Base):
             success_condition=success_condition,
             expected_attendee_count=expected_attendee_count,
             restrict_before_start=restrict_before_start,
+            english_support_enabled=english_support_enabled,
             keywords=keywords,
             game_mode=game_mode,
             team_size=team_size,
@@ -220,6 +223,7 @@ class Event(Base):
         success_condition: Optional[int] = None,
         expected_attendee_count: Optional[int] | object = _UNSET,
         restrict_before_start: Optional[bool] = None,
+        english_support_enabled: Optional[bool] = None,
         keywords: Optional[list] = None,
         admin_email: Optional[str] = None,
         game_mode: Optional["GameMode"] = None,
@@ -252,6 +256,8 @@ class Event(Base):
             event.expected_attendee_count = expected_attendee_count
         if restrict_before_start is not None:
             event.restrict_before_start = restrict_before_start
+        if english_support_enabled is not None:
+            event.english_support_enabled = english_support_enabled
         if keywords is not None:
             event.keywords = keywords
         if game_mode is not None:

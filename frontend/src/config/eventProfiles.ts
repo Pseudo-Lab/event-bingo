@@ -20,7 +20,9 @@ export type EventProfile = {
   exchangeKeywordCount: number;
   bingoMissionCount: number;
   restrictBeforeStart: boolean;
+  englishSupportEnabled: boolean;
   keywords: string[];
+  keywordTranslations: Record<string, string>;
 };
 
 type EventProfileOverrides = Partial<Omit<EventProfile, "slug">>;
@@ -39,7 +41,9 @@ const DEFAULT_EVENT_PROFILE: EventProfile = {
   exchangeKeywordCount: DEFAULT_EXCHANGE_KEYWORD_COUNT,
   bingoMissionCount: DEFAULT_BINGO_MISSION_COUNT,
   restrictBeforeStart: true,
+  englishSupportEnabled: false,
   keywords: [...bingoKeywords],
+  keywordTranslations: {},
 };
 
 const hasWindow = () => typeof window !== "undefined";
@@ -198,7 +202,16 @@ const sanitizeEventProfile = (eventSlug: string, source: EventProfileOverrides):
       typeof legacySource.restrictBeforeStart === "boolean"
         ? legacySource.restrictBeforeStart
         : fallbackProfile.restrictBeforeStart,
+    englishSupportEnabled:
+      typeof legacySource.englishSupportEnabled === "boolean"
+        ? legacySource.englishSupportEnabled
+        : fallbackProfile.englishSupportEnabled,
     keywords: buildBoardKeywordPool(sourceKeywords, boardCellCount),
+    keywordTranslations:
+      typeof legacySource.keywordTranslations === "object" &&
+      legacySource.keywordTranslations !== null
+        ? (legacySource.keywordTranslations as Record<string, string>)
+        : fallbackProfile.keywordTranslations,
   };
 };
 

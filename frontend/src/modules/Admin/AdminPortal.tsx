@@ -109,9 +109,11 @@ import {
   clampKeywordList,
   DEFAULT_EVENT_BINGO_MISSION_COUNT,
   DEFAULT_EVENT_BOARD_SIZE,
+  describeEnglishKeywordCoverage,
   describeKeywordAutofill,
   getRecommendedBoardSize,
   getEventKeywordPresetDefinitions,
+  pruneKeywordTranslations,
   type EventKeywordPresetId,
 } from "./adminKeywordUtils";
 import { interpolateConsentTemplate } from "../../utils/consentTemplate";
@@ -137,10 +139,12 @@ type EventFormState = {
   adminEmail: string;
   expectedAttendeeCount: string;
   restrictBeforeStart: boolean;
+  englishSupportEnabled: boolean;
   participantCount: string;
   progressCurrent: string;
   progressTotal: string;
   canEdit: boolean;
+  keywordTranslations: Record<string, string>;
 };
 
 const ITEMS_PER_PAGE = 4;
@@ -426,10 +430,15 @@ const createEventFormState = (
         ? String(eventItem.expectedAttendeeCount)
         : "",
       restrictBeforeStart: eventItem.restrictBeforeStart,
+      englishSupportEnabled: eventItem.englishSupportEnabled,
       participantCount: String(eventItem.participantCount),
       progressCurrent: String(eventItem.progressCurrent),
       progressTotal: String(eventItem.progressTotal),
       canEdit: eventItem.canEdit,
+      keywordTranslations: pruneKeywordTranslations(
+        eventItem.keywordTranslations,
+        eventItem.keywords,
+      ),
     };
   }
 
@@ -447,10 +456,12 @@ const createEventFormState = (
     adminEmail,
     expectedAttendeeCount: "",
     restrictBeforeStart: true,
+    englishSupportEnabled: false,
     participantCount: "0",
     progressCurrent: "0",
     progressTotal: "0",
     canEdit: true,
+    keywordTranslations: {},
   };
 };
 
@@ -1792,6 +1803,10 @@ const AdminConsolePage = ({
       return {
         ...previousValue,
         keywords: nextKeywords,
+        keywordTranslations: pruneKeywordTranslations(
+          previousValue.keywordTranslations,
+          nextKeywords,
+        ),
         keywordDraft: "",
       };
     });
@@ -1841,6 +1856,10 @@ const AdminConsolePage = ({
         presetId,
         previousValue.boardSize,
       ),
+      keywordTranslations: pruneKeywordTranslations(
+        {},
+        buildEventKeywordPresetKeywords(presetId, previousValue.boardSize),
+      ),
       keywordDraft: "",
     }));
   };
@@ -1869,6 +1888,10 @@ const AdminConsolePage = ({
     setEventForm((previousValue) => ({
       ...previousValue,
       keywords: clampKeywordList(sourceEvent.keywords, previousValue.boardSize),
+      keywordTranslations: pruneKeywordTranslations(
+        sourceEvent.keywordTranslations,
+        clampKeywordList(sourceEvent.keywords, previousValue.boardSize),
+      ),
       keywordDraft: "",
     }));
     setKeywordRecommendationError("");
@@ -2221,6 +2244,10 @@ const AdminConsolePage = ({
       eventForm.keywords,
       eventForm.boardSize,
     );
+    const keywordTranslationsForSave = pruneKeywordTranslations(
+      eventForm.keywordTranslations,
+      keywordsForSave,
+    );
 
     if (keywordAutofillSummary.missingCount > 0) {
       const firstGeneratedKeyword =
@@ -2251,7 +2278,9 @@ const AdminConsolePage = ({
             bingoMissionCount: Number(eventForm.bingoMissionCount),
             expectedAttendeeCount,
             restrictBeforeStart: eventForm.restrictBeforeStart,
+            englishSupportEnabled: eventForm.englishSupportEnabled,
             keywords: keywordsForSave,
+            keywordTranslations: keywordTranslationsForSave,
           })
         : await createAdminEvent(session.accessToken, {
             name: eventForm.name,
@@ -2264,7 +2293,9 @@ const AdminConsolePage = ({
             bingoMissionCount: Number(eventForm.bingoMissionCount),
             expectedAttendeeCount,
             restrictBeforeStart: eventForm.restrictBeforeStart,
+            englishSupportEnabled: eventForm.englishSupportEnabled,
             keywords: keywordsForSave,
+            keywordTranslations: keywordTranslationsForSave,
           });
 
       setEvents((previousValue) => upsertAdminEvent(previousValue, savedEvent));
@@ -2302,6 +2333,14 @@ const AdminConsolePage = ({
   const keywordAutofillSummary = describeKeywordAutofill(
     eventForm.keywords,
     eventForm.boardSize,
+  );
+  const savedKeywordTranslations = pruneKeywordTranslations(
+    eventForm.keywordTranslations,
+    keywordAutofillSummary.filledKeywords,
+  );
+  const englishKeywordCoverage = describeEnglishKeywordCoverage(
+    savedKeywordTranslations,
+    keywordAutofillSummary.filledKeywords,
   );
   const keywordProgressPercent =
     keywordAutofillSummary.goalCount > 0
@@ -4451,6 +4490,10 @@ const AdminConsolePage = ({
                                       ? recommendation.boardSize
                                       : nextGoal,
                                   keywords: nextKeywords,
+                                  keywordTranslations: pruneKeywordTranslations(
+                                    previousValue.keywordTranslations,
+                                    nextKeywords,
+                                  ),
                                 };
                               })
                             }
@@ -4531,6 +4574,57 @@ const AdminConsolePage = ({
                       />
                     </div>
 
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black text-slate-900">
+                            영문 참가자 지원
+                          </p>
+                          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                            켜면 게임 화면 English 설정에서 영어 키워드를 우선
+                            표시합니다. 비어 있는 영어 키워드는 한국어로
+                            표시됩니다.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={eventForm.englishSupportEnabled}
+                          className={cn(
+                            "relative h-8 w-14 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
+                            eventForm.englishSupportEnabled
+                              ? "border-brand-700 bg-brand-700"
+                              : "border-slate-200 bg-white",
+                          )}
+                          onClick={() =>
+                            setEventForm((previousValue) => ({
+                              ...previousValue,
+                              englishSupportEnabled:
+                                !previousValue.englishSupportEnabled,
+                            }))
+                          }
+                        >
+                          <span
+                            className={cn(
+                              "absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-transform",
+                              eventForm.englishSupportEnabled
+                                ? "translate-x-6"
+                                : "translate-x-0",
+                            )}
+                            aria-hidden="true"
+                          />
+                        </button>
+                      </div>
+                      {eventForm.englishSupportEnabled &&
+                      englishKeywordCoverage.missingCount > 0 ? (
+                        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800 ring-1 ring-amber-100">
+                          영문 키워드 {englishKeywordCoverage.missingCount}개가
+                          비어 있습니다. 저장은 가능하지만 English 화면에서는
+                          해당 키워드가 한국어로 표시됩니다.
+                        </p>
+                      ) : null}
+                    </div>
+
                     <div className="border-t border-slate-100 pt-4">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="mr-1 text-xs font-black text-slate-500">
@@ -4588,6 +4682,7 @@ const AdminConsolePage = ({
                                 ...previousValue,
                                 keywords: [],
                                 keywordDraft: "",
+                                keywordTranslations: {},
                               }));
                             }}
                           >
@@ -4607,6 +4702,12 @@ const AdminConsolePage = ({
                               ...previousValue,
                               keywords: previousValue.keywords.filter(
                                 (item) => item !== keyword,
+                              ),
+                              keywordTranslations: pruneKeywordTranslations(
+                                previousValue.keywordTranslations,
+                                previousValue.keywords.filter(
+                                  (item) => item !== keyword,
+                                ),
                               ),
                             }));
                           }}
@@ -4647,6 +4748,37 @@ const AdminConsolePage = ({
                         className="min-w-[12rem] flex-1 border-0 bg-transparent px-2 py-1 text-sm text-slate-700 outline-none placeholder:text-slate-400"
                       />
                       </div>
+                      {eventForm.englishSupportEnabled &&
+                      eventForm.keywords.length > 0 ? (
+                        <div className="mt-3 grid gap-2 md:grid-cols-2">
+                          {eventForm.keywords.map((keyword) => (
+                            <label
+                              key={`english-${keyword}`}
+                              className="rounded-lg border border-slate-100 bg-white px-3 py-2"
+                            >
+                              <span className="block text-xs font-black text-slate-500">
+                                {keyword}
+                              </span>
+                              <Input
+                                aria-label={`${keyword} 영문 키워드`}
+                                value={eventForm.keywordTranslations[keyword] ?? ""}
+                                onChange={(event) => {
+                                  const englishKeyword = event.target.value;
+                                  setEventForm((previousValue) => ({
+                                    ...previousValue,
+                                    keywordTranslations: {
+                                      ...previousValue.keywordTranslations,
+                                      [keyword]: englishKeyword,
+                                    },
+                                  }));
+                                }}
+                                placeholder="English keyword"
+                                className="mt-2 h-9 rounded-lg text-sm"
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="flex flex-col gap-3 border-t border-slate-100 pt-4">

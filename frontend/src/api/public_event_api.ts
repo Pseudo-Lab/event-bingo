@@ -43,7 +43,9 @@ type PublicEventPayload = {
   board_size: 3 | 4 | 5;
   bingo_mission_count: number;
   restrict_before_start?: boolean | null;
+  english_support_enabled?: boolean | null;
   keywords: string[];
+  keyword_translations?: Record<string, string> | null;
 };
 
 type PublicEventResponse = ApiResponseBase & {
@@ -194,7 +196,9 @@ const mergeEventProfile = (
     boardSize,
     bingoMissionCount: payload.bingo_mission_count,
     restrictBeforeStart: payload.restrict_before_start ?? true,
+    englishSupportEnabled: payload.english_support_enabled ?? false,
     keywords: buildBoardKeywordPool(payload.keywords ?? fallbackProfile.keywords, boardCellCount),
+    keywordTranslations: payload.keyword_translations ?? {},
   };
 };
 

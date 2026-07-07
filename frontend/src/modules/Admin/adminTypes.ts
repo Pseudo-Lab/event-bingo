@@ -100,7 +100,9 @@ export type AdminEvent = {
   bingoMissionCount: number;
   expectedAttendeeCount?: number;
   restrictBeforeStart: boolean;
+  englishSupportEnabled: boolean;
   keywords: string[];
+  keywordTranslations: Record<string, string>;
   participantCount: number;
   progressCurrent: number;
   progressTotal: number;

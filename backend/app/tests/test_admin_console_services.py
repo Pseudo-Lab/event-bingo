@@ -12,6 +12,8 @@ from api.admin.console_services import (
     build_admin_applications_link,
     build_admin_console_link,
     build_event_keyword_rows,
+    get_event_keyword_texts,
+    get_event_keyword_translations,
     build_visible_admin_events_query,
     can_manage_owner_scope,
     can_view_event,
@@ -154,6 +156,26 @@ def test_normalize_event_keywords_deduplicates_and_trims_before_autofill():
     assert keywords[:2] == ["AI", "ML"]
     assert keywords[2] == "키워드 3"
     assert len(keywords) == 9
+
+
+def test_normalize_event_keywords_stores_english_labels_when_enabled():
+    keywords = normalize_event_keywords(
+        [" AI ", "커뮤니티"],
+        3,
+        english_support_enabled=True,
+        keyword_translations={"AI": "AI", "커뮤니티": "Community"},
+    )
+
+    assert keywords[:2] == [
+        {"ko": "AI", "en": "AI"},
+        {"ko": "커뮤니티", "en": "Community"},
+    ]
+    assert keywords[2] == {"ko": "키워드 3", "en": ""}
+    assert get_event_keyword_texts(keywords)[:2] == ["AI", "커뮤니티"]
+    assert get_event_keyword_translations(keywords) == {
+        "AI": "AI",
+        "커뮤니티": "Community",
+    }
 
 
 def test_build_event_keyword_rows_includes_all_event_keywords_with_zero_counts():

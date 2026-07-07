@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, status
 
 from core.db import AsyncSessionDepends
 from api.admin.console_services import (
+    get_event_keyword_texts,
+    get_event_keyword_translations,
     send_event_manager_request_admin_webhook,
     send_event_manager_request_received_email,
 )
@@ -194,6 +196,8 @@ async def get_public_event_profile(
             board_size=event.bingo_size,
             bingo_mission_count=event.success_condition,
             restrict_before_start=event.restrict_before_start,
-            keywords=[str(keyword) for keyword in (event.keywords or [])],
+            english_support_enabled=getattr(event, "english_support_enabled", False),
+            keywords=get_event_keyword_texts(event.keywords),
+            keyword_translations=get_event_keyword_translations(event.keywords),
         ),
     )

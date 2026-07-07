@@ -6,6 +6,7 @@ import {
   buildEventKeywordPresetKeywords,
   clampKeywordList,
   DEFAULT_EVENT_BOARD_SIZE,
+  describeEnglishKeywordCoverage,
   describeKeywordAutofill,
   getEventKeywordPresetDefinitions,
   getKeywordGoalCount,
@@ -64,6 +65,22 @@ describe("adminKeywordUtils", () => {
         "키워드 8",
         "키워드 9",
       ],
+    });
+  });
+
+  it("describes missing English keyword labels", () => {
+    expect(
+      describeEnglishKeywordCoverage(
+        {
+          AI: "AI",
+          네트워킹: "",
+        },
+        ["AI", "네트워킹", "커뮤니티"]
+      )
+    ).toEqual({
+      totalCount: 3,
+      missingCount: 2,
+      missingKeywords: ["네트워킹", "커뮤니티"],
     });
   });
 

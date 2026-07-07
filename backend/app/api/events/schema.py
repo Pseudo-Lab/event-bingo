@@ -17,7 +17,9 @@ class PublicEventProfileItem(BaseModel):
     board_size: int
     bingo_mission_count: int
     restrict_before_start: bool = True
+    english_support_enabled: bool = False
     keywords: list[str] = Field(default_factory=list)
+    keyword_translations: dict[str, str] = Field(default_factory=dict)
 
 
 class PublicEventProfileResponse(BaseSchema):

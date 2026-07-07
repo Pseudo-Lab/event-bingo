@@ -11,6 +11,7 @@ from models.event_attendee import EventAttendee
 from models.bingo.bingo_boards import BingoBoards
 from models.team import Team, TeamColor
 from models.room import Room
+from api.admin.console_services import get_event_keyword_texts
 
 from .schema import JoinEventResponse, RoomStatusResponse, TeamStatusItem, MyEventsResponse, MyEventItem, RoomTeamsResponse, TeamWithMembersItem, TeamMemberItem
 
@@ -127,7 +128,7 @@ async def join_event(
     await db.flush()
 
     # 빙고판 생성
-    board_data = _build_board(event.keywords or [], event.bingo_size)
+    board_data = _build_board(get_event_keyword_texts(event.keywords), event.bingo_size)
     board = BingoBoards(
         user_id=current_user.user_id,
         event_id=event.id,

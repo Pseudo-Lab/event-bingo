@@ -149,6 +149,28 @@ const BingoGame = () => {
   const boardSize = eventProfile.boardSize;
   const boardCellCount = boardSize * boardSize;
   const cellValues = useMemo(() => eventProfile.keywords, [eventProfile.keywords]);
+  const getKeywordDisplayLabel = useCallback(
+    (keyword: string) => {
+      if (!eventProfile.englishSupportEnabled || language !== "en") {
+        return keyword;
+      }
+
+      return eventProfile.keywordTranslations[keyword]?.trim() || keyword;
+    },
+    [
+      eventProfile.englishSupportEnabled,
+      eventProfile.keywordTranslations,
+      language,
+    ]
+  );
+  const keywordSetupOptions = useMemo(
+    () =>
+      cellValues.map((keyword) => ({
+        value: keyword,
+        label: getKeywordDisplayLabel(keyword),
+      })),
+    [cellValues, getKeywordDisplayLabel]
+  );
   const boardConnectionLines = useMemo(
     () => createBoardConnectionLines(boardSize),
     [boardSize]
@@ -229,6 +251,22 @@ const BingoGame = () => {
   const bingoMissionCount = eventProfile.bingoMissionCount;
   const exchangeKeywordCount = eventProfile.exchangeKeywordCount;
   const isBoardPreviewActive = boardPreviewPreset !== null;
+  const displayBingoBoard = useMemo(
+    () =>
+      bingoBoard?.map((cell) => ({
+        ...cell,
+        value: getKeywordDisplayLabel(cell.value),
+      })) ?? null,
+    [bingoBoard, getKeywordDisplayLabel]
+  );
+  const displayLatestReceivedKeywords = useMemo(
+    () => latestReceivedKeywords.map(getKeywordDisplayLabel),
+    [getKeywordDisplayLabel, latestReceivedKeywords]
+  );
+  const displayAlertKeywords = useMemo(
+    () => alertKeywords.map(getKeywordDisplayLabel),
+    [alertKeywords, getKeywordDisplayLabel]
+  );
 
   const syncSessionDisplayName = useCallback((nextName: string) => {
     const trimmedName = nextName.trim();
@@ -303,13 +341,23 @@ const BingoGame = () => {
 
   const sentHistory = useMemo(() => {
     const numericUserId = Number(userId);
-    return exchangeHistory.filter((record) => record.sendUserId === numericUserId);
-  }, [exchangeHistory, userId]);
+    return exchangeHistory
+      .filter((record) => record.sendUserId === numericUserId)
+      .map((record) => ({
+        ...record,
+        given: record.given.map(getKeywordDisplayLabel),
+      }));
+  }, [exchangeHistory, getKeywordDisplayLabel, userId]);
 
   const receivedHistory = useMemo(() => {
     const numericUserId = Number(userId);
-    return exchangeHistory.filter((record) => record.receiveUserId === numericUserId);
-  }, [exchangeHistory, userId]);
+    return exchangeHistory
+      .filter((record) => record.receiveUserId === numericUserId)
+      .map((record) => ({
+        ...record,
+        given: record.given.map(getKeywordDisplayLabel),
+      }));
+  }, [exchangeHistory, getKeywordDisplayLabel, userId]);
 
   const handleCloseAlert = useCallback(() => {
     if (alertTimeoutRef.current) {
@@ -1006,7 +1054,7 @@ const BingoGame = () => {
       severity={alertSeverity}
       title={alertTitle}
       message={alertMessage}
-      keywords={alertKeywords}
+      keywords={displayAlertKeywords}
       label={alertLabel}
       closeLabel={copy.toastCloseLabel}
       closeText={copy.toastCloseText}
@@ -1270,7 +1318,7 @@ const BingoGame = () => {
       <KeywordSetupScreen
         exchangeKeywordCount={exchangeKeywordCount}
         isInitializingBoard={isInitializingBoard}
-        keywords={cellValues}
+        keywords={keywordSetupOptions}
         selectedKeywords={selectedInitialKeywords}
         copy={{
           title: copy.keywordSetupTitle,
@@ -1471,14 +1519,14 @@ const BingoGame = () => {
           </article>
         </section>
 
-        {bingoBoard ? (
+        {displayBingoBoard ? (
           <BingoBoardSection
-            board={bingoBoard}
+            board={displayBingoBoard}
             boardSize={boardSize}
             connectionLines={boardConnectionLines}
             completedLines={completedLines}
             newBingoCells={newBingoCells}
-            latestReceivedKeywords={latestReceivedKeywords}
+            latestReceivedKeywords={displayLatestReceivedKeywords}
             animatedCells={animatedCells}
             completedCellIndexes={bingoLineCells}
             previewTools={

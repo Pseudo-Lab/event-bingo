@@ -85,7 +85,9 @@ export const mockPublicEventProfile = async (
         board_size: boardSize,
         bingo_mission_count: 3,
         restrict_before_start: options.restrictBeforeStart ?? false,
+        english_support_enabled: false,
         keywords: Array.from({ length: boardSize * boardSize }, (_, index) => `키워드 ${index + 1}`),
+        keyword_translations: {},
       },
     });
   });

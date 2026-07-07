@@ -54,7 +54,7 @@ type BingoCountdownScreenProps = {
 type KeywordSetupScreenProps = {
   exchangeKeywordCount: number;
   isInitializingBoard: boolean;
-  keywords: string[];
+  keywords: Array<{ value: string; label: string }>;
   selectedKeywords: string[];
   copy: {
     title: string;
@@ -282,17 +282,17 @@ export function KeywordSetupScreen({
           <div className="keyword-setup-card__scroller">
             <div className="keyword-setup-grid">
               {keywords.map((keyword) => {
-                const isSelected = selectedKeywords.includes(keyword);
+                const isSelected = selectedKeywords.includes(keyword.value);
 
                 return (
                   <button
-                    key={keyword}
+                    key={keyword.value}
                     type="button"
                     className={`keyword-chip ${isSelected ? "is-selected" : ""}`}
-                    onClick={() => onToggleKeyword(keyword)}
+                    onClick={() => onToggleKeyword(keyword.value)}
                     aria-pressed={isSelected}
                   >
-                    {keyword}
+                    {keyword.label}
                   </button>
                 );
               })}

@@ -19,7 +19,9 @@ const buildEventProfile = (overrides: Partial<EventProfile> = {}): EventProfile 
   exchangeKeywordCount: 3,
   bingoMissionCount: 3,
   restrictBeforeStart: true,
+  englishSupportEnabled: false,
   keywords: Array.from({ length: 25 }, (_, index) => `키워드 ${index + 1}`),
+  keywordTranslations: {},
   ...overrides,
 });
 
