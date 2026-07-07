@@ -556,6 +556,49 @@
   outline-offset: 4px;
 }
 
+.bingo-language-switch {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 60;
+  display: inline-flex;
+  gap: 0.18rem;
+  padding: 0.22rem;
+  border: 1px solid rgba(13, 107, 84, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 12px 26px rgba(10, 70, 51, 0.14);
+  backdrop-filter: blur(12px);
+}
+
+.bingo-language-switch button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #0d6b54;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0.58rem 0.72rem;
+  white-space: nowrap;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.bingo-language-switch button.is-active {
+  background: #0d6b54;
+  color: #f8fffb;
+  box-shadow: 0 8px 16px rgba(13, 107, 84, 0.18);
+}
+
+.bingo-language-switch button:focus-visible {
+  outline: 3px solid rgba(30, 133, 100, 0.24);
+  outline-offset: 3px;
+}
+
 .bingo-game-top {
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(17rem, 0.95fr);
@@ -1817,6 +1860,16 @@
 }
 
 @media (max-width: 720px) {
+  .bingo-language-switch {
+    top: 0.72rem;
+    right: 0.72rem;
+  }
+
+  .bingo-language-switch button {
+    font-size: 0.72rem;
+    padding: 0.5rem 0.58rem;
+  }
+
   .bingo-countdown__timer {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2040,6 +2093,15 @@
 }
 
 @media (max-width: 380px) {
+  .bingo-language-switch {
+    right: 0.5rem;
+  }
+
+  .bingo-language-switch button {
+    font-size: 0.68rem;
+    padding: 0.45rem 0.48rem;
+  }
+
   .bingo-game-shell {
     padding: 0.8rem 0.34rem 2rem;
   }
