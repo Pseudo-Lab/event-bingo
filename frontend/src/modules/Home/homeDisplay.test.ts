@@ -32,9 +32,9 @@ describe("resolveHomeEventSummary", () => {
       false
     );
 
-    expect(display.eventName).toBe(HOME_EVENT_DISPLAY_FALLBACKS.loadingEventName);
-    expect(display.date).toBe(HOME_EVENT_DISPLAY_FALLBACKS.loadingDate);
-    expect(display.place).toBe(HOME_EVENT_DISPLAY_FALLBACKS.loadingPlace);
+    expect(display.eventName).toBe(HOME_EVENT_DISPLAY_FALLBACKS.ko.loadingEventName);
+    expect(display.date).toBe(HOME_EVENT_DISPLAY_FALLBACKS.ko.loadingDate);
+    expect(display.place).toBe(HOME_EVENT_DISPLAY_FALLBACKS.ko.loadingPlace);
   });
 
   it("shows the resolved event details when the profile has loaded", () => {
@@ -52,9 +52,30 @@ describe("resolveHomeEventSummary", () => {
       true
     );
 
-    expect(display.eventName).toBe(HOME_EVENT_DISPLAY_FALLBACKS.eventName);
-    expect(display.eventTeam).toBe(HOME_EVENT_DISPLAY_FALLBACKS.eventTeam);
-    expect(display.date).toBe(HOME_EVENT_DISPLAY_FALLBACKS.date);
-    expect(display.place).toBe(HOME_EVENT_DISPLAY_FALLBACKS.place);
+    expect(display.eventName).toBe(HOME_EVENT_DISPLAY_FALLBACKS.ko.eventName);
+    expect(display.eventTeam).toBe(HOME_EVENT_DISPLAY_FALLBACKS.ko.eventTeam);
+    expect(display.date).toBe(HOME_EVENT_DISPLAY_FALLBACKS.ko.date);
+    expect(display.place).toBe(HOME_EVENT_DISPLAY_FALLBACKS.ko.place);
+  });
+
+  it("uses English fallback copy and date formatting when English is selected", () => {
+    const loadingDisplay = resolveHomeEventSummary(
+      resolvePublicEventFallbackProfile("global-connect-2027"),
+      false,
+      "en"
+    );
+    const resolvedDisplay = resolveHomeEventSummary(buildEventProfile(), true, "en");
+    const fallbackDisplay = resolveHomeEventSummary(
+      resolvePublicEventFallbackProfile("global-connect-2027"),
+      true,
+      "en"
+    );
+
+    expect(loadingDisplay.eventName).toBe(HOME_EVENT_DISPLAY_FALLBACKS.en.loadingEventName);
+    expect(resolvedDisplay.date).toBe("October 9, 2026 at 13:30");
+    expect(fallbackDisplay.eventName).toBe(HOME_EVENT_DISPLAY_FALLBACKS.en.eventName);
+    expect(fallbackDisplay.eventTeam).toBe(HOME_EVENT_DISPLAY_FALLBACKS.en.eventTeam);
+    expect(fallbackDisplay.date).toBe(HOME_EVENT_DISPLAY_FALLBACKS.en.date);
+    expect(fallbackDisplay.place).toBe(HOME_EVENT_DISPLAY_FALLBACKS.en.place);
   });
 });

@@ -260,9 +260,9 @@ export const renameEventProfileSettings = (
   return resolveEventProfile(normalizedNextSlug);
 };
 
-export const formatEventDateLabel = (startAt: string) => {
+export const formatEventDateLabel = (startAt: string, locale = "ko-KR") => {
   try {
-    return new Intl.DateTimeFormat("ko-KR", {
+    return new Intl.DateTimeFormat(locale, {
       year: "numeric",
       month: "long",
       day: "numeric",
