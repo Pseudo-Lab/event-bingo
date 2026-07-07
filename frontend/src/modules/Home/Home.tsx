@@ -30,7 +30,7 @@ import { ensureBingoGoogleBridge } from "../../utils/bingoGoogleBridge";
 import { clearLegacyLocalLoginStorage } from "../../utils/legacyAuthStorage";
 import { isTestModeEnabled, syncTestModeFromUrl } from "../../utils/testMode";
 import bingoLoginCharacterIllustration from "../../assets/illustrations/bingo-login-character.svg";
-import topIllustration from "../../assets/illustrations/top.svg";
+import bingoNetworkingWordmark from "../../assets/illustrations/Bingo Networking.svg";
 import { Dialog } from "../../components/ui/dialog";
 import ConsentDialog from "./ConsentDialog";
 import {
@@ -765,18 +765,11 @@ const Home = () => {
       <main className="login-shell">
         <HomeLanguageSwitch language={language} onChange={handleLanguageChange} />
         <header className="login-hero">
-          {language === "ko" ? (
-            <img
-              className="login-hero__image"
-              src={topIllustration}
-              alt={`${HOME_EVENT_DISPLAY_FALLBACKS.ko.title} ${HOME_EVENT_DISPLAY_FALLBACKS.ko.subtitle}`}
-            />
-          ) : (
-            <div className="login-hero__text" aria-label={`${copy.heroTitle} ${copy.heroSubtitle}`}>
-              <span>{copy.heroTitle}</span>
-              <strong>{copy.heroSubtitle}</strong>
-            </div>
-          )}
+          <img
+            className="login-hero__image"
+            src={bingoNetworkingWordmark}
+            alt={HOME_EVENT_DISPLAY_FALLBACKS.ko.title}
+          />
         </header>
 
         <section

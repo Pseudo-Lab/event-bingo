@@ -1394,10 +1394,10 @@ const BingoGame = () => {
           <button
             type="button"
             className="bingo-game-header__brand"
-            aria-label={`${brandTitle} 홈으로 이동`}
+            aria-label={copy.eventHomeLabel}
             onClick={() => navigate(eventHomePath, { replace: true })}
           >
-            <img src={bingoNetworkingWordmark} alt={brandTitle} />
+            <img src={bingoNetworkingWordmark} alt="Bingo Networking" />
           </button>
           <LanguageSwitch language={language} onChange={handleLanguageChange} />
         </header>

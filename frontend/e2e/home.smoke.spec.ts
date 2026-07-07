@@ -100,7 +100,10 @@ test("event home follows the selected English language setting", async ({ page }
   const loginForm = page.getByLabel("login form");
   const eventSummary = page.getByLabel("event summary");
 
-  await expect(page.getByText("A new way to network through bingo")).toBeVisible();
+  const logo = page.getByRole("img", { name: "Bingo Networking" });
+  await expect(logo).toBeVisible();
+  await expect(logo).toHaveJSProperty("complete", true);
+  await expect(logo).not.toHaveJSProperty("naturalWidth", 0);
   await expect(eventSummary.getByText("Bingo Networking", { exact: true })).toBeVisible();
   await expect(eventSummary.getByText("July 8, 2026 at 10:00")).toBeVisible();
   await expect(loginForm.getByText("Before Login")).toBeVisible();

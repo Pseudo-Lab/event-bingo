@@ -78,30 +78,6 @@
   height: auto;
 }
 
-.login-hero__text {
-  display: grid;
-  gap: 0.3rem;
-  width: min(100%, 22rem);
-  min-height: 8.0625rem;
-  place-content: center;
-  text-align: center;
-  color: #ffffff;
-  text-shadow: 0 4px 14px rgba(15, 76, 58, 0.2);
-}
-
-.login-hero__text span {
-  font-size: clamp(2.5rem, 8vw, 3.8rem);
-  font-weight: 1000;
-  line-height: 0.98;
-}
-
-.login-hero__text strong {
-  color: rgba(255, 255, 255, 0.86);
-  font-size: clamp(1.25rem, 4vw, 1.7rem);
-  font-weight: 900;
-  line-height: 1.18;
-}
-
 .login-event-card,
 .login-form-card {
   width: 100%;
@@ -870,10 +846,6 @@
 
   .login-hero__image {
     width: min(100%, 17.5rem);
-  }
-
-  .login-hero__text {
-    min-height: 6.9rem;
   }
 
   .login-event-card {
