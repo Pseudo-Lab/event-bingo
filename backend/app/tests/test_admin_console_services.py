@@ -178,6 +178,26 @@ def test_normalize_event_keywords_stores_english_labels_when_enabled():
     }
 
 
+def test_normalize_event_keywords_stores_english_labels_when_keywords_fill_board():
+    source_keywords = [f"키워드 {index}" for index in range(1, 10)]
+    keywords = normalize_event_keywords(
+        source_keywords,
+        3,
+        english_support_enabled=True,
+        keyword_translations={
+            "키워드 1": "Keyword 1",
+            "키워드 9": "Keyword 9",
+        },
+    )
+
+    assert keywords[0] == {"ko": "키워드 1", "en": "Keyword 1"}
+    assert keywords[-1] == {"ko": "키워드 9", "en": "Keyword 9"}
+    assert get_event_keyword_translations(keywords) == {
+        "키워드 1": "Keyword 1",
+        "키워드 9": "Keyword 9",
+    }
+
+
 def test_build_event_keyword_rows_includes_all_event_keywords_with_zero_counts():
     rows = build_event_keyword_rows(
         ["사업개발", "제휴", "시장조사", "전환율"],

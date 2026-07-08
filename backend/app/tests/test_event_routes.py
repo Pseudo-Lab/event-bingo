@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import api.events.routes as event_routes
 from api.events.routes import (
     events_router,
+    get_public_event_privacy_notice,
     get_public_event_profile,
     get_public_policy_template,
     list_public_events,
@@ -63,12 +64,73 @@ def test_public_event_profile_includes_entry_lock_setting(monkeypatch):
     assert response.event.restrict_before_start is False
 
 
+def test_public_event_profile_falls_back_for_blank_legacy_metadata(monkeypatch):
+    async def fake_get_by_slug(_session, slug):
+        return SimpleNamespace(
+            id=7,
+            slug=slug,
+            name=" ",
+            location=None,
+            event_team=None,
+            start_time=datetime(2026, 6, 1, 15, 0, tzinfo=timezone.utc),
+            end_time=datetime(2026, 6, 1, 18, 0, tzinfo=timezone.utc),
+            bingo_size=5,
+            success_condition=3,
+            restrict_before_start=True,
+            english_support_enabled=False,
+            keywords=None,
+        )
+
+    monkeypatch.setattr(Event, "get_by_slug", fake_get_by_slug)
+
+    response = asyncio.run(get_public_event_profile("legacy-event", object()))
+
+    assert response.ok is True
+    assert response.event.name == "이벤트"
+    assert response.event.location == "행사 장소"
+    assert response.event.event_team == "Event Team"
+    assert response.event.keywords == []
+
+
 def test_public_platform_policy_endpoint_returns_code_defined_static_policy():
     response = asyncio.run(get_public_policy_template())
 
     assert response.template.updated_at == PLATFORM_PRIVACY_POLICY_UPDATED_AT
     assert "DevFactory 서비스 운영팀" in response.template.content
     assert "policy_templates" not in response.template.content
+
+
+def test_public_event_privacy_notice_falls_back_for_blank_legacy_metadata(monkeypatch):
+    updated_at = datetime(2026, 5, 14, tzinfo=timezone.utc)
+
+    async def fake_get_by_slug(_session, slug):
+        return SimpleNamespace(
+            slug=slug,
+            name=None,
+            event_team=" ",
+            admin_email=None,
+        )
+
+    async def fake_ensure_consent_template(_session):
+        return SimpleNamespace(
+            content_markdown="{eventName}|{eventTeam}|{eventContactEmail}",
+            updated_at=updated_at,
+        )
+
+    monkeypatch.setattr(Event, "get_by_slug", fake_get_by_slug)
+    monkeypatch.setattr(
+        event_routes.PolicyTemplate,
+        "ensure_consent_template",
+        fake_ensure_consent_template,
+    )
+
+    response = asyncio.run(get_public_event_privacy_notice("legacy-event", object()))
+
+    assert response.ok is True
+    assert response.template.event_name == "이벤트"
+    assert response.template.event_team == "Event Team"
+    assert response.template.contact_email == "devfactory.ops@gmail.com"
+    assert response.template.content == "이벤트|Event Team|devfactory.ops@gmail.com"
 
 
 def test_event_manager_request_allows_missing_event_purpose():

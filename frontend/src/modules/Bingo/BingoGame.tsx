@@ -1494,7 +1494,7 @@ const BingoGame = () => {
                 {myKeywords.length > 0 ? (
                   myKeywords.map((keyword) => (
                     <span key={keyword} className="bingo-stats__selected-chip">
-                      {keyword}
+                      {getKeywordDisplayLabel(keyword)}
                     </span>
                   ))
                 ) : (

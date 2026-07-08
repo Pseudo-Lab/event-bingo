@@ -277,7 +277,7 @@ def normalize_event_keywords(
         seen_keywords.add(normalized_keyword)
 
         if len(normalized_keywords) >= required_count:
-            return normalized_keywords
+            break
 
     generated_keywords = [
         f"키워드 {len(normalized_keywords) + index + 1}"

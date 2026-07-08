@@ -4581,8 +4581,8 @@ const AdminConsolePage = ({
                             영문 참가자 지원
                           </p>
                           <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-                            켜면 게임 화면 English 설정에서 영어 키워드를 우선
-                            표시합니다. 비어 있는 영어 키워드는 한국어로
+                            참가자 화면의 English 모드에서 영어 키워드를 먼저
+                            보여줍니다. 번역이 없는 키워드는 기본 키워드로
                             표시됩니다.
                           </p>
                         </div>
@@ -4591,10 +4591,10 @@ const AdminConsolePage = ({
                           role="switch"
                           aria-checked={eventForm.englishSupportEnabled}
                           className={cn(
-                            "relative h-8 w-14 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
+                            "relative h-7 w-12 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
                             eventForm.englishSupportEnabled
                               ? "border-brand-700 bg-brand-700"
-                              : "border-slate-200 bg-white",
+                              : "border-slate-300 bg-slate-200",
                           )}
                           onClick={() =>
                             setEventForm((previousValue) => ({
@@ -4604,11 +4604,16 @@ const AdminConsolePage = ({
                             }))
                           }
                         >
+                          <span className="sr-only">
+                            {eventForm.englishSupportEnabled
+                              ? "지원 켜짐"
+                              : "지원 꺼짐"}
+                          </span>
                           <span
                             className={cn(
-                              "absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-transform",
+                              "absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-[0_2px_6px_rgba(15,23,42,0.18)] transition-transform",
                               eventForm.englishSupportEnabled
-                                ? "translate-x-6"
+                                ? "translate-x-5"
                                 : "translate-x-0",
                             )}
                             aria-hidden="true"
@@ -4620,7 +4625,7 @@ const AdminConsolePage = ({
                         <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800 ring-1 ring-amber-100">
                           영문 키워드 {englishKeywordCoverage.missingCount}개가
                           비어 있습니다. 저장은 가능하지만 English 화면에서는
-                          해당 키워드가 한국어로 표시됩니다.
+                          해당 키워드가 기본 키워드로 표시됩니다.
                         </p>
                       ) : null}
                     </div>
