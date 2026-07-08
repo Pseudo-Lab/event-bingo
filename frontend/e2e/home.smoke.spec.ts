@@ -87,3 +87,40 @@ test("event home renders and opens the privacy notice dialog", async ({ page }) 
     "decimal"
   );
 });
+
+test("event home follows the selected English language setting", async ({ page }) => {
+  await mockPrivacyTemplate(page);
+  await mockPublicEventProfile(page, "bingo-networking", {
+    startAt: "2026-07-08T10:00:00+09:00",
+  });
+
+  await page.goto("/event/bingo-networking");
+  await page.getByRole("button", { name: "English" }).click();
+
+  const loginForm = page.getByLabel("login form");
+  const eventSummary = page.getByLabel("event summary");
+
+  const logo = page.getByRole("img", { name: "Bingo Networking" });
+  await expect(logo).toBeVisible();
+  await expect(logo).toHaveJSProperty("complete", true);
+  await expect(logo).not.toHaveJSProperty("naturalWidth", 0);
+  await expect(eventSummary.getByText("Bingo Networking", { exact: true })).toBeVisible();
+  await expect(eventSummary.getByText("July 8, 2026 at 10:00")).toBeVisible();
+  await expect(loginForm.getByText("Before Login")).toBeVisible();
+  await expect(
+    loginForm.getByText("Continuing with Google creates your event participant account", {
+      exact: false,
+    })
+  ).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /I agree to the Terms of Service/ })).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", {
+      name: /I have reviewed the Privacy Policy and event privacy notice/,
+    })
+  ).toBeVisible();
+  await expect(page.getByText("Review the required items before continuing with Google.")).toBeVisible();
+
+  await page.reload();
+
+  await expect(loginForm.getByText("Before Login")).toBeVisible();
+});

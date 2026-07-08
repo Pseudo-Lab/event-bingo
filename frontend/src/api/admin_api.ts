@@ -146,7 +146,9 @@ type AdminEventPayload = {
   bingo_mission_count: number;
   expected_attendee_count?: number | null;
   restrict_before_start?: boolean | null;
+  english_support_enabled?: boolean | null;
   keywords: string[];
+  keyword_translations?: Record<string, string> | null;
   participant_count: number;
   progress_current: number;
   progress_total: number;
@@ -192,7 +194,9 @@ export type AdminEventUpsertInput = {
   bingoMissionCount: number;
   expectedAttendeeCount?: number;
   restrictBeforeStart: boolean;
+  englishSupportEnabled: boolean;
   keywords: string[];
+  keywordTranslations: Record<string, string>;
 };
 
 export type AdminEventManagerRequestReviewInput = {
@@ -380,7 +384,9 @@ const mapAdminEvent = (payload: AdminEventPayload): AdminEvent => {
     bingoMissionCount: payload.bingo_mission_count,
     expectedAttendeeCount: payload.expected_attendee_count ?? undefined,
     restrictBeforeStart: payload.restrict_before_start ?? true,
+    englishSupportEnabled: payload.english_support_enabled ?? false,
     keywords: payload.keywords ?? [],
+    keywordTranslations: payload.keyword_translations ?? {},
     participantCount: payload.participant_count,
     progressCurrent: payload.progress_current,
     progressTotal: payload.progress_total,
@@ -551,7 +557,9 @@ export const createAdminEvent = async (accessToken: string, input: AdminEventUps
         bingo_mission_count: input.bingoMissionCount,
         expected_attendee_count: input.expectedAttendeeCount,
         restrict_before_start: input.restrictBeforeStart,
+        english_support_enabled: input.englishSupportEnabled,
         keywords: input.keywords,
+        keyword_translations: input.keywordTranslations,
       }),
     },
     accessToken
@@ -584,7 +592,9 @@ export const updateAdminEvent = async (
         bingo_mission_count: input.bingoMissionCount,
         expected_attendee_count: input.expectedAttendeeCount,
         restrict_before_start: input.restrictBeforeStart,
+        english_support_enabled: input.englishSupportEnabled,
         keywords: input.keywords,
+        keyword_translations: input.keywordTranslations,
       }),
     },
     accessToken

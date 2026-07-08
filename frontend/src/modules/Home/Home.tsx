@@ -30,7 +30,7 @@ import { ensureBingoGoogleBridge } from "../../utils/bingoGoogleBridge";
 import { clearLegacyLocalLoginStorage } from "../../utils/legacyAuthStorage";
 import { isTestModeEnabled, syncTestModeFromUrl } from "../../utils/testMode";
 import bingoLoginCharacterIllustration from "../../assets/illustrations/bingo-login-character.svg";
-import topIllustration from "../../assets/illustrations/top.svg";
+import bingoNetworkingWordmark from "../../assets/illustrations/Bingo Networking.svg";
 import { Dialog } from "../../components/ui/dialog";
 import ConsentDialog from "./ConsentDialog";
 import {
@@ -38,7 +38,13 @@ import {
   resolveHomeEventSummary,
 } from "./homeDisplay";
 import PublicEventStatePage from "../../components/PublicEventStatePage";
+import {
+  readBingoGameLanguage,
+  writeBingoGameLanguage,
+} from "../Bingo/bingoGameLanguage";
+import type { BingoGameLanguage } from "../Bingo/bingoGameLanguage";
 import "./Home.css";
+import { getHomeEventCategoryLabel, homeCopy } from "./homeLanguage";
 
 const normalizeTesterCode = (value: string | undefined | null) => {
   return value?.trim().toUpperCase().replace(/\s/g, "") ?? "";
@@ -83,12 +89,23 @@ const PlaceIcon = () => {
 };
 
 type HomeStatusToastProps = {
+  closeLabel: string;
   message: string;
   severity: "error" | "success";
+  statusLabels: {
+    error: string;
+    success: string;
+  };
   onClose: () => void;
 };
 
-const HomeStatusToast = ({ message, severity, onClose }: HomeStatusToastProps) => {
+const HomeStatusToast = ({
+  closeLabel,
+  message,
+  severity,
+  statusLabels,
+  onClose,
+}: HomeStatusToastProps) => {
   const toneClassName =
     severity === "success"
       ? "border-emerald-200 bg-white/95 text-emerald-950 shadow-[0_18px_40px_rgba(16,84,64,0.18)]"
@@ -106,7 +123,7 @@ const HomeStatusToast = ({ message, severity, onClose }: HomeStatusToastProps) =
         aria-live="polite"
       >
         <span className={`rounded-full px-2.5 py-1 text-xs font-extrabold ${badgeClassName}`}>
-          {severity === "success" ? "완료" : "오류"}
+          {statusLabels[severity]}
         </span>
         <p className="min-w-0 flex-1 text-sm font-semibold leading-6">{message}</p>
         <button
@@ -114,9 +131,34 @@ const HomeStatusToast = ({ message, severity, onClose }: HomeStatusToastProps) =
           className="rounded-full px-2 py-1 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
           onClick={onClose}
         >
-          닫기
+          {closeLabel}
         </button>
       </div>
+    </div>
+  );
+};
+
+type HomeLanguageSwitchProps = {
+  language: BingoGameLanguage;
+  onChange: (language: BingoGameLanguage) => void;
+};
+
+const HomeLanguageSwitch = ({ language, onChange }: HomeLanguageSwitchProps) => {
+  const copy = homeCopy[language];
+
+  return (
+    <div className="login-language-switch" aria-label={copy.languageSetting}>
+      {copy.languageOptions.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          className={language === option.value ? "is-active" : ""}
+          onClick={() => onChange(option.value)}
+          aria-pressed={language === option.value}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 };
@@ -159,14 +201,28 @@ const Home = () => {
   const [mockTesterResetting, setMockTesterResetting] = useState(false);
   const [activeTesterCode, setActiveTesterCode] = useState<string | null>(null);
   const [handledTestCode, setHandledTestCode] = useState<string | null>(null);
+  const [language, setLanguage] = useState<BingoGameLanguage>(() =>
+    readBingoGameLanguage(
+      typeof window === "undefined" ? undefined : window.localStorage
+    )
+  );
+  const copy = homeCopy[language];
   const shouldUseGoogleAuth =
     !testModeEnabled && isSupabaseConfigured() && isGoogleIdentityConfigured();
   const hasParticipantName = participantName.trim().length > 0;
   const canStartGoogleLogin = termsAccepted && privacyNoticeConfirmed;
   const eventSummary = useMemo(
-    () => resolveHomeEventSummary(eventProfile, isEventProfileResolved),
-    [eventProfile, isEventProfileResolved]
+    () => resolveHomeEventSummary(eventProfile, isEventProfileResolved, language),
+    [eventProfile, isEventProfileResolved, language]
   );
+
+  const handleLanguageChange = useCallback((nextLanguage: BingoGameLanguage) => {
+    setLanguage(nextLanguage);
+    writeBingoGameLanguage(
+      typeof window === "undefined" ? undefined : window.localStorage,
+      nextLanguage
+    );
+  }, []);
 
   useEffect(() => {
     setTestModeEnabledState(syncTestModeFromUrl(location.search));
@@ -233,11 +289,11 @@ const Home = () => {
       setMockTesterUsers(users);
     } catch (error) {
       console.error("Failed to load local tester users", error);
-      openAlert("테스트 계정 목록을 불러오지 못했습니다.");
+      openAlert(copy.loadingError);
     } finally {
       setMockTesterLoading(false);
     }
-  }, [openAlert, testModeEnabled]);
+  }, [copy.loadingError, openAlert, testModeEnabled]);
 
   const applyLoginSession = useCallback(({
     userId,
@@ -319,7 +375,7 @@ const Home = () => {
           openAlert(
             error instanceof Error
               ? error.message
-              : "Google 로그인 정보를 복구하지 못했습니다."
+              : copy.restoreError
           );
         }
       }
@@ -338,6 +394,7 @@ const Home = () => {
     isEventProfileAvailable,
     navigate,
     openAlert,
+    copy.restoreError,
     shouldUseGoogleAuth,
   ]);
 
@@ -349,7 +406,7 @@ const Home = () => {
     nonce: string;
   }) => {
     if (!isEventProfileAvailable) {
-      openAlert("행사 정보를 확인한 뒤 다시 시도해 주세요.");
+      openAlert(copy.eventRequired);
       return;
     }
 
@@ -370,7 +427,7 @@ const Home = () => {
 
       const user = data.user ?? data.session?.user;
       if (!user) {
-        throw new Error("Google 로그인 세션을 확인하지 못했습니다.");
+        throw new Error(copy.googleSessionError);
       }
 
       clearLegacyLocalLoginStorage();
@@ -381,14 +438,14 @@ const Home = () => {
       await supabase.auth.signOut();
       clearCurrentSessionState();
       openAlert(
-        error instanceof Error ? error.message : "Google 로그인 중 오류가 발생했습니다."
+        error instanceof Error ? error.message : copy.googleLoginError
       );
     }
   };
 
   const handleTesterLogin = useCallback(async (tester: MockTesterUser) => {
     if (!isEventProfileAvailable) {
-      openAlert("유효한 행사 주소에서만 테스트 로그인을 진행할 수 있습니다.");
+      openAlert(copy.testLoginInvalid);
       return;
     }
 
@@ -403,7 +460,7 @@ const Home = () => {
         !result.user_name ||
         !result.login_id
       ) {
-        openAlert(result.message || "테스트 계정 전환에 실패했습니다.");
+        openAlert(result.message || copy.testLoginFailed);
         return;
       }
 
@@ -413,20 +470,25 @@ const Home = () => {
         loginId: result.login_id,
         userEmail: result.user_email ?? undefined,
       });
-      openAlert(`"${result.user_name}" 계정으로 전환했습니다.`, "success");
+      openAlert(copy.testLoginSuccess(result.user_name), "success");
       navigate(eventBingoPath, { replace: true });
     } catch (error) {
       console.error("Failed to switch tester session", error);
-      openAlert("테스트 계정 전환 중 오류가 발생했습니다.");
+      openAlert(copy.testLoginError);
     } finally {
       setActiveTesterCode(null);
     }
-  }, [applyLoginSession, eventBingoPath, isEventProfileAvailable, navigate, openAlert]);
+  }, [
+    applyLoginSession,
+    copy,
+    eventBingoPath,
+    isEventProfileAvailable,
+    navigate,
+    openAlert,
+  ]);
 
   const handleResetMockTesterData = useCallback(async () => {
-    const shouldReset = window.confirm(
-      "로컬 테스트 보드와 교환 기록을 처음 상태로 되돌릴까요?"
-    );
+    const shouldReset = window.confirm(copy.testResetConfirm);
 
     if (!shouldReset) {
       return;
@@ -439,14 +501,23 @@ const Home = () => {
       clearCurrentSessionState();
       navigate(eventHomePath, { replace: true });
       await loadMockTesterUsers();
-      openAlert("테스트 데이터를 처음 상태로 초기화했습니다.", "success");
+      openAlert(copy.testResetSuccess, "success");
     } catch (error) {
       console.error("Failed to reset local mock tester data", error);
-      openAlert("테스트 데이터 초기화 중 오류가 발생했습니다.");
+      openAlert(copy.testResetError);
     } finally {
       setMockTesterResetting(false);
     }
-  }, [clearCurrentSessionState, eventHomePath, loadMockTesterUsers, navigate, openAlert]);
+  }, [
+    clearCurrentSessionState,
+    copy.testResetConfirm,
+    copy.testResetError,
+    copy.testResetSuccess,
+    eventHomePath,
+    loadMockTesterUsers,
+    navigate,
+    openAlert,
+  ]);
 
   useEffect(() => {
     if (!testModeEnabled) {
@@ -509,11 +580,11 @@ const Home = () => {
     }
 
     return (
-      <section className="login-dev-panel" aria-label="local mock tester">
+      <section className="login-dev-panel" aria-label={copy.testerPanelAriaLabel}>
         <div className="login-dev-panel__header">
           <div>
-            <p className="login-dev-panel__eyebrow">테스트 모드 계정</p>
-            <h3>탭마다 다른 계정으로 바로 테스트</h3>
+            <p className="login-dev-panel__eyebrow">{copy.testerPanelEyebrow}</p>
+            <h3>{copy.testerPanelTitle}</h3>
           </div>
           <div className="login-dev-panel__tools">
             <button
@@ -524,7 +595,7 @@ const Home = () => {
               }}
               disabled={mockTesterLoading || mockTesterResetting}
             >
-              {mockTesterLoading ? "불러오는 중..." : "새로고침"}
+              {mockTesterLoading ? copy.testerRefreshLoading : copy.testerRefresh}
             </button>
             <button
               type="button"
@@ -534,14 +605,12 @@ const Home = () => {
               }}
               disabled={mockTesterLoading || mockTesterResetting}
             >
-              {mockTesterResetting ? "초기화 중..." : "테스트 초기화"}
+              {mockTesterResetting ? copy.testerResetting : copy.testerReset}
             </button>
           </div>
         </div>
         <p className="login-dev-panel__description">
-          테스트 계정 로그인은 현재 탭의 `sessionStorage`를 쓰고, mock 보드와 교환
-          기록은 브라우저 전체에서 공유합니다. 그래서 여러 탭을 열어 두면 서로 다른
-          계정끼리 바로 교환 테스트를 할 수 있습니다.
+          {copy.testerPanelDescription}
         </p>
 
         <div className="login-dev-panel__list">
@@ -556,7 +625,7 @@ const Home = () => {
                 <div className="login-dev-user__meta">
                   <strong>{tester.userName}</strong>
                   <span>ID {tester.userId}</span>
-                  <span>{tester.hasBoard ? "보드 준비 완료" : "보드 미준비"}</span>
+                  <span>{tester.hasBoard ? copy.testerBoardReady : copy.testerBoardPending}</span>
                 </div>
                 <div className="login-dev-user__actions">
                   <button
@@ -569,7 +638,9 @@ const Home = () => {
                       mockTesterResetting || activeTesterCode === tester.accessCode
                     }
                   >
-                    {activeTesterCode === tester.accessCode ? "전환 중..." : "이 탭으로"}
+                    {activeTesterCode === tester.accessCode
+                      ? copy.testerSwitching
+                      : copy.testerUseCurrentTab}
                   </button>
                   <button
                     type="button"
@@ -577,7 +648,7 @@ const Home = () => {
                     onClick={() => openTesterInNewTab(tester)}
                     disabled={mockTesterResetting}
                   >
-                    새 탭 열기
+                    {copy.testerOpenNewTab}
                   </button>
                 </div>
               </article>
@@ -592,18 +663,15 @@ const Home = () => {
     return (
       <div className="login-google-panel">
         <div className="login-policy">
-          <p className="login-policy__eyebrow">로그인 전 확인</p>
+          <p className="login-policy__eyebrow">{copy.loginPolicyTitle}</p>
           <p className="login-policy__summary">
-            Google로 계속하면 Google 계정의 이름, 이메일 주소, 계정 고유
-            식별자를 사용해 이 행사 참가 계정을 만듭니다. 행사 중 선택한
-            키워드, 빙고 보드, 진행률, 키워드 교환 기록은 빙고 진행과 행사
-            운영을 위해 사용됩니다.
+            {copy.loginPolicySummary}
           </p>
         </div>
 
         <div className="login-google-panel__button-wrap">
           <div className="login-google-panel__button-slot">
-            <div className="login-required-checks" aria-label="필수 확인 항목">
+            <div className="login-required-checks" aria-label={copy.requiredChecksLabel}>
               <label className="login-required-check">
                 <input
                   type="checkbox"
@@ -611,11 +679,12 @@ const Home = () => {
                   onChange={(event) => setTermsAccepted(event.target.checked)}
                 />
                 <span>
-                  <span className="login-required-check__prefix">[필수]</span>{" "}
+                  <span className="login-required-check__prefix">{copy.required}</span>{" "}
+                  {language === "en" ? `${copy.termsAgreement} ` : null}
                   <Link to="/terms" target="_blank" rel="noreferrer">
-                    서비스 이용약관
+                    {copy.terms}
                   </Link>
-                  에 동의합니다
+                  {language === "ko" ? copy.termsAgreement : null}
                 </span>
               </label>
               <label className="login-required-check">
@@ -627,25 +696,27 @@ const Home = () => {
                   }
                 />
                 <span>
-                  <span className="login-required-check__prefix">[필수]</span>{" "}
+                  <span className="login-required-check__prefix">{copy.required}</span>{" "}
+                  {language === "en" ? `${copy.privacyConfirmation} ` : null}
                   <Link to="/privacy" target="_blank" rel="noreferrer">
-                    개인정보처리방침
+                    {copy.privacy}
                   </Link>{" "}
-                  및{" "}
+                  {copy.and}{" "}
                   <button
                     type="button"
                     className="login-required-check__link"
                     onClick={() => setPolicyDialogOpen(true)}
                   >
-                    행사별 개인정보 안내
+                    {copy.eventPrivacy}
                   </button>
-                  를 확인했습니다
+                  {language === "ko" ? copy.privacyConfirmation : null}
                 </span>
               </label>
             </div>
             <GoogleSignInButton
               context="use"
               disabled={!canStartGoogleLogin}
+              locale={language}
               onError={(message) => openAlert(message)}
               onSuccess={handleGoogleBingoLogin}
               text="continue_with"
@@ -655,7 +726,7 @@ const Home = () => {
               data-visible={!canStartGoogleLogin}
               aria-hidden={canStartGoogleLogin}
             >
-              필수 항목을 확인한 뒤 Google 로그인을 진행할 수 있습니다.
+              {copy.loginHint}
             </p>
           </div>
         </div>
@@ -666,9 +737,9 @@ const Home = () => {
   if (eventProfileLoadState === "not_found") {
     return (
       <PublicEventStatePage
-        eyebrow="Public Event"
-        title="행사를 찾을 수 없습니다"
-        description="입력한 행사 주소로는 공개 행사 페이지를 열 수 없습니다. 주최자에게 최신 링크를 다시 확인하거나 메인 화면에서 행사 목록을 확인해 주세요."
+        eyebrow={copy.notFoundEyebrow}
+        title={copy.notFoundTitle}
+        description={copy.notFoundDescription}
       />
     );
   }
@@ -676,13 +747,13 @@ const Home = () => {
   if (eventProfileLoadState === "error") {
     return (
       <PublicEventStatePage
-        eyebrow="Public Event"
-        title="행사 정보를 확인할 수 없습니다"
+        eyebrow={copy.notFoundEyebrow}
+        title={copy.eventErrorTitle}
         description={
           eventProfileErrorMessage ??
-          "행사 정보를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+          copy.eventErrorDescription
         }
-        secondaryActionLabel="새로고침"
+        secondaryActionLabel={copy.reload}
         onSecondaryAction={() => window.location.reload()}
       />
     );
@@ -692,21 +763,24 @@ const Home = () => {
     <div className="login-page">
       <div className="login-page__mesh" aria-hidden="true" />
       <main className="login-shell">
+        <HomeLanguageSwitch language={language} onChange={handleLanguageChange} />
         <header className="login-hero">
           <img
             className="login-hero__image"
-            src={topIllustration}
-            alt={`${HOME_EVENT_DISPLAY_FALLBACKS.title} ${HOME_EVENT_DISPLAY_FALLBACKS.subtitle}`}
+            src={bingoNetworkingWordmark}
+            alt={HOME_EVENT_DISPLAY_FALLBACKS.ko.title}
           />
         </header>
 
         <section
           className="login-event-card"
-          aria-label="event summary"
+          aria-label={copy.eventSummaryAriaLabel}
           aria-busy={!isEventProfileResolved}
         >
           <div className="login-event-card__copy">
-            <p className="login-event-card__eyebrow">{eventProfile.title}</p>
+            <p className="login-event-card__eyebrow">
+              {getHomeEventCategoryLabel(eventProfile.title, language)}
+            </p>
             {isEventProfileResolved ? (
               <>
                 <h2>{eventSummary.eventName}</h2>
@@ -745,16 +819,16 @@ const Home = () => {
           </div>
         </section>
 
-        <section className="login-form-card" aria-label="login form">
+        <section className="login-form-card" aria-label={copy.loginFormAriaLabel}>
           {isLoggedIn ? (
             <div className="login-session">
-              <h3>{hasParticipantName ? participantName : "이름 설정 필요"}</h3>
+              <h3>{hasParticipantName ? participantName : copy.nameRequiredTitle}</h3>
               {shouldUseGoogleAuth && googleAccountEmail ? (
                 <p className="login-session__account">{googleAccountEmail}</p>
               ) : null}
               {!hasParticipantName ? (
                 <p className="login-session__description">
-                  빙고에서 사용할 이름을 먼저 설정해 주세요.
+                  {copy.nameRequiredDescription}
                 </p>
               ) : null}
               <div className="login-session__actions">
@@ -763,14 +837,14 @@ const Home = () => {
                   className="login-submit"
                   onClick={() => navigate(eventBingoPath)}
                 >
-                  {hasParticipantName ? "빙고로 이동" : "이름 설정하기"}
+                  {hasParticipantName ? copy.goToBingo : copy.setName}
                 </button>
                 <button
                   type="button"
                   className="login-secondary"
                   onClick={handleLogout}
                 >
-                  로그아웃
+                  {copy.logout}
                 </button>
               </div>
 
@@ -783,7 +857,7 @@ const Home = () => {
               ) : !testModeEnabled ? (
                 <div className="login-google-panel">
                   <p className="login-session__description">
-                    Google 로그인 설정이 필요합니다.
+                    {copy.googleSetupRequired}
                   </p>
                 </div>
               ) : null}
@@ -803,6 +877,7 @@ const Home = () => {
           <ConsentDialog
             eventSlug={eventSlug ?? eventProfile.slug}
             eventName={eventSummary.eventName}
+            language={language}
             onClose={() => setPolicyDialogOpen(false)}
           />
         ) : null}
@@ -810,8 +885,13 @@ const Home = () => {
 
       {alertOpen ? (
         <HomeStatusToast
+          closeLabel={copy.close}
           message={alertMessage}
           severity={alertSeverity}
+          statusLabels={{
+            error: copy.statusError,
+            success: copy.statusComplete,
+          }}
           onClose={() => setAlertOpen(false)}
         />
       ) : null}

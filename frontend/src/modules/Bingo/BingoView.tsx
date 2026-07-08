@@ -28,25 +28,41 @@ type BingoAlertToastProps = {
   message: string;
   keywords: string[];
   label: string;
+  closeLabel: string;
+  closeText: string;
   onClose: () => void;
 };
 
 type BingoLoadingScreenProps = {
   brandTitle: string;
-  title?: string;
-  description?: string;
+  title: string;
+  description: string;
 };
 
 type BingoCountdownScreenProps = {
   brandTitle: string;
   remainingTime: number;
+  title: string;
+  units: {
+    days: string;
+    hours: string;
+    minutes: string;
+    seconds: string;
+  };
 };
 
 type KeywordSetupScreenProps = {
   exchangeKeywordCount: number;
   isInitializingBoard: boolean;
-  keywords: string[];
+  keywords: Array<{ value: string; label: string }>;
   selectedKeywords: string[];
+  copy: {
+    title: string;
+    description: string;
+    ariaLabel: string;
+    preparing: string;
+    start: string;
+  };
   onToggleKeyword: (keyword: string) => void;
   onSubmit: () => void;
   alertToast: ReactNode;
@@ -66,15 +82,29 @@ type BingoBoardSectionProps = {
     activePreset: BoardPreviewPreset | null;
     onSelectPreview: (preset: BoardPreviewPreset) => void;
     onResetPreview: () => void;
+    copy: {
+      eyebrow: string;
+      activeTitle: string;
+      idleTitle: string;
+      description: string;
+      reset: string;
+    };
   };
 };
 
 type BingoCelebrationDialogProps = {
   open: boolean;
-  bingoMissionCount: number;
   bingoCount: number;
   markedKeywordCount: number;
   metPersonNum: number;
+  copy: {
+    title: string;
+    description: string;
+    completedLines: string;
+    openedCells: string;
+    metParticipants: string;
+    continue: string;
+  };
   onClose: () => void;
 };
 
@@ -134,6 +164,8 @@ export function BingoAlertToast({
   message,
   keywords,
   label,
+  closeLabel,
+  closeText,
   onClose,
 }: BingoAlertToastProps) {
   if (!open) {
@@ -149,9 +181,9 @@ export function BingoAlertToast({
             type="button"
             className="bingo-toast__close"
             onClick={onClose}
-            aria-label="알림 닫기"
+            aria-label={closeLabel}
           >
-            닫기
+            {closeText}
           </button>
         </div>
         <strong className="bingo-toast__title">{title}</strong>
@@ -172,8 +204,8 @@ export function BingoAlertToast({
 
 export function BingoLoadingScreen({
   brandTitle,
-  title = "로딩 중입니다",
-  description = "잠시만 기다려 주세요.",
+  title,
+  description,
 }: BingoLoadingScreenProps) {
   return (
     <div className="bingo-game-page">
@@ -192,6 +224,8 @@ export function BingoLoadingScreen({
 export function BingoCountdownScreen({
   brandTitle,
   remainingTime,
+  title,
+  units,
 }: BingoCountdownScreenProps) {
   const days = Math.floor(remainingTime / (1000 * 60 * 60 * 24));
   const hours = Math.floor((remainingTime / (1000 * 60 * 60)) % 24);
@@ -202,13 +236,13 @@ export function BingoCountdownScreen({
     <div className="bingo-countdown">
       <div className="bingo-countdown__content">
         <p className="bingo-countdown__brand">{brandTitle}</p>
-        <h1>빙고 오픈까지 조금만 기다려 주세요</h1>
+        <h1>{title}</h1>
         <div className="bingo-countdown__timer">
           {[
-            { label: "일", value: days },
-            { label: "시간", value: hours },
-            { label: "분", value: minutes },
-            { label: "초", value: seconds },
+            { label: units.days, value: days },
+            { label: units.hours, value: hours },
+            { label: units.minutes, value: minutes },
+            { label: units.seconds, value: seconds },
           ].map(({ label, value }) => (
             <div key={label} className="bingo-countdown__unit">
               <strong>{String(value).padStart(2, "0")}</strong>
@@ -226,6 +260,7 @@ export function KeywordSetupScreen({
   isInitializingBoard,
   keywords,
   selectedKeywords,
+  copy,
   onToggleKeyword,
   onSubmit,
   alertToast,
@@ -237,27 +272,27 @@ export function KeywordSetupScreen({
         <header className="keyword-setup-header">
           <div className="keyword-setup-header__title">
             <span className="keyword-setup-header__spark keyword-setup-header__spark--left" />
-            <h1>관심사 선택</h1>
+            <h1>{copy.title}</h1>
             <span className="keyword-setup-header__spark keyword-setup-header__spark--right" />
           </div>
-          <p>당신의 관심사를 잘 표현할 수 있는 키워드를 {exchangeKeywordCount}개 선택하세요.</p>
+          <p>{copy.description}</p>
         </header>
 
-        <section className="keyword-setup-card" aria-label="interest keyword selection">
+        <section className="keyword-setup-card" aria-label={copy.ariaLabel}>
           <div className="keyword-setup-card__scroller">
             <div className="keyword-setup-grid">
               {keywords.map((keyword) => {
-                const isSelected = selectedKeywords.includes(keyword);
+                const isSelected = selectedKeywords.includes(keyword.value);
 
                 return (
                   <button
-                    key={keyword}
+                    key={keyword.value}
                     type="button"
                     className={`keyword-chip ${isSelected ? "is-selected" : ""}`}
-                    onClick={() => onToggleKeyword(keyword)}
+                    onClick={() => onToggleKeyword(keyword.value)}
                     aria-pressed={isSelected}
                   >
-                    {keyword}
+                    {keyword.label}
                   </button>
                 );
               })}
@@ -273,7 +308,7 @@ export function KeywordSetupScreen({
                 selectedKeywords.length !== exchangeKeywordCount || isInitializingBoard
               }
             >
-              {isInitializingBoard ? "준비 중..." : "빙고 시작하기"}
+              {isInitializingBoard ? copy.preparing : copy.start}
             </button>
           </div>
         </section>
@@ -309,13 +344,13 @@ export function BingoBoardSection({
           aria-label="board preview tools"
         >
           <div className="bingo-preview-panel__copy">
-            <p className="bingo-preview-panel__eyebrow">테스트 모드 프리뷰</p>
+            <p className="bingo-preview-panel__eyebrow">{previewTools.copy.eyebrow}</p>
             <strong>
               {isBoardPreviewActive
-                ? "프리뷰 중에는 보드 실시간 동기화를 잠시 멈췄어요"
-                : "한칸부터 올클리어까지 화면 상태를 바로 미리볼 수 있어요"}
+                ? previewTools.copy.activeTitle
+                : previewTools.copy.idleTitle}
             </strong>
-            <span>실제 보드는 복원 버튼으로 바로 되돌릴 수 있습니다.</span>
+            <span>{previewTools.copy.description}</span>
           </div>
           <div className="bingo-preview-panel__actions">
             {previewTools.options.map((option) => (
@@ -336,7 +371,7 @@ export function BingoBoardSection({
                 className="bingo-preview-panel__button is-reset"
                 onClick={previewTools.onResetPreview}
               >
-                실전 보드 복원
+                {previewTools.copy.reset}
               </button>
             ) : null}
           </div>
@@ -446,10 +481,10 @@ export function BingoBoardSection({
 
 export function BingoCelebrationDialog({
   open,
-  bingoMissionCount,
   bingoCount,
   markedKeywordCount,
   metPersonNum,
+  copy,
   onClose,
 }: BingoCelebrationDialogProps) {
   return (
@@ -460,23 +495,20 @@ export function BingoCelebrationDialog({
     >
       <div className="bingo-celebration">
         <p className="bingo-celebration__eyebrow">MISSION CLEAR</p>
-        <h2>빙고를 완성했어요</h2>
-        <p className="bingo-celebration__copy">
-          {bingoMissionCount}줄 미션을 달성했습니다. 더 많은 참가자와 키워드를 나누며
-          보드를 계속 채워보세요.
-        </p>
+        <h2>{copy.title}</h2>
+        <p className="bingo-celebration__copy">{copy.description}</p>
         <div className="bingo-celebration__stats">
           <article className="bingo-celebration__stat">
             <strong>{bingoCount}</strong>
-            <span>완성한 줄</span>
+            <span>{copy.completedLines}</span>
           </article>
           <article className="bingo-celebration__stat">
             <strong>{markedKeywordCount}</strong>
-            <span>열린 칸</span>
+            <span>{copy.openedCells}</span>
           </article>
           <article className="bingo-celebration__stat">
             <strong>{metPersonNum}</strong>
-            <span>만난 참가자</span>
+            <span>{copy.metParticipants}</span>
           </article>
         </div>
         <div className="bingo-celebration__actions">
@@ -485,7 +517,7 @@ export function BingoCelebrationDialog({
             className="bingo-celebration__button bingo-celebration__button--primary"
             onClick={onClose}
           >
-            계속 진행하기
+            {copy.continue}
           </button>
         </div>
       </div>

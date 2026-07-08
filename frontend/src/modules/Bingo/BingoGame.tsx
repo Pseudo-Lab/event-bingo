@@ -62,6 +62,12 @@ import {
   shuffleArray,
 } from "./bingoGameUtils";
 import type { BoardPreviewPreset } from "./bingoGameTypes";
+import {
+  bingoGameCopy,
+  readBingoGameLanguage,
+  writeBingoGameLanguage,
+} from "./bingoGameLanguage";
+import type { BingoGameLanguage } from "./bingoGameLanguage";
 import { syncTestModeFromUrl } from "../../utils/testMode";
 import {
   readGoalCelebrationFlag as readStoredGoalCelebrationFlag,
@@ -98,6 +104,30 @@ const readBoardReadyFlag = (eventSlug?: string, userId?: string) => {
   return window.sessionStorage.getItem(getBoardReadyStorageKey(eventSlug, userId)) === "1";
 };
 
+type LanguageSwitchProps = {
+  language: BingoGameLanguage;
+  onChange: (language: BingoGameLanguage) => void;
+};
+
+const LanguageSwitch = ({ language, onChange }: LanguageSwitchProps) => (
+  <div className="bingo-language-switch" aria-label="Language setting">
+    {([
+      { value: "ko", label: "한국어" },
+      { value: "en", label: "English" },
+    ] as const).map((option) => (
+      <button
+        key={option.value}
+        type="button"
+        className={language === option.value ? "is-active" : ""}
+        onClick={() => onChange(option.value)}
+        aria-pressed={language === option.value}
+      >
+        {option.label}
+      </button>
+    ))}
+  </div>
+);
+
 const BingoGame = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -110,9 +140,37 @@ const BingoGame = () => {
     isAvailable: isEventProfileAvailable,
   } = useEventProfile(eventSlug);
   const [testModeEnabled] = useState(() => syncTestModeFromUrl(location.search));
+  const [language, setLanguage] = useState<BingoGameLanguage>(() =>
+    readBingoGameLanguage(
+      typeof window === "undefined" ? undefined : window.localStorage
+    )
+  );
+  const copy = bingoGameCopy[language];
   const boardSize = eventProfile.boardSize;
   const boardCellCount = boardSize * boardSize;
   const cellValues = useMemo(() => eventProfile.keywords, [eventProfile.keywords]);
+  const getKeywordDisplayLabel = useCallback(
+    (keyword: string) => {
+      if (!eventProfile.englishSupportEnabled || language !== "en") {
+        return keyword;
+      }
+
+      return eventProfile.keywordTranslations[keyword]?.trim() || keyword;
+    },
+    [
+      eventProfile.englishSupportEnabled,
+      eventProfile.keywordTranslations,
+      language,
+    ]
+  );
+  const keywordSetupOptions = useMemo(
+    () =>
+      cellValues.map((keyword) => ({
+        value: keyword,
+        label: getKeywordDisplayLabel(keyword),
+      })),
+    [cellValues, getKeywordDisplayLabel]
+  );
   const boardConnectionLines = useMemo(
     () => createBoardConnectionLines(boardSize),
     [boardSize]
@@ -193,6 +251,22 @@ const BingoGame = () => {
   const bingoMissionCount = eventProfile.bingoMissionCount;
   const exchangeKeywordCount = eventProfile.exchangeKeywordCount;
   const isBoardPreviewActive = boardPreviewPreset !== null;
+  const displayBingoBoard = useMemo(
+    () =>
+      bingoBoard?.map((cell) => ({
+        ...cell,
+        value: getKeywordDisplayLabel(cell.value),
+      })) ?? null,
+    [bingoBoard, getKeywordDisplayLabel]
+  );
+  const displayLatestReceivedKeywords = useMemo(
+    () => latestReceivedKeywords.map(getKeywordDisplayLabel),
+    [getKeywordDisplayLabel, latestReceivedKeywords]
+  );
+  const displayAlertKeywords = useMemo(
+    () => alertKeywords.map(getKeywordDisplayLabel),
+    [alertKeywords, getKeywordDisplayLabel]
+  );
 
   const syncSessionDisplayName = useCallback((nextName: string) => {
     const trimmedName = nextName.trim();
@@ -229,25 +303,34 @@ const BingoGame = () => {
   const participantSummary = useMemo(() => {
     const name = displayName || username;
     if (participantContact) {
-      return `${name} 님 | ${participantContact}`;
+      return language === "ko"
+        ? `${name} ${copy.participantSuffix} | ${participantContact}`
+        : `${name} | ${participantContact}`;
     }
 
-    return `${name} 님`;
-  }, [displayName, participantContact, username]);
+    return language === "ko" ? `${name} ${copy.participantSuffix}` : name;
+  }, [copy.participantSuffix, displayName, language, participantContact, username]);
 
   const loadingScreenCopy = useMemo(() => {
     if (!isEventProfileResolved || !hasKnownBoardForEvent) {
       return {
-        title: "로딩 중입니다",
-        description: "잠시만 기다려 주세요.",
+        title: copy.loadingDefaultTitle,
+        description: copy.loadingDefaultDescription,
       };
     }
 
     return {
-      title: "빙고 보드를 불러오고 있습니다",
-      description: "저장된 보드와 교환 기록을 확인하고 있어요.",
+      title: copy.loadingBoardTitle,
+      description: copy.loadingBoardDescription,
     };
-  }, [hasKnownBoardForEvent, isEventProfileResolved]);
+  }, [
+    copy.loadingBoardDescription,
+    copy.loadingBoardTitle,
+    copy.loadingDefaultDescription,
+    copy.loadingDefaultTitle,
+    hasKnownBoardForEvent,
+    isEventProfileResolved,
+  ]);
 
   const historySummary = useMemo(() => {
     return buildExchangeHistory(interactionHistory, userId);
@@ -258,13 +341,23 @@ const BingoGame = () => {
 
   const sentHistory = useMemo(() => {
     const numericUserId = Number(userId);
-    return exchangeHistory.filter((record) => record.sendUserId === numericUserId);
-  }, [exchangeHistory, userId]);
+    return exchangeHistory
+      .filter((record) => record.sendUserId === numericUserId)
+      .map((record) => ({
+        ...record,
+        given: record.given.map(getKeywordDisplayLabel),
+      }));
+  }, [exchangeHistory, getKeywordDisplayLabel, userId]);
 
   const receivedHistory = useMemo(() => {
     const numericUserId = Number(userId);
-    return exchangeHistory.filter((record) => record.receiveUserId === numericUserId);
-  }, [exchangeHistory, userId]);
+    return exchangeHistory
+      .filter((record) => record.receiveUserId === numericUserId)
+      .map((record) => ({
+        ...record,
+        given: record.given.map(getKeywordDisplayLabel),
+      }));
+  }, [exchangeHistory, getKeywordDisplayLabel, userId]);
 
   const handleCloseAlert = useCallback(() => {
     if (alertTimeoutRef.current) {
@@ -293,12 +386,20 @@ const BingoGame = () => {
       setAlertOpen(true);
 
       alertTimeoutRef.current = window.setTimeout(() => {
-        setAlertOpen(false);
-        alertTimeoutRef.current = null;
-      }, payload.durationMs ?? 3400);
+      setAlertOpen(false);
+      alertTimeoutRef.current = null;
+    }, payload.durationMs ?? 3400);
     },
     []
   );
+
+  const handleLanguageChange = useCallback((nextLanguage: BingoGameLanguage) => {
+    setLanguage(nextLanguage);
+    writeBingoGameLanguage(
+      typeof window === "undefined" ? undefined : window.localStorage,
+      nextLanguage
+    );
+  }, []);
 
   useEffect(() => {
     if (testModeEnabled || !eventProfile.restrictBeforeStart) {
@@ -438,8 +539,8 @@ const BingoGame = () => {
           return;
         }
 
-        showAlert("새 키워드가 반영됐어요.", "success", {
-          title: "보드가 업데이트됐어요",
+        showAlert(copy.alerts.boardUpdated, "success", {
+          title: copy.alerts.boardUpdatedTitle,
           keywords: newlyUpdatedValues,
           label: "KEYWORD EXCHANGE",
         });
@@ -449,7 +550,14 @@ const BingoGame = () => {
         isPollingRef.current = false;
       }
     },
-    [appendInteractionHistory, eventSlug, showAlert, syncSessionDisplayName]
+    [
+      appendInteractionHistory,
+      copy.alerts.boardUpdated,
+      copy.alerts.boardUpdatedTitle,
+      eventSlug,
+      showAlert,
+      syncSessionDisplayName,
+    ]
   );
 
   useEffect(() => {
@@ -674,12 +782,20 @@ const BingoGame = () => {
       setBingoBoard(previewBoard);
       bingoBoardRef.current = previewBoard;
 
-      showAlert("보드 프리뷰를 적용했습니다.", "info", {
-        title: "테스트 프리뷰",
+      showAlert(copy.alerts.previewApplied, "info", {
+        title: copy.alerts.previewTitle,
         label: "BOARD PREVIEW",
       });
     },
-    [bingoBoard, boardPreviewBase, boardSize, resetPreviewVisualState, showAlert]
+    [
+      bingoBoard,
+      boardPreviewBase,
+      boardSize,
+      copy.alerts.previewApplied,
+      copy.alerts.previewTitle,
+      resetPreviewVisualState,
+      showAlert,
+    ]
   );
 
   const clearBoardPreview = useCallback(() => {
@@ -695,11 +811,17 @@ const BingoGame = () => {
     bingoBoardRef.current = restoredBoard;
     setBoardPreviewBase(null);
 
-    showAlert("실제 보드 상태로 돌아왔습니다.", "info", {
-      title: "프리뷰 해제",
+    showAlert(copy.alerts.previewCleared, "info", {
+      title: copy.alerts.previewClearedTitle,
       label: "BOARD PREVIEW",
     });
-  }, [boardPreviewBase, resetPreviewVisualState, showAlert]);
+  }, [
+    boardPreviewBase,
+    copy.alerts.previewCleared,
+    copy.alerts.previewClearedTitle,
+    resetPreviewVisualState,
+    showAlert,
+  ]);
 
   const initializeBoard = async (selectedKeywords: string[]) => {
     try {
@@ -754,7 +876,7 @@ const BingoGame = () => {
 
   const handleInitialSetup = async () => {
     if (selectedInitialKeywords.length !== exchangeKeywordCount) {
-      showAlert(`관심사는 ${exchangeKeywordCount}개 선택해 주세요.`, "warning");
+      showAlert(copy.alerts.selectKeywordCount(exchangeKeywordCount), "warning");
       return;
     }
 
@@ -766,15 +888,15 @@ const BingoGame = () => {
 
       const isInitialized = await initializeBoard(selectedInitialKeywords);
       if (!isInitialized) {
-        showAlert("키워드 저장 중 문제가 발생했습니다.", "error");
+        showAlert(copy.alerts.keywordSaveError, "error");
         return;
       }
 
       setInitialSetupOpen(false);
-      showAlert("키워드가 설정되었습니다!");
+      showAlert(copy.alerts.keywordsReady);
     } catch (error) {
       console.error("Failed initial setup:", error);
-      showAlert("초기 설정 중 문제가 발생했습니다.", "error");
+      showAlert(copy.alerts.keywordSetupError, "error");
     } finally {
       setIsInitializingBoard(false);
     }
@@ -788,7 +910,7 @@ const BingoGame = () => {
 
       if (previousKeywords.length >= exchangeKeywordCount) {
         showAlert(
-          `관심사는 ${exchangeKeywordCount}개까지만 선택할 수 있습니다.`,
+          copy.alerts.keywordLimit(exchangeKeywordCount),
           "warning"
         );
         return previousKeywords;
@@ -865,7 +987,7 @@ const BingoGame = () => {
       if (hasReachedMissionGoal) {
         handleCloseAlert();
       } else {
-        showAlert("빙고 한 줄을 완성했습니다! 🎉");
+        showAlert(copy.alerts.bingoLine);
       }
 
       if (!hasShownConfetti && hasReachedMissionGoal) {
@@ -909,6 +1031,7 @@ const BingoGame = () => {
     handleCloseAlert,
     hasShownConfetti,
     showAlert,
+    copy.alerts.bingoLine,
   ]);
 
   useEffect(() => {
@@ -931,8 +1054,10 @@ const BingoGame = () => {
       severity={alertSeverity}
       title={alertTitle}
       message={alertMessage}
-      keywords={alertKeywords}
+      keywords={displayAlertKeywords}
       label={alertLabel}
+      closeLabel={copy.toastCloseLabel}
+      closeText={copy.toastCloseText}
       onClose={handleCloseAlert}
     />
   );
@@ -1007,20 +1132,20 @@ const BingoGame = () => {
   const handleSaveName = async () => {
     const trimmed = nameInput.trim();
     if (trimmed.length === 0) {
-      showAlert("이름을 입력해주세요.", "warning");
+      showAlert(copy.alerts.nameRequired, "warning");
       return false;
     }
 
     const storedId = getAuthSession()?.userId;
     if (nameSetupMode === "existing-board") {
       if (!storedId || !eventSlug) {
-        showAlert("로그인 정보가 없습니다.", "error");
+        showAlert(copy.alerts.missingLogin, "error");
         return false;
       }
 
       const result = await updateBingoDisplayName(storedId, eventSlug, trimmed);
       if (!result.ok) {
-        showAlert(result.message || "이름 저장 중 문제가 발생했습니다.", "error");
+        showAlert(result.message || copy.alerts.nameSaveError, "error");
         return false;
       }
 
@@ -1044,26 +1169,26 @@ const BingoGame = () => {
     opponentInputRef.current?.blur();
 
     if (isBoardPreviewActive) {
-      showAlert("보드 프리뷰를 해제한 뒤 실제 전송을 진행해 주세요.", "info", {
-        title: "프리뷰가 켜져 있어요",
+      showAlert(copy.alerts.previewLocked, "info", {
+        title: copy.alerts.previewLockedTitle,
         label: "BOARD PREVIEW",
       });
       return;
     }
 
     if (!opponentId.trim()) {
-      showAlert("상대방을 검색하여 선택해주세요.", "warning");
+      showAlert(copy.alerts.selectOpponent, "warning");
       return;
     }
 
     const myId = getAuthSession()?.userId;
     if (!myId) {
-      showAlert("로그인 정보가 없습니다.", "error");
+      showAlert(copy.alerts.missingLogin, "error");
       return;
     }
 
     if (myId === opponentId.trim()) {
-      showAlert("본인 ID가 아닌 상대방 ID를 입력해주세요.", "warning");
+      showAlert(copy.alerts.selfExchange, "warning");
       return;
     }
 
@@ -1075,10 +1200,10 @@ const BingoGame = () => {
       });
       if (alreadyExchanged) {
         showAlert(
-          "이미 같은 참가자에게 키워드를 보냈어요.",
+          copy.alerts.duplicateExchange,
           "warning",
           {
-            title: "이미 전송한 참가자예요",
+            title: copy.alerts.duplicateExchangeTitle,
             label: "KEYWORD EXCHANGE",
           }
         );
@@ -1094,7 +1219,7 @@ const BingoGame = () => {
 
       if (!exchangeResult.ok) {
         showAlert(
-          exchangeResult.message || "키워드 교환 요청에 실패했습니다. 다시 시도해주세요.",
+          exchangeResult.message || copy.alerts.exchangeFailed,
           "error"
         );
         return;
@@ -1108,20 +1233,21 @@ const BingoGame = () => {
         getInteractionKeywords(exchangeResult.interaction)
       );
       const receiverName =
-        exchangeResult.interaction.receive_user_name ?? `참가자 ${targetId}`;
+        exchangeResult.interaction.receive_user_name ??
+        `${copy.participantFallback} ${targetId}`;
 
       showAlert(
-        `"${receiverName}"님에게 내 키워드를 전송했어요.`,
+        copy.alerts.exchangeSuccessMessage(receiverName),
         "success",
         {
-          title: "키워드를 전송했어요",
+          title: copy.alerts.exchangeSuccessTitle,
           keywords: sentKeywords,
           label: "KEYWORD EXCHANGE",
         }
       );
     } catch (error) {
       console.error("Exchange failed:", error);
-      showAlert("에러가 발생했습니다. 잠시 후 다시 시도해주세요.", "error");
+      showAlert(copy.alerts.unknownError, "error");
     }
   };
 
@@ -1133,10 +1259,10 @@ const BingoGame = () => {
           <header className="keyword-setup-header">
             <div className="keyword-setup-header__title">
               <span className="keyword-setup-header__spark keyword-setup-header__spark--left" />
-              <h1>이름 설정</h1>
+              <h1>{copy.nameSetupTitle}</h1>
               <span className="keyword-setup-header__spark keyword-setup-header__spark--right" />
             </div>
-            <p>빙고 게임에서 사용할 이름을 입력하세요.</p>
+            <p>{copy.nameSetupDescription}</p>
           </header>
 
           <section className="keyword-setup-card">
@@ -1145,7 +1271,7 @@ const BingoGame = () => {
                 type="text"
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
-                placeholder="이름을 입력하세요"
+                placeholder={copy.namePlaceholder}
                 maxLength={100}
                 style={{
                   width: "100%",
@@ -1176,11 +1302,12 @@ const BingoGame = () => {
                 }}
                 disabled={nameInput.trim().length === 0}
               >
-                {nameSetupMode === "existing-board" ? "저장" : "다음"}
+                {nameSetupMode === "existing-board" ? copy.save : copy.next}
               </button>
             </div>
           </section>
         </main>
+        <LanguageSwitch language={language} onChange={handleLanguageChange} />
         {alertToast}
       </div>
     );
@@ -1191,11 +1318,23 @@ const BingoGame = () => {
       <KeywordSetupScreen
         exchangeKeywordCount={exchangeKeywordCount}
         isInitializingBoard={isInitializingBoard}
-        keywords={cellValues}
+        keywords={keywordSetupOptions}
         selectedKeywords={selectedInitialKeywords}
+        copy={{
+          title: copy.keywordSetupTitle,
+          description: copy.keywordSetupDescription(exchangeKeywordCount),
+          ariaLabel: copy.keywordSetupAriaLabel,
+          preparing: copy.setupPreparing,
+          start: copy.setupStart,
+        }}
         onToggleKeyword={toggleInitialKeyword}
         onSubmit={handleInitialSetup}
-        alertToast={alertToast}
+        alertToast={
+          <>
+            <LanguageSwitch language={language} onChange={handleLanguageChange} />
+            {alertToast}
+          </>
+        }
       />
     );
   }
@@ -1204,8 +1343,8 @@ const BingoGame = () => {
     return (
       <PublicEventStatePage
         eyebrow="Bingo Access"
-        title="행사를 찾을 수 없습니다"
-        description="이 행사 링크로는 빙고 화면에 들어갈 수 없습니다. 주최자가 공유한 최신 행사 URL을 다시 확인해 주세요."
+        title={copy.notFoundTitle}
+        description={copy.notFoundDescription}
       />
     );
   }
@@ -1214,12 +1353,12 @@ const BingoGame = () => {
     return (
       <PublicEventStatePage
         eyebrow="Bingo Access"
-        title="빙고 행사 정보를 확인할 수 없습니다"
+        title={copy.eventErrorTitle}
         description={
           eventProfileErrorMessage ??
-          "빙고 화면에 필요한 행사 정보를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+          copy.eventErrorDescription
         }
-        secondaryActionLabel="새로고침"
+        secondaryActionLabel={copy.reload}
         onSecondaryAction={() => window.location.reload()}
       />
     );
@@ -1240,6 +1379,8 @@ const BingoGame = () => {
       <BingoCountdownScreen
         brandTitle={brandTitle}
         remainingTime={remainingTime}
+        title={copy.countdownTitle}
+        units={copy.countdownUnits}
       />
     );
   }
@@ -1253,11 +1394,12 @@ const BingoGame = () => {
           <button
             type="button"
             className="bingo-game-header__brand"
-            aria-label={`${brandTitle} 홈으로 이동`}
+            aria-label={copy.eventHomeLabel}
             onClick={() => navigate(eventHomePath, { replace: true })}
           >
-            <img src={bingoNetworkingWordmark} alt={brandTitle} />
+            <img src={bingoNetworkingWordmark} alt="Bingo Networking" />
           </button>
+          <LanguageSwitch language={language} onChange={handleLanguageChange} />
         </header>
 
         <section className="bingo-game-top">
@@ -1266,9 +1408,12 @@ const BingoGame = () => {
             <div className="bingo-hero__content">
               <div className="bingo-hero__copy">
                 <h1>
-                  빙고를 채우며
-                  <br />
-                  소통해봐요!
+                  {copy.heroTitleLines.map((line, index) => (
+                    <span key={line}>
+                      {index > 0 ? <br /> : null}
+                      {line}
+                    </span>
+                  ))}
                 </h1>
                 <form
                   className="bingo-hero__form"
@@ -1284,10 +1429,10 @@ const BingoGame = () => {
                       onChange={(event) => handleOpponentSearch(event.target.value)}
                       placeholder={
                         isBoardPreviewActive
-                          ? "프리뷰 중에는 전송을 잠시 잠가두었어요"
-                          : "상대방 이름 검색"
+                          ? copy.previewLockedPlaceholder
+                          : copy.opponentSearchPlaceholder
                       }
-                      aria-label="상대방 이름 검색"
+                      aria-label={copy.opponentSearchAriaLabel}
                       disabled={isBoardPreviewActive}
                     />
                     {opponentSearchResults.length > 0 && (
@@ -1307,7 +1452,7 @@ const BingoGame = () => {
                     )}
                     {isSearching && opponentQuery.trim().length > 0 && (
                       <div className="bingo-hero__search-status">
-                        검색 중...
+                        {copy.searching}
                       </div>
                     )}
                     {!isSearching &&
@@ -1315,12 +1460,12 @@ const BingoGame = () => {
                       opponentQuery.trim().length > 0 &&
                       opponentSearchResults.length === 0 && (
                         <div className="bingo-hero__search-status">
-                          검색 결과가 없습니다.
+                          {copy.noSearchResults}
                         </div>
                       )}
                   </div>
                   <button type="submit" disabled={isBoardPreviewActive || !opponentId}>
-                    보내기
+                    {copy.send}
                   </button>
                 </form>
               </div>
@@ -1329,10 +1474,10 @@ const BingoGame = () => {
           </article>
 
           <article className="bingo-card bingo-stats">
-            <span className="bingo-stats__badge">개인전</span>
+            <span className="bingo-stats__badge">{copy.soloBadge}</span>
             <div className="bingo-stats__score">
               <strong>{completionRate}%</strong>
-              <p>빙고 완성률</p>
+              <p>{copy.completionRate}</p>
             </div>
             <div
               className={`bingo-stats__progress ${newBingoFound ? "is-animating" : ""}`}
@@ -1340,48 +1485,48 @@ const BingoGame = () => {
             >
               <span style={{ width: `${completionRate}%` }} />
             </div>
-            <section className="bingo-stats__selected" aria-label="내가 고른 키워드">
+            <section className="bingo-stats__selected" aria-label={copy.selectedKeywordsLabel}>
               <div className="bingo-stats__selected-head">
-                <h3>내가 고른 키워드</h3>
-                <strong>{myKeywords.length}개</strong>
+                <h3>{copy.selectedKeywordsLabel}</h3>
+                <strong>{copy.selectedKeywordCount(myKeywords.length)}</strong>
               </div>
               <div className="bingo-stats__selected-list">
                 {myKeywords.length > 0 ? (
                   myKeywords.map((keyword) => (
                     <span key={keyword} className="bingo-stats__selected-chip">
-                      {keyword}
+                      {getKeywordDisplayLabel(keyword)}
                     </span>
                   ))
                 ) : (
                   <p className="bingo-stats__selected-empty">
-                    아직 선택한 키워드가 없어요.
+                    {copy.noSelectedKeywords}
                   </p>
                 )}
               </div>
             </section>
             <dl className="bingo-stats__meta">
               <div>
-                <dt>수집한 키워드</dt>
+                <dt>{copy.collectedKeywords}</dt>
                 <dd>
                   {markedKeywordCount}/{boardCellCount}
                 </dd>
               </div>
               <div>
-                <dt>만난 참가자</dt>
-                <dd>{metPersonNum}명</dd>
+                <dt>{copy.metParticipants}</dt>
+                <dd>{copy.metParticipantCount(metPersonNum)}</dd>
               </div>
             </dl>
           </article>
         </section>
 
-        {bingoBoard ? (
+        {displayBingoBoard ? (
           <BingoBoardSection
-            board={bingoBoard}
+            board={displayBingoBoard}
             boardSize={boardSize}
             connectionLines={boardConnectionLines}
             completedLines={completedLines}
             newBingoCells={newBingoCells}
-            latestReceivedKeywords={latestReceivedKeywords}
+            latestReceivedKeywords={displayLatestReceivedKeywords}
             animatedCells={animatedCells}
             completedCellIndexes={bingoLineCells}
             previewTools={
@@ -1391,6 +1536,13 @@ const BingoGame = () => {
                     activePreset: boardPreviewPreset,
                     onSelectPreview: applyBoardPreview,
                     onResetPreview: clearBoardPreview,
+                    copy: {
+                      eyebrow: copy.previewEyebrow,
+                      activeTitle: copy.previewActiveTitle,
+                      idleTitle: copy.previewIdleTitle,
+                      description: copy.previewDescription,
+                      reset: copy.previewReset,
+                    },
                   }
                 : undefined
             }
@@ -1399,17 +1551,17 @@ const BingoGame = () => {
 
         <section className="bingo-history-grid">
           <HistoryPanel
-            title="내가 준 사람"
+            title={copy.sentHistoryTitle}
             count={sentHistory.length}
             records={sentHistory}
-            emptyMessage="아직 내가 보낸 기록이 없어요."
+            emptyMessage={copy.sentHistoryEmpty}
             participantKey="receivePerson"
           />
           <HistoryPanel
-            title="나에게 보낸 사람"
+            title={copy.receivedHistoryTitle}
             count={receivedHistory.length}
             records={receivedHistory}
-            emptyMessage="아직 받은 기록이 없어요."
+            emptyMessage={copy.receivedHistoryEmpty}
             participantKey="sendPerson"
           />
         </section>
@@ -1420,7 +1572,7 @@ const BingoGame = () => {
             className="bingo-game-footer__home"
             onClick={() => navigate(eventHomePath, { replace: true })}
           >
-            처음으로 돌아가기
+            {copy.homeButton}
           </button>
           <p>© 2023 DevFactory.</p>
         </div>
@@ -1462,10 +1614,17 @@ const BingoGame = () => {
 
       <BingoCelebrationDialog
         open={showAllBingoModal}
-        bingoMissionCount={bingoMissionCount}
         bingoCount={bingoCount}
         markedKeywordCount={markedKeywordCount}
         metPersonNum={metPersonNum}
+        copy={{
+          title: copy.celebrationTitle,
+          description: copy.celebrationCopy(bingoMissionCount),
+          completedLines: copy.completedLines,
+          openedCells: copy.openedCells,
+          metParticipants: copy.metParticipants,
+          continue: copy.continue,
+        }}
         onClose={() => setShowAllBingoModal(false)}
       />
 

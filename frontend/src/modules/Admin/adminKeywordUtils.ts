@@ -216,6 +216,31 @@ export const buildAutoFilledKeywordList = (
   return buildBoardKeywordPool(normalizedKeywords, getKeywordGoalCount(boardSize));
 };
 
+export const pruneKeywordTranslations = (
+  keywordTranslations: Record<string, string>,
+  keywords: string[]
+) => {
+  return keywords.reduce<Record<string, string>>((translations, keyword) => {
+    translations[keyword] = keywordTranslations[keyword]?.trim() ?? "";
+    return translations;
+  }, {});
+};
+
+export const describeEnglishKeywordCoverage = (
+  keywordTranslations: Record<string, string>,
+  keywords: string[]
+) => {
+  const missingKeywords = keywords.filter(
+    (keyword) => !(keywordTranslations[keyword] ?? "").trim()
+  );
+
+  return {
+    totalCount: keywords.length,
+    missingCount: missingKeywords.length,
+    missingKeywords,
+  };
+};
+
 export const describeKeywordAutofill = (
   keywords: string[],
   boardSize: AdminKeywordBoardSize

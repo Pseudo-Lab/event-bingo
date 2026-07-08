@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, status
 
 from core.db import AsyncSessionDepends
 from api.admin.console_services import (
+    get_event_keyword_texts,
+    get_event_keyword_translations,
     send_event_manager_request_admin_webhook,
     send_event_manager_request_received_email,
 )
@@ -41,6 +43,11 @@ def resolve_public_event_status(event: Event) -> str:
 def normalize_event_manager_request_purpose(event_purpose: str | None) -> str:
     normalized_event_purpose = event_purpose.strip() if event_purpose else ""
     return normalized_event_purpose or "미입력"
+
+
+def normalize_public_event_text(value: str | None, fallback: str) -> str:
+    normalized_value = value.strip() if value else ""
+    return normalized_value or fallback
 
 
 @events_router.get(
@@ -142,12 +149,16 @@ async def get_public_event_privacy_notice(
             detail="이벤트를 찾을 수 없습니다.",
         )
 
+    event_name = normalize_public_event_text(event.name, "이벤트")
+    event_team = normalize_public_event_text(event.event_team, "Event Team")
+    event_contact_email = normalize_public_event_text(event.admin_email, "devfactory.ops@gmail.com")
+
     template = await PolicyTemplate.ensure_consent_template(db)
     rendered_content = PolicyTemplate.render_participant_notice_content(
         template.content_markdown,
-        event_name=event.name,
-        event_team=event.event_team,
-        event_contact_email=event.admin_email,
+        event_name=event_name,
+        event_team=event_team,
+        event_contact_email=event_contact_email,
     )
 
     return PublicEventPrivacyNoticeResponse(
@@ -155,9 +166,9 @@ async def get_public_event_privacy_notice(
         message="행사 참가자 개인정보 처리 안내를 불러왔습니다.",
         template=PublicEventPrivacyNoticeItem(
             event_slug=event.slug,
-            event_name=event.name,
-            event_team=event.event_team,
-            contact_email=event.admin_email,
+            event_name=event_name,
+            event_team=event_team,
+            contact_email=event_contact_email,
             content=rendered_content,
             updated_at=template.updated_at,
         ),
@@ -180,20 +191,26 @@ async def get_public_event_profile(
             detail="이벤트를 찾을 수 없습니다.",
         )
 
+    event_name = normalize_public_event_text(event.name, "이벤트")
+    event_location = normalize_public_event_text(event.location, "행사 장소")
+    event_team = normalize_public_event_text(event.event_team, "Event Team")
+
     return PublicEventProfileResponse(
         ok=True,
         message="이벤트 설정을 불러왔습니다.",
         event=PublicEventProfileItem(
             id=event.id,
             slug=event.slug,
-            name=event.name,
-            location=event.location,
-            event_team=event.event_team,
+            name=event_name,
+            location=event_location,
+            event_team=event_team,
             start_at=event.start_time,
             end_at=event.end_time,
             board_size=event.bingo_size,
             bingo_mission_count=event.success_condition,
             restrict_before_start=event.restrict_before_start,
-            keywords=[str(keyword) for keyword in (event.keywords or [])],
+            english_support_enabled=getattr(event, "english_support_enabled", False),
+            keywords=get_event_keyword_texts(event.keywords),
+            keyword_translations=get_event_keyword_translations(event.keywords),
         ),
     )

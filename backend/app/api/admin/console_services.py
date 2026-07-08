@@ -214,7 +214,56 @@ def validate_event_schedule(start_at: datetime, end_at: datetime) -> None:
         raise ValueError("행사 종료 시각은 시작 시각보다 늦어야 합니다.")
 
 
-def normalize_event_keywords(keywords: list[str] | None, board_size: int) -> list[str]:
+def extract_event_keyword_text(keyword: object) -> str:
+    if isinstance(keyword, dict):
+        value = keyword.get("ko") or keyword.get("value") or keyword.get("label")
+        return str(value).strip() if value is not None else ""
+
+    return str(keyword).strip()
+
+
+def extract_event_keyword_english_text(keyword: object) -> str:
+    if not isinstance(keyword, dict):
+        return ""
+
+    value = keyword.get("en")
+    return str(value).strip() if value is not None else ""
+
+
+def get_event_keyword_texts(keywords: list | None) -> list[str]:
+    normalized_keywords: list[str] = []
+    seen_keywords: set[str] = set()
+
+    for keyword in keywords or []:
+        normalized_keyword = extract_event_keyword_text(keyword)
+        if not normalized_keyword or normalized_keyword in seen_keywords:
+            continue
+
+        normalized_keywords.append(normalized_keyword)
+        seen_keywords.add(normalized_keyword)
+
+    return normalized_keywords
+
+
+def get_event_keyword_translations(keywords: list | None) -> dict[str, str]:
+    translations: dict[str, str] = {}
+
+    for keyword in keywords or []:
+        normalized_keyword = extract_event_keyword_text(keyword)
+        english_keyword = extract_event_keyword_english_text(keyword)
+        if normalized_keyword and english_keyword:
+            translations[normalized_keyword] = english_keyword
+
+    return translations
+
+
+def normalize_event_keywords(
+    keywords: list[str] | None,
+    board_size: int,
+    *,
+    english_support_enabled: bool = False,
+    keyword_translations: dict[str, str] | None = None,
+) -> list:
     required_count = max(1, board_size * board_size)
     normalized_keywords: list[str] = []
     seen_keywords: set[str] = set()
@@ -228,13 +277,25 @@ def normalize_event_keywords(keywords: list[str] | None, board_size: int) -> lis
         seen_keywords.add(normalized_keyword)
 
         if len(normalized_keywords) >= required_count:
-            return normalized_keywords
+            break
 
     generated_keywords = [
         f"키워드 {len(normalized_keywords) + index + 1}"
         for index in range(required_count - len(normalized_keywords))
     ]
-    return [*normalized_keywords, *generated_keywords]
+    filled_keywords = [*normalized_keywords, *generated_keywords]
+
+    if not english_support_enabled:
+        return filled_keywords
+
+    translations = keyword_translations or {}
+    return [
+        {
+            "ko": keyword,
+            "en": str(translations.get(keyword, "")).strip(),
+        }
+        for keyword in filled_keywords
+    ]
 
 
 def build_event_keyword_rows(
@@ -654,7 +715,9 @@ async def build_event_summary(
         bingo_mission_count=event.success_condition,
         expected_attendee_count=event.expected_attendee_count,
         restrict_before_start=event.restrict_before_start,
-        keywords=[str(keyword) for keyword in (event.keywords or [])],
+        english_support_enabled=getattr(event, "english_support_enabled", False),
+        keywords=get_event_keyword_texts(event.keywords),
+        keyword_translations=get_event_keyword_translations(event.keywords),
         game_mode=event.game_mode.value,
         team_size=event.team_size,
         participant_count=participant_count,
@@ -744,7 +807,7 @@ async def build_event_detail(
     ]
 
     keyword_rows = build_event_keyword_rows(
-        [str(keyword) for keyword in (event.keywords or [])],
+        get_event_keyword_texts(event.keywords),
         keyword_counter,
     )
 
@@ -766,7 +829,9 @@ async def build_event_detail(
         bingo_mission_count=event.success_condition,
         expected_attendee_count=event.expected_attendee_count,
         restrict_before_start=event.restrict_before_start,
-        keywords=[str(k) for k in (event.keywords or [])],
+        english_support_enabled=getattr(event, "english_support_enabled", False),
+        keywords=get_event_keyword_texts(event.keywords),
+        keyword_translations=get_event_keyword_translations(event.keywords),
         game_mode=event.game_mode.value,
         team_size=event.team_size,
         participant_count=participant_count,

@@ -144,7 +144,9 @@ class AdminEventSummary(BaseModel):
     bingo_mission_count: int
     expected_attendee_count: Optional[int] = None
     restrict_before_start: bool = True
+    english_support_enabled: bool = False
     keywords: list[str] = Field(default_factory=list)
+    keyword_translations: dict[str, str] = Field(default_factory=dict)
     game_mode: str
     team_size: int
     participant_count: int
@@ -183,7 +185,9 @@ class AdminEventUpsertRequest(BaseModel):
     bingo_mission_count: int = Field(..., ge=1, le=5)
     expected_attendee_count: Optional[int] = Field(default=None, ge=1, le=100000)
     restrict_before_start: bool = True
+    english_support_enabled: bool = False
     keywords: list[str] = Field(default_factory=list)
+    keyword_translations: dict[str, str] = Field(default_factory=dict)
     game_mode: Literal["individual", "team"] = "individual"
     team_size: int = Field(default=1, ge=1, le=50)
 

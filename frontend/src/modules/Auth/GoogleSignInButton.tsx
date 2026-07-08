@@ -13,6 +13,7 @@ type GoogleSignInButtonProps = {
   className?: string;
   context?: "signin" | "signup" | "use";
   disabled?: boolean;
+  locale?: "ko" | "en";
   onError?: (message: string) => void;
   onSuccess: (payload: { credential: string; nonce: string }) => Promise<void> | void;
   text?: GoogleButtonText;
@@ -22,6 +23,7 @@ const GoogleSignInButton = ({
   className,
   context = "signin",
   disabled = false,
+  locale = "ko",
   onError,
   onSuccess,
   text = "signin_with",
@@ -85,7 +87,7 @@ const GoogleSignInButton = ({
 
     const renderButton = async () => {
       try {
-        await loadGoogleIdentityScript("ko");
+        await loadGoogleIdentityScript(locale);
 
         if (cancelled) {
           return;
@@ -106,7 +108,11 @@ const GoogleSignInButton = ({
             }
 
             if (!credential) {
-              onErrorRef.current?.("Google 인증 정보를 받지 못했습니다.");
+              onErrorRef.current?.(
+                locale === "en"
+                  ? "Could not receive Google authentication information."
+                  : "Google 인증 정보를 받지 못했습니다."
+              );
               return;
             }
 
@@ -118,7 +124,11 @@ const GoogleSignInButton = ({
               });
             } catch (error) {
               onErrorRef.current?.(
-                error instanceof Error ? error.message : "Google 로그인 처리 중 오류가 발생했습니다."
+                error instanceof Error
+                  ? error.message
+                  : locale === "en"
+                    ? "There was a problem processing Google login."
+                    : "Google 로그인 처리 중 오류가 발생했습니다."
               );
             } finally {
               if (!cancelled) {
@@ -135,7 +145,7 @@ const GoogleSignInButton = ({
 
         containerElement.innerHTML = "";
         googleIdentityApi.renderButton(containerElement, {
-          locale: "ko",
+          locale,
           logo_alignment: "left",
           shape: "pill",
           size: "large",
@@ -146,7 +156,11 @@ const GoogleSignInButton = ({
         });
       } catch (error) {
         onErrorRef.current?.(
-          error instanceof Error ? error.message : "Google 로그인 버튼을 불러오지 못했습니다."
+          error instanceof Error
+            ? error.message
+            : locale === "en"
+              ? "Could not load the Google login button."
+              : "Google 로그인 버튼을 불러오지 못했습니다."
         );
       }
     };
@@ -157,7 +171,7 @@ const GoogleSignInButton = ({
       cancelled = true;
       containerElement.innerHTML = "";
     };
-  }, [buttonWidth, context, text]);
+  }, [buttonWidth, context, locale, text]);
 
   return (
     <div ref={wrapperRef} className={cn("w-full max-w-full min-w-0 space-y-3", className)}>
@@ -184,7 +198,7 @@ const GoogleSignInButton = ({
 
       {isSubmitting ? (
         <p className="text-center text-sm font-medium text-slate-500">
-          Google 계정을 확인하는 중입니다.
+          {locale === "en" ? "Checking your Google account." : "Google 계정을 확인하는 중입니다."}
         </p>
       ) : null}
     </div>

@@ -71,6 +71,22 @@ test("sends keywords from an existing bingo session", async ({ page }) => {
   await expect(page.getByLabel("상대방 이름 검색")).toHaveValue("");
 });
 
+test("switches the game screen language to English", async ({ page }) => {
+  await openExchangePage({ page });
+
+  await page.getByRole("button", { name: "English" }).click();
+
+  await expect(page.getByRole("heading", { name: /Fill your bingo board/ })).toBeVisible();
+  await expect(page.getByLabel("Search participant name")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send" })).toBeDisabled();
+  await expect(page.getByText("Bingo completion")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "People I Sent To" })).toBeVisible();
+
+  await page.reload();
+
+  await expect(page.getByLabel("Search participant name")).toBeVisible();
+});
+
 test.describe("mobile touch", () => {
   test.use({
     viewport: { width: 390, height: 844 },

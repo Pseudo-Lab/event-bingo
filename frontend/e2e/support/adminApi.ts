@@ -17,6 +17,8 @@ type AdminEventPayloadOptions = {
   boardSize?: 3 | 4 | 5;
   bingoMissionCount?: number;
   keywords?: string[];
+  keywordTranslations?: Record<string, string>;
+  englishSupportEnabled?: boolean;
   publishState?: "draft" | "published" | "archived";
   startAt?: string;
   endAt?: string;
@@ -70,6 +72,8 @@ export const buildAdminEventPayload = ({
   boardSize = 5,
   bingoMissionCount = boardSize,
   keywords = Array.from({ length: boardSize * boardSize }, (_, index) => `키워드 ${index + 1}`),
+  keywordTranslations = {},
+  englishSupportEnabled = false,
   publishState = "draft",
   startAt = "2026-05-17T15:00:00+09:00",
   endAt = "2026-05-17T18:00:00+09:00",
@@ -96,7 +100,9 @@ export const buildAdminEventPayload = ({
     admin_email: adminEmail,
     board_size: boardSize,
     bingo_mission_count: bingoMissionCount,
+    english_support_enabled: englishSupportEnabled,
     keywords,
+    keyword_translations: keywordTranslations,
     participant_count: participantCount,
     progress_current: progressCurrent,
     progress_total: progressTotal,

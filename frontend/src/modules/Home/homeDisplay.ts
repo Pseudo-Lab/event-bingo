@@ -3,17 +3,31 @@ import {
   humanizeEventSlug,
   type EventProfile,
 } from "../../config/eventProfiles";
+import type { BingoGameLanguage } from "../Bingo/bingoGameLanguage";
 
 export const HOME_EVENT_DISPLAY_FALLBACKS = {
-  title: "Bingo Networking",
-  subtitle: "빙고로 즐기는 새로운 네트워킹",
-  eventName: "현장 네트워킹 이벤트",
-  loadingEventName: "행사 정보를 불러오는 중입니다",
-  date: "일정 추후 안내",
-  loadingDate: "일정 확인 중",
-  place: "행사 장소",
-  loadingPlace: "장소 확인 중",
-  eventTeam: "행사 운영팀",
+  ko: {
+    title: "Bingo Networking",
+    subtitle: "빙고로 즐기는 새로운 네트워킹",
+    eventName: "현장 네트워킹 이벤트",
+    loadingEventName: "행사 정보를 불러오는 중입니다",
+    date: "일정 추후 안내",
+    loadingDate: "일정 확인 중",
+    place: "행사 장소",
+    loadingPlace: "장소 확인 중",
+    eventTeam: "행사 운영팀",
+  },
+  en: {
+    title: "Bingo Networking",
+    subtitle: "A new way to network through bingo",
+    eventName: "On-site Networking Event",
+    loadingEventName: "Loading event information",
+    date: "Schedule to be announced",
+    loadingDate: "Checking schedule",
+    place: "Event venue",
+    loadingPlace: "Checking venue",
+    eventTeam: "Event Team",
+  },
 } as const;
 
 const isPlaceholderValue = (value: string | undefined, placeholders: string[]) => {
@@ -31,37 +45,42 @@ const isSlugDerivedFallbackSubtitle = (eventProfile: EventProfile) => {
 
 export const resolveHomeEventSummary = (
   eventProfile: EventProfile,
-  isResolved: boolean
+  isResolved: boolean,
+  language: BingoGameLanguage = "ko"
 ) => {
   const usesSlugFallback = isSlugDerivedFallbackSubtitle(eventProfile);
-  const formattedDate = formatEventDateLabel(eventProfile.startAt);
+  const fallback = HOME_EVENT_DISPLAY_FALLBACKS[language];
+  const formattedDate = formatEventDateLabel(
+    eventProfile.startAt,
+    language === "en" ? "en-US" : "ko-KR"
+  );
 
   if (!isResolved) {
     return {
-      eventName: HOME_EVENT_DISPLAY_FALLBACKS.loadingEventName,
-      eventTeam: HOME_EVENT_DISPLAY_FALLBACKS.eventTeam,
-      date: HOME_EVENT_DISPLAY_FALLBACKS.loadingDate,
-      place: HOME_EVENT_DISPLAY_FALLBACKS.loadingPlace,
+      eventName: fallback.loadingEventName,
+      eventTeam: fallback.eventTeam,
+      date: fallback.loadingDate,
+      place: fallback.loadingPlace,
     };
   }
 
   return {
     eventName:
       usesSlugFallback || isPlaceholderValue(eventProfile.subTitle, ["YYYY 행사 이름"])
-        ? HOME_EVENT_DISPLAY_FALLBACKS.eventName
+        ? fallback.eventName
         : eventProfile.subTitle,
     eventTeam:
       usesSlugFallback ||
       isPlaceholderValue(eventProfile.eventTeam, ["행사 주최자", "Event Team"])
-        ? HOME_EVENT_DISPLAY_FALLBACKS.eventTeam
+        ? fallback.eventTeam
         : eventProfile.eventTeam,
     date:
       usesSlugFallback || isPlaceholderValue(formattedDate, ["MM월 DD일"])
-        ? HOME_EVENT_DISPLAY_FALLBACKS.date
+        ? fallback.date
         : formattedDate,
     place:
       usesSlugFallback || isPlaceholderValue(eventProfile.place, ["장소", "행사 장소"])
-        ? HOME_EVENT_DISPLAY_FALLBACKS.place
+        ? fallback.place
         : eventProfile.place,
   };
 };
