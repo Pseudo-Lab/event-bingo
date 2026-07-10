@@ -1407,7 +1407,7 @@ const BingoGame = () => {
             <p className="bingo-hero__identity">{participantSummary}</p>
             <div className="bingo-hero__content">
               <div className="bingo-hero__copy">
-                <h1>
+                <h1 className={`bingo-hero__title bingo-hero__title--${language}`}>
                   {copy.heroTitleLines.map((line, index) => (
                     <span key={line}>
                       {index > 0 ? <br /> : null}

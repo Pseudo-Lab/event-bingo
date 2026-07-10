@@ -653,6 +653,13 @@
   font-weight: 900;
 }
 
+.bingo-hero__title--en {
+  max-width: 29rem;
+  font-size: clamp(2.28rem, 4.05vw, 3.45rem);
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+
 .bingo-hero__form {
   display: flex;
   align-items: center;
@@ -898,10 +905,18 @@
     transform-origin: left top;
   }
 
+  .bingo-hero__title--en {
+    transform: translateY(2.7rem);
+  }
+
   .bingo-hero__form {
     margin-top: 0;
     transform: translateY(5.7rem);
     transform-origin: left bottom;
+  }
+
+  .bingo-hero__title--en + .bingo-hero__form {
+    transform: translateY(4.65rem);
   }
 
   .bingo-hero__illustration {
