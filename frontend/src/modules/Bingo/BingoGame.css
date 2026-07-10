@@ -670,7 +670,11 @@
 
 .bingo-hero__form--exchange {
   display: grid;
+  grid-template-columns: minmax(16rem, 24rem) auto;
+  align-items: center;
   gap: 0.7rem;
+  width: fit-content;
+  max-width: 100%;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -785,6 +789,7 @@
 .bingo-hero__form-actions {
   display: flex;
   justify-content: flex-end;
+  align-self: stretch;
 }
 
 .bingo-hero__form > button,
@@ -1997,6 +2002,8 @@
   }
 
   .bingo-hero__form--exchange {
+    grid-template-columns: 1fr;
+    width: min(100%, 31rem);
     padding: 0;
     border-radius: 0;
   }
