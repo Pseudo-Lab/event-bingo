@@ -668,11 +668,20 @@
   background: #ffffff;
 }
 
+.bingo-hero__form--exchange {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .bingo-hero__form--demo {
   overflow: hidden;
 }
 
-.bingo-hero__form--demo button {
+.bingo-hero__form--demo > button {
   min-width: 6.4rem;
   margin-right: 0.65rem;
   padding-right: 1rem;
@@ -684,6 +693,12 @@
   z-index: 30;
   flex: 1 1 0%;
   min-width: 0;
+}
+
+.bingo-hero__form--exchange .bingo-hero__form-field {
+  border: 2px solid #0f7f62;
+  border-radius: 1.1rem;
+  background: #ffffff;
 }
 
 .bingo-hero__form input {
@@ -746,7 +761,7 @@
   cursor: pointer;
   font-size: 0.92rem;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   box-shadow: none;
   transition:
     background-color 140ms ease,
@@ -767,7 +782,13 @@
   font-size: 0.875rem;
 }
 
-.bingo-hero__form button {
+.bingo-hero__form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bingo-hero__form > button,
+.bingo-hero__submit-button {
   position: relative;
   z-index: 1;
   display: inline-flex;
@@ -783,7 +804,7 @@
   padding: 0.9rem 1.45rem;
   font-size: 1.08rem;
   font-weight: 900;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
   line-height: 1;
   white-space: nowrap;
   touch-action: manipulation;
@@ -794,7 +815,8 @@
     box-shadow 160ms ease;
 }
 
-.bingo-hero__form button:hover {
+.bingo-hero__form > button:hover,
+.bingo-hero__submit-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 18px 28px rgba(52, 168, 131, 0.26);
 }
@@ -804,14 +826,16 @@
   cursor: not-allowed;
 }
 
-.bingo-hero__form button:disabled {
+.bingo-hero__form > button:disabled,
+.bingo-hero__submit-button:disabled {
   opacity: 0.56;
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
 }
 
-.bingo-hero__form button:focus-visible,
+.bingo-hero__form > button:focus-visible,
+.bingo-hero__submit-button:focus-visible,
 .bingo-game-footer__home:focus-visible {
   outline: 3px solid rgba(30, 133, 100, 0.24);
   outline-offset: 3px;
@@ -1972,11 +1996,17 @@
     padding: 0.45rem;
   }
 
+  .bingo-hero__form--exchange {
+    padding: 0;
+    border-radius: 0;
+  }
+
   .bingo-hero__form-field {
     width: 100%;
   }
 
-  .bingo-hero__form button {
+  .bingo-hero__form > button,
+  .bingo-hero__submit-button {
     width: 100%;
     min-width: 6.3rem;
     padding: 0.8rem 1.1rem;

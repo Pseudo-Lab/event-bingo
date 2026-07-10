@@ -1416,7 +1416,7 @@ const BingoGame = () => {
                   ))}
                 </h1>
                 <form
-                  className="bingo-hero__form"
+                  className="bingo-hero__form bingo-hero__form--exchange"
                   onSubmit={(event) => {
                     event.preventDefault();
                     void handleExchange();
@@ -1464,9 +1464,15 @@ const BingoGame = () => {
                         </div>
                       )}
                   </div>
-                  <button type="submit" disabled={isBoardPreviewActive || !opponentId}>
-                    {copy.send}
-                  </button>
+                  <div className="bingo-hero__form-actions">
+                    <button
+                      type="submit"
+                      className="bingo-hero__submit-button"
+                      disabled={isBoardPreviewActive || !opponentId}
+                    >
+                      {copy.send}
+                    </button>
+                  </div>
                 </form>
               </div>
               <NetworkingIllustration />
