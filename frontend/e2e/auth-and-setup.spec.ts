@@ -1,20 +1,13 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import {
   mockEmptyBoardBootstrap,
   mockPublicEventProfile,
   seedBingoSession,
 } from "./support/bingoApi";
 
-test("opens name setup first and completes initial keyword setup", async ({ page }) => {
+const mockCreateBoard = async (page: Page) => {
   const createdBoardPayloads: Array<Record<string, unknown>> = [];
-
-  await mockPublicEventProfile(page);
-  await seedBingoSession(page, {
-    userId: 7,
-    userName: "구글 닉네임",
-    loginId: "ABCD12",
-  });
-  await mockEmptyBoardBootstrap(page, 7);
 
   await page.route("**/api/bingo/boards", async (route) => {
     createdBoardPayloads.push(route.request().postDataJSON() as Record<string, unknown>);
@@ -30,6 +23,19 @@ test("opens name setup first and completes initial keyword setup", async ({ page
       }),
     });
   });
+
+  return createdBoardPayloads;
+};
+
+test("opens name setup first and completes initial keyword setup", async ({ page }) => {
+  await mockPublicEventProfile(page);
+  await seedBingoSession(page, {
+    userId: 7,
+    userName: "구글 닉네임",
+    loginId: "ABCD12",
+  });
+  await mockEmptyBoardBootstrap(page, 7);
+  const createdBoardPayloads = await mockCreateBoard(page);
 
   await page.goto("/event/bingo-networking/bingo");
 
@@ -57,6 +63,39 @@ test("opens name setup first and completes initial keyword setup", async ({ page
     (cell) => cell.selected === 1
   ).length;
   expect(selectedCount).toBe(3);
+});
+
+test("resets the page scroll after initial keyword setup", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockPublicEventProfile(page);
+  await seedBingoSession(page, {
+    userId: 7,
+    userName: "구글 닉네임",
+    loginId: "ABCD12",
+  });
+  await mockEmptyBoardBootstrap(page, 7);
+  await mockCreateBoard(page);
+
+  await page.goto("/event/bingo-networking/bingo");
+
+  await expect(page.getByRole("heading", { name: "이름 설정" })).toBeVisible();
+  await page.getByPlaceholder("이름을 입력하세요").fill("테스터");
+  await page.getByRole("button", { name: "다음" }).click();
+
+  await expect(page.getByRole("heading", { name: "관심사 선택" })).toBeVisible();
+  await page.getByRole("button", { name: /^키워드 1$/ }).click();
+  await page.getByRole("button", { name: /^키워드 2$/ }).click();
+  await page.getByRole("button", { name: /^키워드 3$/ }).click();
+
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(0);
+
+  await page.getByRole("button", { name: "빙고 시작하기" }).click();
+
+  await expect(page.getByLabel("상대방 이름 검색")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 });
 
 test("opens name setup after waiting on the countdown screen", async ({ page }) => {

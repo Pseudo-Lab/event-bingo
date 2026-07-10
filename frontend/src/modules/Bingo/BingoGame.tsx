@@ -485,6 +485,16 @@ const BingoGame = () => {
     });
   }, []);
 
+  const scrollToPageTop = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+  }, []);
+
   const refreshBingoState = useCallback(
     async (activeUserId: string) => {
       if (!activeUserId || isPollingRef.current || isBoardPreviewActiveRef.current) {
@@ -923,6 +933,7 @@ const BingoGame = () => {
       }
 
       setInitialSetupOpen(false);
+      scrollToPageTop();
       showAlert(copy.alerts.keywordsReady);
     } catch (error) {
       console.error("Failed initial setup:", error);
