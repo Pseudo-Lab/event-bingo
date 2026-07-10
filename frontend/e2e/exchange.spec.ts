@@ -205,7 +205,81 @@ test.describe("mobile touch", () => {
     await expect
       .poll(() => page.evaluate(() => window.scrollY), { timeout: 7000 })
       .toBeGreaterThan(0);
-    await expect(page.locator(".bingo-board-cell.is-latest")).toContainText(incomingKeyword);
+    const latestCell = page.locator(".bingo-board-cell.is-latest");
+    await expect(latestCell).toContainText(incomingKeyword);
+    await expect
+      .poll(() =>
+        latestCell.evaluate((element) => getComputedStyle(element).animationName)
+      )
+      .toContain("bingoLatestReceived");
+  });
+
+  test("emphasizes the existing card when a duplicate incoming keyword arrives", async ({
+    page,
+  }) => {
+    let interactionRequestCount = 0;
+    const duplicateKeyword = "키워드 1";
+
+    await seedBingoSession(page, session);
+    await mockPublicEventProfile(page);
+    await mockParticipantSearch(page, [{ user_id: 9, display_name: "상대방" }]);
+
+    await page.route(`**/api/bingo/boards/${session.userId}**`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          message: "ok",
+          user_id: session.userId,
+          display_name: session.userName,
+          board_data: buildBoardData({
+            selectedValues,
+            activeValues: [duplicateKeyword],
+          }),
+          bingo_count: 0,
+          user_interaction_count: interactionRequestCount > 0 ? 1 : 0,
+        }),
+      });
+    });
+
+    await page.route(`**/api/bingo/interactions/${session.userId}/all**`, async (route) => {
+      interactionRequestCount += 1;
+      const hasDuplicateIncoming = interactionRequestCount > 1;
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          message: "ok",
+          interactions: hasDuplicateIncoming
+            ? [
+                buildInteractionRecord({
+                  interactionId: 303,
+                  sendUserId: 9,
+                  receiveUserId: session.userId,
+                  sendUserName: "상대방",
+                  receiveUserName: session.userName,
+                  updatedWords: [duplicateKeyword],
+                }),
+              ]
+            : [],
+        }),
+      });
+    });
+
+    await page.goto("/event/bingo-networking/bingo");
+    await expect(page.getByLabel("상대방 이름 검색")).toBeVisible();
+
+    const latestCell = page.locator(".bingo-board-cell.is-latest");
+    await expect(latestCell).toContainText(duplicateKeyword, { timeout: 7000 });
+    await expect
+      .poll(() =>
+        latestCell.evaluate((element) => getComputedStyle(element).animationName)
+      )
+      .toContain("bingoLatestReceived");
+    await expect(page.locator(".bingo-toast__title")).toHaveText("키워드를 받았어요");
   });
 });
 

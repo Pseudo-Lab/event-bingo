@@ -223,6 +223,7 @@ const BingoGame = () => {
   );
   const [alertSeverity, setAlertSeverity] = useState<AlertSeverity>("success");
   const [latestReceivedKeywords, setLatestReceivedKeywords] = useState<string[]>([]);
+  const [latestReceivedMarker, setLatestReceivedMarker] = useState(0);
   const [boardPreviewPreset, setBoardPreviewPreset] = useState<BoardPreviewPreset | null>(null);
   const [boardPreviewBase, setBoardPreviewBase] = useState<BingoCell[] | null>(null);
   const [remainingTime, setRemainingTime] = useState(() => {
@@ -495,6 +496,11 @@ const BingoGame = () => {
     });
   }, []);
 
+  const markLatestReceivedKeywords = useCallback((keywords: string[]) => {
+    setLatestReceivedKeywords(keywords);
+    setLatestReceivedMarker((previousValue) => previousValue + 1);
+  }, []);
+
   const refreshBingoState = useCallback(
     async (activeUserId: string) => {
       if (!activeUserId || isPollingRef.current || isBoardPreviewActiveRef.current) {
@@ -547,7 +553,9 @@ const BingoGame = () => {
         if (newlyUpdatedValues.length > 0) {
           setBingoBoard(latestBoard);
           bingoBoardRef.current = latestBoard;
-          setLatestReceivedKeywords(newlyUpdatedValues);
+          if (!latestIncomingBatch) {
+            markLatestReceivedKeywords(newlyUpdatedValues);
+          }
           if (latestIncomingBatch) {
             scrollToBingoBoard();
           }
@@ -557,6 +565,7 @@ const BingoGame = () => {
           latestIncomingBatch &&
           latestIncomingBatch.signature !== lastProcessedIncomingSignatureRef.current
         ) {
+          markLatestReceivedKeywords(latestIncomingBatch.keywords);
           setLastProcessedIncomingSignature(latestIncomingBatch.signature);
           lastProcessedIncomingSignatureRef.current = latestIncomingBatch.signature;
 
@@ -594,6 +603,7 @@ const BingoGame = () => {
       copy.alerts.boardUpdated,
       copy.alerts.boardUpdatedTitle,
       eventSlug,
+      markLatestReceivedKeywords,
       showAlert,
       scrollToBingoBoard,
       syncSessionDisplayName,
@@ -714,7 +724,7 @@ const BingoGame = () => {
             )
           );
           if (latestIncomingBatch) {
-            setLatestReceivedKeywords(latestIncomingBatch.keywords);
+            markLatestReceivedKeywords(latestIncomingBatch.keywords);
             setLastProcessedIncomingSignature(latestIncomingBatch.signature);
             lastProcessedIncomingSignatureRef.current =
               latestIncomingBatch.signature;
@@ -767,6 +777,7 @@ const BingoGame = () => {
     eventSlug,
     isEventProfileAvailable,
     locked,
+    markLatestReceivedKeywords,
     unlockTime,
     navigate,
     showAlert,
@@ -1575,6 +1586,7 @@ const BingoGame = () => {
             completedLines={completedLines}
             newBingoCells={newBingoCells}
             latestReceivedKeywords={displayLatestReceivedKeywords}
+            latestReceivedMarker={latestReceivedMarker}
             animatedCells={animatedCells}
             completedCellIndexes={bingoLineCells}
             previewTools={

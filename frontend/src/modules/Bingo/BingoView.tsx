@@ -75,6 +75,7 @@ type BingoBoardSectionProps = {
   completedLines: CompletedLine[];
   newBingoCells: number[];
   latestReceivedKeywords: string[];
+  latestReceivedMarker?: number;
   animatedCells: number[];
   completedCellIndexes: number[];
   sectionRef?: Ref<HTMLElement>;
@@ -327,6 +328,7 @@ export function BingoBoardSection({
   completedLines,
   newBingoCells,
   latestReceivedKeywords,
+  latestReceivedMarker = 0,
   animatedCells,
   completedCellIndexes,
   sectionRef,
@@ -444,7 +446,10 @@ export function BingoBoardSection({
               .join(" ");
 
             return (
-              <article key={cell.id} className={classNames}>
+              <article
+                key={`${cell.id}-${isLatest ? latestReceivedMarker : 0}`}
+                className={classNames}
+              >
                 <div className="bingo-board-cell__inner">
                   {isLineCell ? (
                     <div
