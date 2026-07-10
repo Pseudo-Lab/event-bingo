@@ -1015,19 +1015,15 @@ async def reset_event_runtime_data(
     deleted_boards = 0
     deleted_users = 0
 
-    if resettable_user_ids:
-        interaction_result = await session.execute(
-            delete(BingoInteraction).where(
-                (BingoInteraction.send_user_id.in_(resettable_user_ids))
-                | (BingoInteraction.receive_user_id.in_(resettable_user_ids))
-            )
-        )
-        board_result = await session.execute(
-            delete(BingoBoards).where(BingoBoards.user_id.in_(resettable_user_ids))
-        )
+    interaction_result = await session.execute(
+        delete(BingoInteraction).where(BingoInteraction.event_id == event.id)
+    )
+    board_result = await session.execute(
+        delete(BingoBoards).where(BingoBoards.event_id == event.id)
+    )
 
-        deleted_interactions = interaction_result.rowcount or 0
-        deleted_boards = board_result.rowcount or 0
+    deleted_interactions = interaction_result.rowcount or 0
+    deleted_boards = board_result.rowcount or 0
 
     attendee_result = await session.execute(
         delete(EventAttendee).where(EventAttendee.event_id == event.id)

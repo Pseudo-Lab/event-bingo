@@ -24,6 +24,7 @@ from api.admin.console_services import (
     resolve_participant_name,
     resolve_selected_keywords,
     resolve_personal_data_cutoff,
+    reset_event_runtime_data,
     serialize_admin_member,
     validate_admin_member_deletion,
     validate_event_manager_request_transition,
@@ -32,6 +33,23 @@ from api.admin.console_services import (
 from datetime import datetime, timedelta, timezone
 from models.admin import AdminRole, now_kst_naive
 from models.event_manager_request import EventManagerRequestStatus
+
+
+class _FakeScalarResult:
+    def __init__(self, items):
+        self._items = items
+
+    def all(self):
+        return self._items
+
+
+class _FakeResetResult:
+    def __init__(self, *, scalar_items=None, rowcount=0):
+        self._scalar_items = scalar_items or []
+        self.rowcount = rowcount
+
+    def scalars(self):
+        return _FakeScalarResult(self._scalar_items)
 
 
 def test_validate_event_schedule_blocks_invalid_range():
@@ -47,6 +65,44 @@ def test_build_admin_event_bingo_progress_query_matches_event_and_user():
 
     assert "bingo_boards.user_id = event_attendees.user_id" in statement
     assert "bingo_boards.event_id = event_attendees.event_id" in statement
+
+
+def test_reset_event_runtime_data_clears_stale_event_records_without_attendees():
+    class DbStub:
+        def __init__(self):
+            self.statements = []
+            self.committed = False
+            self.results = [
+                _FakeResetResult(scalar_items=[]),
+                _FakeResetResult(rowcount=1),
+                _FakeResetResult(rowcount=2),
+                _FakeResetResult(rowcount=0),
+                _FakeResetResult(rowcount=0),
+            ]
+
+        async def execute(self, statement):
+            self.statements.append(str(statement))
+            return self.results.pop(0)
+
+        async def commit(self):
+            self.committed = True
+
+    db = DbStub()
+    event = type("EventStub", (), {"id": 27})()
+
+    stats = asyncio.run(reset_event_runtime_data(db, event))
+
+    assert stats["deleted_interactions"] == 1
+    assert stats["deleted_boards"] == 2
+    assert stats["deleted_attendees"] == 0
+    assert stats["deleted_teams"] == 0
+    assert stats["deleted_users"] == 0
+    assert db.committed is True
+    delete_statements = "\n".join(db.statements[1:])
+    assert "DELETE FROM bingo_interaction" in delete_statements
+    assert "bingo_interaction.event_id = :event_id_1" in delete_statements
+    assert "DELETE FROM bingo_boards" in delete_statements
+    assert "bingo_boards.event_id = :event_id_1" in delete_statements
 
 
 def test_filter_visible_admin_events_allows_admin_to_see_all_events():
