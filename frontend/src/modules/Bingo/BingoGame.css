@@ -1905,8 +1905,9 @@
 
 @media (max-width: 720px) {
   .bingo-language-switch {
-    top: 0.72rem;
-    right: 0.72rem;
+    top: auto;
+    right: calc(env(safe-area-inset-right, 0px) + 0.72rem);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.72rem);
   }
 
   .bingo-language-switch button {
@@ -2146,7 +2147,8 @@
 
 @media (max-width: 380px) {
   .bingo-language-switch {
-    right: 0.5rem;
+    right: calc(env(safe-area-inset-right, 0px) + 0.5rem);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
   }
 
   .bingo-language-switch button {
