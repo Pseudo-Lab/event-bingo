@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import {
+  buildBoardData,
   buildInteractionCreateResponse,
   buildInteractionRecord,
   mockBoardBootstrap,
@@ -138,6 +139,73 @@ test.describe("mobile touch", () => {
 
     await expect(page.locator(".bingo-toast__title")).toHaveText("키워드를 전송했어요");
     await expect(page.locator(".history-panel").first()).toContainText("상대방");
+  });
+
+  test("scrolls to the board when an incoming exchange updates keywords", async ({ page }) => {
+    let boardRequestCount = 0;
+    let interactionRequestCount = 0;
+    const incomingKeyword = "키워드 4";
+
+    await seedBingoSession(page, session);
+    await mockPublicEventProfile(page);
+    await mockParticipantSearch(page, [{ user_id: 9, display_name: "상대방" }]);
+
+    await page.route(`**/api/bingo/boards/${session.userId}**`, async (route) => {
+      boardRequestCount += 1;
+      const hasIncomingKeyword = boardRequestCount > 1;
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          message: "ok",
+          user_id: session.userId,
+          display_name: session.userName,
+          board_data: buildBoardData({
+            selectedValues,
+            activeValues: hasIncomingKeyword ? [incomingKeyword] : [],
+          }),
+          bingo_count: 0,
+          user_interaction_count: hasIncomingKeyword ? 1 : 0,
+        }),
+      });
+    });
+
+    await page.route(`**/api/bingo/interactions/${session.userId}/all**`, async (route) => {
+      interactionRequestCount += 1;
+      const hasIncomingKeyword = interactionRequestCount > 1;
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          message: "ok",
+          interactions: hasIncomingKeyword
+            ? [
+                buildInteractionRecord({
+                  interactionId: 202,
+                  sendUserId: 9,
+                  receiveUserId: session.userId,
+                  sendUserName: "상대방",
+                  receiveUserName: session.userName,
+                  updatedWords: [incomingKeyword],
+                }),
+              ]
+            : [],
+        }),
+      });
+    });
+
+    await page.goto("/event/bingo-networking/bingo");
+    await expect(page.getByLabel("상대방 이름 검색")).toBeVisible();
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY), { timeout: 7000 })
+      .toBeGreaterThan(0);
+    await expect(page.locator(".bingo-board-cell.is-latest")).toContainText(incomingKeyword);
   });
 });
 

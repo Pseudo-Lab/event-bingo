@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 import characterIllustration from "../../assets/illustrations/character.svg";
 import bingoCellStarFill from "../../assets/illustrations/Star 1.svg";
 import bingoCellStarOutline from "../../assets/illustrations/Star 2.svg";
@@ -77,6 +77,7 @@ type BingoBoardSectionProps = {
   latestReceivedKeywords: string[];
   animatedCells: number[];
   completedCellIndexes: number[];
+  sectionRef?: Ref<HTMLElement>;
   previewTools?: {
     options: Array<{ id: BoardPreviewPreset; label: string }>;
     activePreset: BoardPreviewPreset | null;
@@ -328,6 +329,7 @@ export function BingoBoardSection({
   latestReceivedKeywords,
   animatedCells,
   completedCellIndexes,
+  sectionRef,
   previewTools,
 }: BingoBoardSectionProps) {
   const latestReceivedKeywordSet = new Set(latestReceivedKeywords);
@@ -337,7 +339,7 @@ export function BingoBoardSection({
   const isBoardPreviewActive = previewTools?.activePreset != null;
 
   return (
-    <section className="bingo-board-shell" aria-label="bingo board">
+    <section ref={sectionRef} className="bingo-board-shell" aria-label="bingo board">
       {previewTools ? (
         <section
           className={`bingo-preview-panel ${isBoardPreviewActive ? "is-active" : ""}`}

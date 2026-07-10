@@ -242,6 +242,7 @@ const BingoGame = () => {
     readBoardReadyFlag(eventSlug, getAuthSession()?.userId)
   );
   const alertTimeoutRef = useRef<number | null>(null);
+  const boardSectionRef = useRef<HTMLElement | null>(null);
   const bingoBoardRef = useRef<BingoCell[] | null>(null);
   const lastSeenInteractionIdRef = useRef(0);
   const lastProcessedIncomingSignatureRef = useRef("");
@@ -459,6 +460,31 @@ const BingoGame = () => {
     });
   }, []);
 
+  const scrollToBingoBoard = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const boardSection = boardSectionRef.current;
+    if (!boardSection) {
+      return;
+    }
+
+    const rect = boardSection.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const isComfortablyVisible = rect.top >= 80 && rect.bottom <= viewportHeight - 24;
+    if (isComfortablyVisible) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      boardSection.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, []);
+
   const refreshBingoState = useCallback(
     async (activeUserId: string) => {
       if (!activeUserId || isPollingRef.current || isBoardPreviewActiveRef.current) {
@@ -512,6 +538,9 @@ const BingoGame = () => {
           setBingoBoard(latestBoard);
           bingoBoardRef.current = latestBoard;
           setLatestReceivedKeywords(newlyUpdatedValues);
+          if (latestIncomingBatch) {
+            scrollToBingoBoard();
+          }
         }
 
         if (
@@ -556,6 +585,7 @@ const BingoGame = () => {
       copy.alerts.boardUpdatedTitle,
       eventSlug,
       showAlert,
+      scrollToBingoBoard,
       syncSessionDisplayName,
     ]
   );
@@ -1527,6 +1557,7 @@ const BingoGame = () => {
 
         {displayBingoBoard ? (
           <BingoBoardSection
+            sectionRef={boardSectionRef}
             board={displayBingoBoard}
             boardSize={boardSize}
             connectionLines={boardConnectionLines}
