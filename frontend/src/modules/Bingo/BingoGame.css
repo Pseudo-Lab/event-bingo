@@ -152,8 +152,13 @@
   background: #ffffff;
   color: #53c8a7;
   font-size: clamp(1.3rem, 2.8vw, 2rem);
+  line-height: 1.25;
   font-weight: 800;
   letter-spacing: -0.04em;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  text-wrap: balance;
   transition:
     transform 160ms ease,
     box-shadow 160ms ease,
