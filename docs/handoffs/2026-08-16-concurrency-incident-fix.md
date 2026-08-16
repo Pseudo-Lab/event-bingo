@@ -34,12 +34,13 @@
 
 ## Validation
 - Backend: `PYTHONPATH=app /tmp/event-bingo-concurrency-venv/bin/pytest -q` — 157 passed, 2 DB integration tests skipped, 1 pre-existing Pydantic deprecation warning.
+- Backend DB integration: GitHub Actions `Backend DB Integration` — passed against the guarded PostgreSQL service.
 - Frontend unit: `npm test` — 109 passed.
 - Frontend lint: `npm run lint` — passed.
 - Frontend build/type check: `npm run build` — passed; existing large-chunk warning remains.
 - Frontend E2E: `npm run e2e` — 19 passed.
 - `git diff --check` — passed.
-- Not run: guarded backend DB integration tests, 50-client/10-minute staging load test, and production-shaped participant-search `EXPLAIN (ANALYZE, BUFFERS)`. No safe staging database target or credentials were supplied.
+- Not run: 50-client/10-minute staging load test and production-shaped participant-search `EXPLAIN (ANALYZE, BUFFERS)`. No safe staging database target or credentials were supplied.
 
 ## Rollout And Rollback
 - Roll out the backend and frontend together because the API search minimum and polling behavior are coordinated contract changes.
