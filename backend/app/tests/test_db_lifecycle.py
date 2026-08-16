@@ -16,7 +16,7 @@ class SessionContext:
         return False
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_get_session_commits_and_returns_session():
     database = Database()
     session = MagicMock(commit=AsyncMock(), rollback=AsyncMock())
@@ -32,7 +32,7 @@ async def test_get_session_commits_and_returns_session():
     session.rollback.assert_not_awaited()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_get_session_rolls_back_and_propagates_endpoint_exception():
     database = Database()
     session = MagicMock(commit=AsyncMock(), rollback=AsyncMock())
@@ -64,7 +64,7 @@ def test_initialize_uses_bounded_environment_overridable_pool(monkeypatch):
     assert options["pool_use_lifo"] is True
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_dispose_closes_initialized_engine():
     database = Database()
     database.async_engine = MagicMock(dispose=AsyncMock())
