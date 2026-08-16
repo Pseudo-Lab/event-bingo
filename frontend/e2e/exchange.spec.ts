@@ -203,7 +203,7 @@ test.describe("mobile touch", () => {
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
 
     await expect
-      .poll(() => page.evaluate(() => window.scrollY), { timeout: 7000 })
+      .poll(() => page.evaluate(() => window.scrollY), { timeout: 15_000 })
       .toBeGreaterThan(0);
     const latestCell = page.locator(".bingo-board-cell.is-latest");
     await expect(latestCell).toContainText(incomingKeyword);
@@ -273,7 +273,7 @@ test.describe("mobile touch", () => {
     await expect(page.getByLabel("상대방 이름 검색")).toBeVisible();
 
     const latestCell = page.locator(".bingo-board-cell.is-latest");
-    await expect(latestCell).toContainText(duplicateKeyword, { timeout: 7000 });
+    await expect(latestCell).toContainText(duplicateKeyword, { timeout: 15_000 });
     await expect
       .poll(() =>
         latestCell.evaluate((element) => getComputedStyle(element).animationName)

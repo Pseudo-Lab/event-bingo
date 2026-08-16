@@ -55,7 +55,7 @@ async def bingo_login(
 
 @auth_router.get("/bingo/search", response_model=BingoParticipantSearchResult, description="빙고 참가자 이름 검색 API")
 async def bingo_search_participants(
-    q: str = Query(..., min_length=1, max_length=100, description="검색할 이름"),
+    q: str = Query(..., min_length=2, max_length=100, description="검색할 이름"),
     event_slug: str = Query(..., min_length=1, max_length=100, description="이벤트 slug"),
     exclude_user_id: int | None = Query(None, ge=1, description="검색 결과에서 제외할 유저 ID"),
     session: AsyncSessionDepends = None,

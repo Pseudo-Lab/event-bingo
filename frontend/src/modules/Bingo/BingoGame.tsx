@@ -68,6 +68,7 @@ import {
   writeBingoGameLanguage,
 } from "./bingoGameLanguage";
 import type { BingoGameLanguage } from "./bingoGameLanguage";
+import { getStablePollJitter, startVisibilityAwarePolling } from "./bingoPolling";
 import { syncTestModeFromUrl } from "../../utils/testMode";
 import {
   readGoalCelebrationFlag as readStoredGoalCelebrationFlag,
@@ -197,6 +198,7 @@ const BingoGame = () => {
   const [nameSetupMode, setNameSetupMode] = useState<"new-board" | "existing-board">("new-board");
   const [nameInput, setNameInput] = useState("");
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const opponentSearchAbortRef = useRef<AbortController | null>(null);
   const opponentInputRef = useRef<HTMLInputElement | null>(null);
   const opponentSearchRequestIdRef = useRef(0);
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
@@ -594,6 +596,7 @@ const BingoGame = () => {
         });
       } catch (error) {
         console.error("Error refreshing bingo board:", error);
+        return false;
       } finally {
         isPollingRef.current = false;
       }
@@ -790,12 +793,12 @@ const BingoGame = () => {
       return;
     }
 
-    const interval = setInterval(() => {
-      void refreshBingoState(userId);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [refreshBingoState, userId, initialSetupOpen, nameSetupOpen]);
+    return startVisibilityAwarePolling({
+      document,
+      jitterMs: getStablePollJitter(`${eventSlug ?? "event"}:${userId}`),
+      poll: async () => (await refreshBingoState(userId)) !== false,
+    });
+  }, [eventSlug, refreshBingoState, userId, initialSetupOpen, nameSetupOpen]);
 
   const resetPreviewVisualState = useCallback(() => {
     setShowAllBingoModal(false);
@@ -1126,8 +1129,10 @@ const BingoGame = () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
+      opponentSearchAbortRef.current?.abort();
+      opponentSearchAbortRef.current = null;
 
-      if (normalizedQuery.length === 0) {
+      if (normalizedQuery.length < 2) {
         setOpponentSearchResults([]);
         setIsSearching(false);
         return;
@@ -1142,12 +1147,15 @@ const BingoGame = () => {
       setIsSearching(true);
       const requestId = opponentSearchRequestIdRef.current;
       searchTimeoutRef.current = setTimeout(async () => {
+        const abortController = new AbortController();
+        opponentSearchAbortRef.current = abortController;
         try {
           const activeUserId = userId || getAuthSession()?.userId || "";
           const results = await searchBingoParticipants(
             normalizedQuery,
             normalizedEventSlug,
-            activeUserId || undefined
+            activeUserId || undefined,
+            abortController.signal
           );
           if (requestId !== opponentSearchRequestIdRef.current) {
             return;
@@ -1164,11 +1172,23 @@ const BingoGame = () => {
           if (requestId === opponentSearchRequestIdRef.current) {
             setIsSearching(false);
           }
+          if (opponentSearchAbortRef.current === abortController) {
+            opponentSearchAbortRef.current = null;
+          }
         }
       }, 300);
     },
     [eventSlug, userId]
   );
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      opponentSearchAbortRef.current?.abort();
+    };
+  }, []);
 
   const handleSelectOpponent = useCallback(
     (user: BingoParticipantItem) => {

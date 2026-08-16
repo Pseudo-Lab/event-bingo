@@ -411,28 +411,51 @@ export type BingoParticipantItem = {
   display_name: string;
 };
 
+const PARTICIPANT_SEARCH_CACHE_MS = 15_000;
+const participantSearchCache = new Map<
+  string,
+  { expiresAt: number; participants: BingoParticipantItem[] }
+>();
+
 export const searchBingoParticipants = async (
   query: string,
   eventSlug: string,
-  excludeUserId?: string
+  excludeUserId?: string,
+  signal?: AbortSignal
 ) => {
+  const normalizedQuery = query.trim();
+  if (normalizedQuery.length < 2) {
+    return [];
+  }
+
   if (shouldUseMockApi()) {
-    return mockSearchBingoParticipants(query, excludeUserId);
+    return mockSearchBingoParticipants(normalizedQuery, excludeUserId);
+  }
+
+  const cacheKey = `${eventSlug}:${excludeUserId ?? ""}:${normalizedQuery}`;
+  const cached = participantSearchCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.participants;
   }
 
   const data = await requestJson<
     ApiResponseBase & { participants?: BingoParticipantItem[] }
   >(
     "/api/auth/bingo/search",
-    { method: "GET" },
+    { method: "GET", signal },
     {
-      q: query,
+      q: normalizedQuery,
       event_slug: eventSlug,
       ...(excludeUserId ? { exclude_user_id: excludeUserId } : {}),
     }
   );
 
-  return data.participants ?? [];
+  const participants = data.participants ?? [];
+  participantSearchCache.set(cacheKey, {
+    expiresAt: Date.now() + PARTICIPANT_SEARCH_CACHE_MS,
+    participants,
+  });
+  return participants;
 };
 
 export const updateBingoDisplayName = async (userId: string, eventSlug: string, displayName: string) => {

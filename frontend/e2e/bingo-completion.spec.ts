@@ -82,7 +82,7 @@ test("updates the board from incoming exchanges and celebrates when the bingo go
   await expect(page.locator(".bingo-board-cell.is-complete")).toHaveCount(0);
 
   await expect(page.getByRole("heading", { name: "빙고를 완성했어요" })).toBeVisible({
-    timeout: 8000,
+    timeout: 15_000,
   });
   await expect(page.getByText("3줄 미션을 달성했습니다.")).toBeVisible();
   await expect(page.locator(".bingo-board-cell.is-complete")).toHaveCount(15);

@@ -14,6 +14,7 @@ const LOGIN_ID_METADATA_KEY = "event_bingo_login_id";
 const BRIDGE_KEY_METADATA_KEY = "event_bingo_bridge_key";
 const USER_ID_METADATA_KEY = "event_bingo_user_id";
 const USER_NAME_METADATA_KEY = "event_bingo_user_name";
+const AUTH_UPDATE_RETRY_DELAYS_MS = [250, 500];
 
 type BingoBridgeMetadata = {
   bridgeKey?: string;
@@ -42,6 +43,8 @@ export type BingoGoogleBridgeResult = {
   googleProfile: BingoGoogleProfile;
   isNewUser: boolean;
 };
+
+const bridgeInitializationByUser = new Map<string, Promise<BingoGoogleBridgeResult>>();
 
 const pickString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
@@ -114,7 +117,6 @@ const updateBingoBridgeMetadata = async (
   authSession: AuthSession,
   bridgeKey: string
 ) => {
-  const supabase = getSupabaseClient();
   const nextMetadata = {
     ...(user.user_metadata ?? {}),
     [BRIDGE_KEY_METADATA_KEY]: bridgeKey,
@@ -123,12 +125,36 @@ const updateBingoBridgeMetadata = async (
     [USER_NAME_METADATA_KEY]: authSession.userName,
   };
 
-  const { error } = await supabase.auth.updateUser({
-    data: nextMetadata,
-  });
+  const currentMetadata = user.user_metadata ?? {};
+  const metadataAlreadyMatches =
+    pickString(currentMetadata[BRIDGE_KEY_METADATA_KEY]) === bridgeKey &&
+    pickString(currentMetadata[LOGIN_ID_METADATA_KEY]) === authSession.loginId &&
+    pickString(currentMetadata[USER_ID_METADATA_KEY]) === authSession.userId &&
+    pickString(currentMetadata[USER_NAME_METADATA_KEY]) === authSession.userName;
+  if (metadataAlreadyMatches) {
+    return;
+  }
 
-  if (error) {
-    console.warn("Failed to persist bingo bridge metadata.", error);
+  const supabase = getSupabaseClient();
+
+  for (let attempt = 0; attempt <= AUTH_UPDATE_RETRY_DELAYS_MS.length; attempt += 1) {
+    const { error } = await supabase.auth.updateUser({
+      data: nextMetadata,
+    });
+
+    if (!error) {
+      return;
+    }
+
+    const status = "status" in error ? error.status : undefined;
+    if (status !== 429 || attempt === AUTH_UPDATE_RETRY_DELAYS_MS.length) {
+      console.warn("Failed to persist bingo bridge metadata.", error);
+      return;
+    }
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, AUTH_UPDATE_RETRY_DELAYS_MS[attempt]);
+    });
   }
 };
 
@@ -165,7 +191,7 @@ export const syncBingoBridgeUserName = async (userName: string) => {
   }
 };
 
-export const ensureBingoGoogleBridge = async (
+const initializeBingoGoogleBridge = async (
   user: User,
   eventSlug?: string
 ): Promise<BingoGoogleBridgeResult> => {
@@ -222,4 +248,24 @@ export const ensureBingoGoogleBridge = async (
     googleProfile,
     isNewUser: true,
   };
+};
+
+export const ensureBingoGoogleBridge = (
+  user: User,
+  eventSlug?: string
+): Promise<BingoGoogleBridgeResult> => {
+  const userKey = pickString(user.id) || pickString(user.email);
+  const initializationKey = `${userKey}:${eventSlug ?? ""}`;
+  const pendingInitialization = bridgeInitializationByUser.get(initializationKey);
+  if (pendingInitialization) {
+    return pendingInitialization;
+  }
+
+  const initialization = initializeBingoGoogleBridge(user, eventSlug).finally(() => {
+    if (bridgeInitializationByUser.get(initializationKey) === initialization) {
+      bridgeInitializationByUser.delete(initializationKey);
+    }
+  });
+  bridgeInitializationByUser.set(initializationKey, initialization);
+  return initialization;
 };
