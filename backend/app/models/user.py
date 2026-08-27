@@ -66,6 +66,7 @@ class BingoUser(Base):
         user_name: str | None,
         password: str,
         user_email: str | None = None,
+        provider_id: str | None = None,
     ):
         login_id = await cls._generate_login_id(session)
         password_hash = cls.hash_password(password)
@@ -76,6 +77,8 @@ class BingoUser(Base):
             user_email=normalized_user_email or login_id,
             login_id=login_id,
             password_hash=password_hash,
+            auth_provider="supabase" if provider_id else "legacy",
+            provider_id=provider_id,
         )
         session.add(new_user)
         await session.commit()

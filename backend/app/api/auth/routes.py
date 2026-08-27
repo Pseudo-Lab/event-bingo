@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from core.db import AsyncSessionDepends
+from core.dependencies import get_optional_supabase_identity
 from models.bingo import BingoBoards
 from models.event_attendee import EventAttendee
 from models.event import Event
@@ -39,8 +40,17 @@ def resolve_participant_search_name(board: BingoBoards | None, user: BingoUser) 
 async def bingo_register(
     data: BingoRegisterRequest,
     register_bingo_user: RegisterBingoUser = Depends(RegisterBingoUser),
+    supabase_identity: dict[str, str] | None = Depends(get_optional_supabase_identity),
 ):
-    res = await register_bingo_user.execute(data.username, data.password, data.event_slug, data.user_email)
+    verified_email = supabase_identity["email"] if supabase_identity else data.user_email
+    provider_id = supabase_identity["provider_id"] if supabase_identity else None
+    res = await register_bingo_user.execute(
+        data.username,
+        data.password,
+        data.event_slug,
+        verified_email,
+        provider_id,
+    )
     return res
 
 
@@ -48,8 +58,17 @@ async def bingo_register(
 async def bingo_login(
     data: BingoLoginRequest,
     login_bingo_user: LoginBingoUser = Depends(LoginBingoUser),
+    supabase_identity: dict[str, str] | None = Depends(get_optional_supabase_identity),
 ):
-    res = await login_bingo_user.execute(data.login_id, data.password, data.event_slug, data.user_email)
+    verified_email = supabase_identity["email"] if supabase_identity else data.user_email
+    provider_id = supabase_identity["provider_id"] if supabase_identity else None
+    res = await login_bingo_user.execute(
+        data.login_id,
+        data.password,
+        data.event_slug,
+        verified_email,
+        provider_id,
+    )
     return res
 
 

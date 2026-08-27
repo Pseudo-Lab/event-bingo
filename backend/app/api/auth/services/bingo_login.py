@@ -33,6 +33,7 @@ class RegisterBingoUser(BaseBingoUser):
         password: str,
         event_slug: str | None = None,
         user_email: str | None = None,
+        provider_id: str | None = None,
     ) -> BingoUser:
         try:
             normalized_username = (username or "").strip()
@@ -50,6 +51,7 @@ class RegisterBingoUser(BaseBingoUser):
                 user_name=normalized_username or None,
                 password=normalized_password,
                 user_email=normalized_user_email,
+                provider_id=provider_id,
             )
             await self.ensure_event_attendee(user.user_id, event_slug)
             logger.debug(f"Bingo user registered: {user}")
@@ -71,6 +73,7 @@ class LoginBingoUser(BaseBingoUser):
         password: str,
         event_slug: str | None = None,
         user_email: str | None = None,
+        provider_id: str | None = None,
     ) -> BingoUser:
         try:
             normalized_login_id = login_id.strip().upper()
@@ -93,11 +96,24 @@ class LoginBingoUser(BaseBingoUser):
             if not BingoUser.verify_password(normalized_password, user.password_hash):
                 raise ValueError("비밀번호가 일치하지 않습니다.")
 
+            identity_changed = False
+            if provider_id and user.provider_id and user.provider_id != provider_id:
+                raise ValueError("이미 다른 인증 계정에 연결된 빙고 계정입니다.")
+
+            if provider_id and user.provider_id != provider_id:
+                user.provider_id = provider_id
+                user.auth_provider = "supabase"
+                identity_changed = True
+
             user = await BingoUser.sync_user_email(
                 self.async_session,
                 user.user_id,
                 user_email,
             )
+            if identity_changed:
+                await self.async_session.commit()
+                await self.async_session.refresh(user)
+
             await self.ensure_event_attendee(user.user_id, event_slug)
             return BingoUserResponse(
                 **user.__dict__,

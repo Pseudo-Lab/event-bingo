@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "app")))
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../../../.env'))
 
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -65,6 +65,14 @@ def do_run_migrations(connection: Connection) -> None:
     context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():
+        migration_lock_acquired = connection.execute(
+            text("SELECT pg_try_advisory_xact_lock(:lock_id)"),
+            {"lock_id": 2_608_162_026},
+        ).scalar_one()
+        if not migration_lock_acquired:
+            raise RuntimeError(
+                "Another Event Bingo migration is already running; retry after it completes."
+            )
         context.run_migrations()
 
 
