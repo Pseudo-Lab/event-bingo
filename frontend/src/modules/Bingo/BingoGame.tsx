@@ -68,7 +68,16 @@ import {
   writeBingoGameLanguage,
 } from "./bingoGameLanguage";
 import type { BingoGameLanguage } from "./bingoGameLanguage";
-import { getStablePollJitter, startVisibilityAwarePolling } from "./bingoPolling";
+import {
+  BINGO_REALTIME_RECOVERY_POLL_INTERVAL_MS,
+  getStablePollJitter,
+  startVisibilityAwarePolling,
+} from "./bingoPolling";
+import {
+  startBingoRealtimeSync,
+  type BingoRealtimeConnectionStatus,
+} from "./bingoRealtime";
+import { watchRuntimeConfig } from "../../config/runtimeConfig";
 import { syncTestModeFromUrl } from "../../utils/testMode";
 import {
   readGoalCelebrationFlag as readStoredGoalCelebrationFlag,
@@ -209,6 +218,10 @@ const BingoGame = () => {
   const [alertKeywords, setAlertKeywords] = useState<string[]>([]);
   const [alertLabel, setAlertLabel] = useState("STATUS");
   const [interactionHistory, setInteractionHistory] = useState<InteractionRecord[]>([]);
+  const [realtimeStatus, setRealtimeStatus] = useState<
+    BingoRealtimeConnectionStatus | "disabled"
+  >("disabled");
+  const [realtimeEnabled, setRealtimeEnabled] = useState(false);
   const [newBingoFound, setNewBingoFound] = useState(false);
   const [initialSetupOpen, setInitialSetupOpen] = useState(false);
   const [selectedInitialKeywords, setSelectedInitialKeywords] = useState<string[]>([]);
@@ -250,6 +263,7 @@ const BingoGame = () => {
   const lastSeenInteractionIdRef = useRef(0);
   const lastProcessedIncomingSignatureRef = useRef("");
   const isPollingRef = useRef(false);
+  const hasPendingStateRefreshRef = useRef(false);
   const isBoardPreviewActiveRef = useRef(false);
 
   const bingoMissionCount = eventProfile.bingoMissionCount;
@@ -503,9 +517,13 @@ const BingoGame = () => {
     setLatestReceivedMarker((previousValue) => previousValue + 1);
   }, []);
 
-  const refreshBingoState = useCallback(
+  const refreshBingoState: (activeUserId: string) => Promise<boolean | undefined> = useCallback(
     async (activeUserId: string) => {
-      if (!activeUserId || isPollingRef.current || isBoardPreviewActiveRef.current) {
+      if (!activeUserId || isBoardPreviewActiveRef.current) {
+        return;
+      }
+      if (isPollingRef.current) {
+        hasPendingStateRefreshRef.current = true;
         return;
       }
 
@@ -599,6 +617,12 @@ const BingoGame = () => {
         return false;
       } finally {
         isPollingRef.current = false;
+        if (hasPendingStateRefreshRef.current) {
+          hasPendingStateRefreshRef.current = false;
+          queueMicrotask(() => {
+            void refreshBingoState(activeUserId);
+          });
+        }
       }
     },
     [
@@ -796,9 +820,90 @@ const BingoGame = () => {
     return startVisibilityAwarePolling({
       document,
       jitterMs: getStablePollJitter(`${eventSlug ?? "event"}:${userId}`),
+      intervalMs:
+        realtimeStatus === "connected"
+          ? BINGO_REALTIME_RECOVERY_POLL_INTERVAL_MS
+          : undefined,
       poll: async () => (await refreshBingoState(userId)) !== false,
     });
-  }, [eventSlug, refreshBingoState, userId, initialSetupOpen, nameSetupOpen]);
+  }, [
+    eventSlug,
+    initialSetupOpen,
+    nameSetupOpen,
+    realtimeStatus,
+    refreshBingoState,
+    userId,
+  ]);
+
+  useEffect(() => {
+    return watchRuntimeConfig({
+      onChange: (config) => {
+        setRealtimeEnabled(config.bingoRealtimeEnabled);
+      },
+    });
+  }, []);
+
+  useEffect(() => {
+    if (
+      !realtimeEnabled ||
+      !userId ||
+      !eventSlug ||
+      initialSetupOpen ||
+      nameSetupOpen
+    ) {
+      setRealtimeStatus("disabled");
+      return;
+    }
+
+    const supabase = maybeGetSupabaseClient();
+    if (!supabase) {
+      setRealtimeStatus("disabled");
+      return;
+    }
+
+    let cancelled = false;
+    let stopRealtime: (() => void) | undefined;
+
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) {
+          return;
+        }
+        if (!data.session?.user) {
+          setRealtimeStatus("disabled");
+          return;
+        }
+
+        stopRealtime = startBingoRealtimeSync({
+          client: supabase,
+          eventSlug,
+          userId,
+          onStatusChange: (status) => {
+            if (!cancelled) {
+              setRealtimeStatus(status);
+            }
+          },
+          onSyncRequested: async () => {
+            if (document.visibilityState === "hidden") {
+              return;
+            }
+            await refreshBingoState(userId);
+          },
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRealtimeStatus("degraded");
+          console.warn("Bingo Realtime session lookup failed.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      stopRealtime?.();
+    };
+  }, [eventSlug, initialSetupOpen, nameSetupOpen, realtimeEnabled, refreshBingoState, userId]);
 
   const resetPreviewVisualState = useCallback(() => {
     setShowAllBingoModal(false);
