@@ -9,6 +9,8 @@
     "build": "tsc && vite build",
     "build:now": "vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "load-test:realtime": "node scripts/realtime-load-test.mjs",
+    "test:realtime-load": "node --test scripts/realtime-load-metrics.test.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

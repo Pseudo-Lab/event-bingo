@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+realtime-load-users*.json
+realtime-load-result*.json
 
 # Editor directories and files
 .vscode/*
