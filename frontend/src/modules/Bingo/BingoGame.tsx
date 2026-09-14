@@ -55,7 +55,6 @@ import {
   getBingoMissionProgressPercent,
   getInteractionKeywords,
   getLatestIncomingBatch,
-  getLatestInteractionId,
   getUniqueKeywords,
   mergeInteractionRecords,
   serializeInteractionKeywords,
@@ -260,7 +259,6 @@ const BingoGame = () => {
   const alertTimeoutRef = useRef<number | null>(null);
   const boardSectionRef = useRef<HTMLElement | null>(null);
   const bingoBoardRef = useRef<BingoCell[] | null>(null);
-  const lastSeenInteractionIdRef = useRef(0);
   const lastProcessedIncomingSignatureRef = useRef("");
   const isPollingRef = useRef(false);
   const hasPendingStateRefreshRef = useRef(false);
@@ -454,10 +452,6 @@ const BingoGame = () => {
   }, [eventSlug]);
 
   useEffect(() => {
-    lastSeenInteractionIdRef.current = getLatestInteractionId(interactionHistory);
-  }, [interactionHistory]);
-
-  useEffect(() => {
     lastProcessedIncomingSignatureRef.current = lastProcessedIncomingSignature;
   }, [lastProcessedIncomingSignature]);
 
@@ -472,7 +466,6 @@ const BingoGame = () => {
 
     setInteractionHistory((previousRecords) => {
       const mergedRecords = mergeInteractionRecords(previousRecords, records);
-      lastSeenInteractionIdRef.current = getLatestInteractionId(mergedRecords);
       return mergedRecords;
     });
   }, []);
@@ -532,19 +525,22 @@ const BingoGame = () => {
       try {
         const [boardResult, interactionResponse] = await Promise.all([
           getBingoBoard(activeUserId, eventSlug ?? undefined),
-          getUserAllInteraction(activeUserId, eventSlug ?? undefined, lastSeenInteractionIdRef.current),
+          // Sequence IDs are allocated before commit, so a lower ID may become
+          // visible after a higher ID. Full reconciliation plus ID-based merge
+          // prevents that late commit from being skipped forever.
+          getUserAllInteraction(activeUserId, eventSlug ?? undefined),
         ]);
         const latestBoard = boardResult.board;
 
-        const interactionDelta = Array.isArray(interactionResponse.interactions)
+        const interactionRecords = Array.isArray(interactionResponse.interactions)
           ? (interactionResponse.interactions as InteractionRecord[])
           : [];
-        if (interactionDelta.length > 0) {
-          appendInteractionHistory(interactionDelta);
+        if (interactionRecords.length > 0) {
+          appendInteractionHistory(interactionRecords);
         }
 
         const latestIncomingBatch = getLatestIncomingBatch(
-          interactionDelta.filter(
+          interactionRecords.filter(
             (interaction) => interaction.receive_user_id === Number(activeUserId)
           )
         );
@@ -717,7 +713,6 @@ const BingoGame = () => {
           : [];
 
         setInteractionHistory(interactionRecords);
-        lastSeenInteractionIdRef.current = getLatestInteractionId(interactionRecords);
 
         if (boardData && boardData.length > 0) {
           // 기존 보드가 있으면 빙고 화면으로

@@ -99,7 +99,6 @@ async def main(args):
     errors = defaultdict(int)
     created = {}
     pairs = set()
-    cursors = defaultdict(int)
     phase = "startup"
     peak_connections = 0
     monitoring = True
@@ -179,9 +178,8 @@ async def main(args):
                 _, history = await asyncio.gather(
                     request("board", "GET", f"/api/bingo/boards/{user_id}", participant=user_id, params={"event_slug": slug}),
                     request("history", "GET", f"/api/bingo/interactions/{user_id}/all",
-                            participant=user_id, params={"event_slug": slug, "after_interaction_id": cursors[user_id]}),
+                            participant=user_id, params={"event_slug": slug}),
                 )
-                cursors[user_id] = max([cursors[user_id]] + [row["interaction_id"] for row in history.get("interactions", [])])
 
             async def exchange(sender, receiver):
                 if (sender, receiver) in pairs:

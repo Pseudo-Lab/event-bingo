@@ -144,7 +144,23 @@ test.describe("mobile touch", () => {
   test("scrolls to the board when an incoming exchange updates keywords", async ({ page }) => {
     let boardRequestCount = 0;
     let interactionRequestCount = 0;
+    const interactionRequestUrls: string[] = [];
     const incomingKeyword = "키워드 4";
+    const existingHigherId = buildInteractionRecord({
+      interactionId: 202,
+      sendUserId: session.userId,
+      receiveUserId: 10,
+      createdAt: "2026-03-19T12:00:01+09:00",
+    });
+    const lateLowerId = buildInteractionRecord({
+      interactionId: 201,
+      sendUserId: 9,
+      receiveUserId: session.userId,
+      sendUserName: "상대방",
+      receiveUserName: session.userName,
+      updatedWords: [incomingKeyword],
+      createdAt: "2026-03-19T12:00:00+09:00",
+    });
 
     await seedBingoSession(page, session);
     await mockPublicEventProfile(page);
@@ -174,6 +190,7 @@ test.describe("mobile touch", () => {
 
     await page.route(`**/api/bingo/interactions/${session.userId}/all**`, async (route) => {
       interactionRequestCount += 1;
+      interactionRequestUrls.push(route.request().url());
       const hasIncomingKeyword = interactionRequestCount > 1;
 
       await route.fulfill({
@@ -183,17 +200,8 @@ test.describe("mobile touch", () => {
           ok: true,
           message: "ok",
           interactions: hasIncomingKeyword
-            ? [
-                buildInteractionRecord({
-                  interactionId: 202,
-                  sendUserId: 9,
-                  receiveUserId: session.userId,
-                  sendUserName: "상대방",
-                  receiveUserName: session.userName,
-                  updatedWords: [incomingKeyword],
-                }),
-              ]
-            : [],
+            ? [existingHigherId, lateLowerId]
+            : [existingHigherId],
         }),
       });
     });
@@ -205,6 +213,8 @@ test.describe("mobile touch", () => {
     await expect
       .poll(() => page.evaluate(() => window.scrollY), { timeout: 15_000 })
       .toBeGreaterThan(0);
+    expect(interactionRequestUrls).toHaveLength(2);
+    expect(new URL(interactionRequestUrls[1]).searchParams.has("after_interaction_id")).toBe(false);
     const latestCell = page.locator(".bingo-board-cell.is-latest");
     await expect(latestCell).toContainText(incomingKeyword);
     await expect

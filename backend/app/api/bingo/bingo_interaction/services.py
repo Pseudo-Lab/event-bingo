@@ -230,14 +230,12 @@ class GetUserAllInteractions(BaseBingoInteraction):
         self,
         user_id: int,
         event_slug: str | None = None,
-        after_interaction_id: int | None = None,
     ) -> BingoInteractionListResponse:
         try:
             event_id = await self._resolve_event_id(event_slug)
             interactions = await BingoInteraction.get_user_all_interactions(
                 self.async_session,
                 user_id,
-                after_interaction_id=after_interaction_id,
                 event_id=event_id,
             )
             serialized_interactions = await self._serialize_interactions(

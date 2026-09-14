@@ -375,20 +375,16 @@ export const getUserLatestInteraction = async (
 
 export const getUserAllInteraction = async (
   userId: string,
-  eventSlug?: string,
-  afterInteractionId?: number
+  eventSlug?: string
 ) => {
   const data = shouldUseMockApi()
-    ? await mockGetUserAllInteraction(userId, eventSlug, afterInteractionId)
+    ? await mockGetUserAllInteraction(userId)
     : await requestJson<
         ApiResponseBase & { interactions?: BingoInteractionResponse[] | null }
       >(
         `/api/bingo/interactions/${userId}/all`,
         { method: "GET" },
         {
-          ...(typeof afterInteractionId === "number"
-            ? { after_interaction_id: afterInteractionId }
-            : {}),
           ...(eventSlug ? { event_slug: eventSlug } : {}),
         }
       );

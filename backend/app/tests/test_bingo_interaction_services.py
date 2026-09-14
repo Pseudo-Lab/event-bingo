@@ -198,7 +198,7 @@ async def test_create_bingo_interaction_updates_board_and_creates_record(monkeyp
 
 
 @pytest.mark.anyio
-async def test_get_user_all_interactions_includes_user_names_and_cursor(monkeypatch):
+async def test_get_user_all_interactions_includes_user_names(monkeypatch):
     captured: dict[str, int | None] = {}
     interaction = SimpleNamespace(
         interaction_id=11,
@@ -213,11 +213,9 @@ async def test_get_user_all_interactions_includes_user_names_and_cursor(monkeypa
         cls,
         session,
         user_id: int,
-        after_interaction_id: int | None = None,
         event_id: int | None = None,
     ):
         captured["user_id"] = user_id
-        captured["after_interaction_id"] = after_interaction_id
         captured["event_id"] = event_id
         return [interaction]
 
@@ -245,11 +243,10 @@ async def test_get_user_all_interactions_includes_user_names_and_cursor(monkeypa
 
     service = GetUserAllInteractions(session)
 
-    response = await service.execute(user_id=2, after_interaction_id=10)
+    response = await service.execute(user_id=2)
 
     assert captured == {
         "user_id": 2,
-        "after_interaction_id": 10,
         "event_id": None,
     }
     assert response.ok is True
