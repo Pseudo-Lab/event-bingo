@@ -49,14 +49,16 @@ async def test_create_bingo_interaction_rejects_duplicate_direction(monkeypatch)
         },
     )
 
-    async def fake_get_board_by_userid(cls, session, user_id: int, event_id: int | None = None):
+    async def fake_get_board_by_userid(cls, session, user_id: int, event_id: int | None = None, *, for_update=False):
         if user_id == 2 and event_id is None:
+            assert for_update
             return receiver_board
         if user_id == 1 and event_id == 7:
             return sender_board
         raise AssertionError(f"unexpected board lookup: user_id={user_id}, event_id={event_id}")
 
     monkeypatch.setattr(BingoBoards, "get_board_by_userid", classmethod(fake_get_board_by_userid))
+    monkeypatch.setattr(BingoInteraction, "has_directional_interaction", AsyncMock(return_value=True))
 
     session = AsyncMock()
     session.execute.return_value = FakeExecuteResult(
@@ -110,13 +112,16 @@ async def test_create_bingo_interaction_updates_board_and_creates_record(monkeyp
         *,
         send_user_id: int,
         receive_user_id: int,
+        event_id: int | None = None,
     ) -> bool:
         assert send_user_id == 1
         assert receive_user_id == 2
+        assert event_id == 7
         return False
 
-    async def fake_get_board_by_userid(cls, session, user_id: int, event_id: int | None = None):
+    async def fake_get_board_by_userid(cls, session, user_id: int, event_id: int | None = None, *, for_update=False):
         if user_id == 2 and event_id is None:
+            assert for_update
             return receiver_board
         if user_id == 1 and event_id == 7:
             return sender_board
