@@ -8,6 +8,7 @@ from core.db import AsyncSession
 from core.log import logger
 from sqlalchemy import Boolean, DateTime, Integer, JSON, String, select
 from sqlalchemy.orm import mapped_column
+from starlette.concurrency import run_in_threadpool
 
 from models.base import Base
 
@@ -66,9 +67,10 @@ class BingoUser(Base):
         user_name: str | None,
         password: str,
         user_email: str | None = None,
+        provider_id: str | None = None,
     ):
+        password_hash = await run_in_threadpool(cls.hash_password, password)
         login_id = await cls._generate_login_id(session)
-        password_hash = cls.hash_password(password)
         normalized_user_email = cls.normalize_user_email(user_email)
 
         new_user = BingoUser(
@@ -76,6 +78,8 @@ class BingoUser(Base):
             user_email=normalized_user_email or login_id,
             login_id=login_id,
             password_hash=password_hash,
+            auth_provider="supabase" if provider_id else "legacy",
+            provider_id=provider_id,
         )
         session.add(new_user)
         await session.commit()
@@ -88,8 +92,11 @@ class BingoUser(Base):
         return res.scalar_one_or_none()
 
     @classmethod
-    async def get_user_by_login_id(cls, session: AsyncSession, login_id: str):
-        res = await session.execute(select(cls).where(cls.login_id == login_id))
+    async def get_user_by_login_id(cls, session: AsyncSession, login_id: str, *, for_update: bool = False):
+        query = select(cls).where(cls.login_id == login_id)
+        if for_update:
+            query = query.with_for_update().execution_options(populate_existing=True)
+        res = await session.execute(query)
         return res.scalar_one_or_none()
 
     @classmethod

@@ -55,7 +55,6 @@ import {
   getBingoMissionProgressPercent,
   getInteractionKeywords,
   getLatestIncomingBatch,
-  getLatestInteractionId,
   getUniqueKeywords,
   mergeInteractionRecords,
   serializeInteractionKeywords,
@@ -68,6 +67,16 @@ import {
   writeBingoGameLanguage,
 } from "./bingoGameLanguage";
 import type { BingoGameLanguage } from "./bingoGameLanguage";
+import {
+  BINGO_REALTIME_RECOVERY_POLL_INTERVAL_MS,
+  getStablePollJitter,
+  startVisibilityAwarePolling,
+} from "./bingoPolling";
+import {
+  startBingoRealtimeSync,
+  type BingoRealtimeConnectionStatus,
+} from "./bingoRealtime";
+import { watchRuntimeConfig } from "../../config/runtimeConfig";
 import { syncTestModeFromUrl } from "../../utils/testMode";
 import {
   readGoalCelebrationFlag as readStoredGoalCelebrationFlag,
@@ -197,6 +206,7 @@ const BingoGame = () => {
   const [nameSetupMode, setNameSetupMode] = useState<"new-board" | "existing-board">("new-board");
   const [nameInput, setNameInput] = useState("");
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const opponentSearchAbortRef = useRef<AbortController | null>(null);
   const opponentInputRef = useRef<HTMLInputElement | null>(null);
   const opponentSearchRequestIdRef = useRef(0);
   const [completedLines, setCompletedLines] = useState<CompletedLine[]>([]);
@@ -207,6 +217,10 @@ const BingoGame = () => {
   const [alertKeywords, setAlertKeywords] = useState<string[]>([]);
   const [alertLabel, setAlertLabel] = useState("STATUS");
   const [interactionHistory, setInteractionHistory] = useState<InteractionRecord[]>([]);
+  const [realtimeStatus, setRealtimeStatus] = useState<
+    BingoRealtimeConnectionStatus | "disabled"
+  >("disabled");
+  const [realtimeEnabled, setRealtimeEnabled] = useState(false);
   const [newBingoFound, setNewBingoFound] = useState(false);
   const [initialSetupOpen, setInitialSetupOpen] = useState(false);
   const [selectedInitialKeywords, setSelectedInitialKeywords] = useState<string[]>([]);
@@ -245,9 +259,9 @@ const BingoGame = () => {
   const alertTimeoutRef = useRef<number | null>(null);
   const boardSectionRef = useRef<HTMLElement | null>(null);
   const bingoBoardRef = useRef<BingoCell[] | null>(null);
-  const lastSeenInteractionIdRef = useRef(0);
   const lastProcessedIncomingSignatureRef = useRef("");
   const isPollingRef = useRef(false);
+  const hasPendingStateRefreshRef = useRef(false);
   const isBoardPreviewActiveRef = useRef(false);
 
   const bingoMissionCount = eventProfile.bingoMissionCount;
@@ -438,10 +452,6 @@ const BingoGame = () => {
   }, [eventSlug]);
 
   useEffect(() => {
-    lastSeenInteractionIdRef.current = getLatestInteractionId(interactionHistory);
-  }, [interactionHistory]);
-
-  useEffect(() => {
     lastProcessedIncomingSignatureRef.current = lastProcessedIncomingSignature;
   }, [lastProcessedIncomingSignature]);
 
@@ -456,7 +466,6 @@ const BingoGame = () => {
 
     setInteractionHistory((previousRecords) => {
       const mergedRecords = mergeInteractionRecords(previousRecords, records);
-      lastSeenInteractionIdRef.current = getLatestInteractionId(mergedRecords);
       return mergedRecords;
     });
   }, []);
@@ -501,9 +510,13 @@ const BingoGame = () => {
     setLatestReceivedMarker((previousValue) => previousValue + 1);
   }, []);
 
-  const refreshBingoState = useCallback(
+  const refreshBingoState: (activeUserId: string) => Promise<boolean | undefined> = useCallback(
     async (activeUserId: string) => {
-      if (!activeUserId || isPollingRef.current || isBoardPreviewActiveRef.current) {
+      if (!activeUserId || isBoardPreviewActiveRef.current) {
+        return;
+      }
+      if (isPollingRef.current) {
+        hasPendingStateRefreshRef.current = true;
         return;
       }
 
@@ -512,19 +525,22 @@ const BingoGame = () => {
       try {
         const [boardResult, interactionResponse] = await Promise.all([
           getBingoBoard(activeUserId, eventSlug ?? undefined),
-          getUserAllInteraction(activeUserId, eventSlug ?? undefined, lastSeenInteractionIdRef.current),
+          // Sequence IDs are allocated before commit, so a lower ID may become
+          // visible after a higher ID. Full reconciliation plus ID-based merge
+          // prevents that late commit from being skipped forever.
+          getUserAllInteraction(activeUserId, eventSlug ?? undefined),
         ]);
         const latestBoard = boardResult.board;
 
-        const interactionDelta = Array.isArray(interactionResponse.interactions)
+        const interactionRecords = Array.isArray(interactionResponse.interactions)
           ? (interactionResponse.interactions as InteractionRecord[])
           : [];
-        if (interactionDelta.length > 0) {
-          appendInteractionHistory(interactionDelta);
+        if (interactionRecords.length > 0) {
+          appendInteractionHistory(interactionRecords);
         }
 
         const latestIncomingBatch = getLatestIncomingBatch(
-          interactionDelta.filter(
+          interactionRecords.filter(
             (interaction) => interaction.receive_user_id === Number(activeUserId)
           )
         );
@@ -594,8 +610,15 @@ const BingoGame = () => {
         });
       } catch (error) {
         console.error("Error refreshing bingo board:", error);
+        return false;
       } finally {
         isPollingRef.current = false;
+        if (hasPendingStateRefreshRef.current) {
+          hasPendingStateRefreshRef.current = false;
+          queueMicrotask(() => {
+            void refreshBingoState(activeUserId);
+          });
+        }
       }
     },
     [
@@ -690,7 +713,6 @@ const BingoGame = () => {
           : [];
 
         setInteractionHistory(interactionRecords);
-        lastSeenInteractionIdRef.current = getLatestInteractionId(interactionRecords);
 
         if (boardData && boardData.length > 0) {
           // 기존 보드가 있으면 빙고 화면으로
@@ -790,12 +812,93 @@ const BingoGame = () => {
       return;
     }
 
-    const interval = setInterval(() => {
-      void refreshBingoState(userId);
-    }, 5000);
+    return startVisibilityAwarePolling({
+      document,
+      jitterMs: getStablePollJitter(`${eventSlug ?? "event"}:${userId}`),
+      intervalMs:
+        realtimeStatus === "connected"
+          ? BINGO_REALTIME_RECOVERY_POLL_INTERVAL_MS
+          : undefined,
+      poll: async () => (await refreshBingoState(userId)) !== false,
+    });
+  }, [
+    eventSlug,
+    initialSetupOpen,
+    nameSetupOpen,
+    realtimeStatus,
+    refreshBingoState,
+    userId,
+  ]);
 
-    return () => clearInterval(interval);
-  }, [refreshBingoState, userId, initialSetupOpen, nameSetupOpen]);
+  useEffect(() => {
+    return watchRuntimeConfig({
+      onChange: (config) => {
+        setRealtimeEnabled(config.bingoRealtimeEnabled);
+      },
+    });
+  }, []);
+
+  useEffect(() => {
+    if (
+      !realtimeEnabled ||
+      !userId ||
+      !eventSlug ||
+      initialSetupOpen ||
+      nameSetupOpen
+    ) {
+      setRealtimeStatus("disabled");
+      return;
+    }
+
+    const supabase = maybeGetSupabaseClient();
+    if (!supabase) {
+      setRealtimeStatus("disabled");
+      return;
+    }
+
+    let cancelled = false;
+    let stopRealtime: (() => void) | undefined;
+
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) {
+          return;
+        }
+        if (!data.session?.user) {
+          setRealtimeStatus("disabled");
+          return;
+        }
+
+        stopRealtime = startBingoRealtimeSync({
+          client: supabase,
+          eventSlug,
+          userId,
+          onStatusChange: (status) => {
+            if (!cancelled) {
+              setRealtimeStatus(status);
+            }
+          },
+          onSyncRequested: async () => {
+            if (document.visibilityState === "hidden") {
+              return;
+            }
+            await refreshBingoState(userId);
+          },
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRealtimeStatus("degraded");
+          console.warn("Bingo Realtime session lookup failed.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      stopRealtime?.();
+    };
+  }, [eventSlug, initialSetupOpen, nameSetupOpen, realtimeEnabled, refreshBingoState, userId]);
 
   const resetPreviewVisualState = useCallback(() => {
     setShowAllBingoModal(false);
@@ -1126,8 +1229,10 @@ const BingoGame = () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
+      opponentSearchAbortRef.current?.abort();
+      opponentSearchAbortRef.current = null;
 
-      if (normalizedQuery.length === 0) {
+      if (normalizedQuery.length < 2) {
         setOpponentSearchResults([]);
         setIsSearching(false);
         return;
@@ -1142,12 +1247,15 @@ const BingoGame = () => {
       setIsSearching(true);
       const requestId = opponentSearchRequestIdRef.current;
       searchTimeoutRef.current = setTimeout(async () => {
+        const abortController = new AbortController();
+        opponentSearchAbortRef.current = abortController;
         try {
           const activeUserId = userId || getAuthSession()?.userId || "";
           const results = await searchBingoParticipants(
             normalizedQuery,
             normalizedEventSlug,
-            activeUserId || undefined
+            activeUserId || undefined,
+            abortController.signal
           );
           if (requestId !== opponentSearchRequestIdRef.current) {
             return;
@@ -1164,11 +1272,23 @@ const BingoGame = () => {
           if (requestId === opponentSearchRequestIdRef.current) {
             setIsSearching(false);
           }
+          if (opponentSearchAbortRef.current === abortController) {
+            opponentSearchAbortRef.current = null;
+          }
         }
       }, 300);
     },
     [eventSlug, userId]
   );
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      opponentSearchAbortRef.current?.abort();
+    };
+  }, []);
 
   const handleSelectOpponent = useCallback(
     (user: BingoParticipantItem) => {

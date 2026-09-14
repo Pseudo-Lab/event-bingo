@@ -103,10 +103,11 @@ class BingoBoards(Base):
         return board
 
     @classmethod
-    async def get_board(cls, session: AsyncSession, user_id: int, event_id: int):
-        res = await session.execute(
-            select(cls).where(cls.user_id == user_id, cls.event_id == event_id)
-        )
+    async def get_board(cls, session: AsyncSession, user_id: int, event_id: int, *, for_update: bool = False):
+        query = select(cls).where(cls.user_id == user_id, cls.event_id == event_id)
+        if for_update:
+            query = query.with_for_update().execution_options(populate_existing=True)
+        res = await session.execute(query)
         board = res.scalar_one_or_none()
         if not board:
             raise ValueError(f"{user_id} 의 빙고판이 존재하지 않습니다.")
@@ -114,13 +115,16 @@ class BingoBoards(Base):
 
     # 하위 호환용 alias (Task 8 전까지 기존 서비스 코드에서 사용)
     @classmethod
-    async def get_board_by_userid(cls, session: AsyncSession, user_id: int, event_id: int = None):
+    async def get_board_by_userid(
+        cls, session: AsyncSession, user_id: int, event_id: int = None, *, for_update: bool = False
+    ):
         if event_id is not None:
-            return await cls.get_board(session, user_id, event_id)
+            return await cls.get_board(session, user_id, event_id, for_update=for_update)
         # event_id 없이 호출 시: 해당 user의 가장 최근 빙고판 반환 (레거시 동작)
-        res = await session.execute(
-            select(cls).where(cls.user_id == user_id).order_by(cls.created_at.desc()).limit(1)
-        )
+        query = select(cls).where(cls.user_id == user_id).order_by(cls.created_at.desc()).limit(1)
+        if for_update:
+            query = query.with_for_update().execution_options(populate_existing=True)
+        res = await session.execute(query)
         board = res.scalar_one_or_none()
         if not board:
             raise ValueError(f"{user_id} 의 빙고판이 존재하지 않습니다.")
