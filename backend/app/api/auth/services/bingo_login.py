@@ -4,6 +4,7 @@ from models.event import Event
 from models.event_attendee import EventAttendee
 from models.user import BingoUser
 from api.auth.schema import BingoUser as BingoUserResponse
+from starlette.concurrency import run_in_threadpool
 
 
 class BaseBingoUser:
@@ -93,8 +94,18 @@ class LoginBingoUser(BaseBingoUser):
             if user is None:
                 raise ValueError("존재하지 않는 로그인 코드입니다.")
 
-            if not BingoUser.verify_password(normalized_password, user.password_hash):
+            password_hash = user.password_hash
+            # Release the read transaction before CPU-bound bcrypt work. Neither
+            # a DB connection nor the event loop should wait for password hashing.
+            await self.async_session.rollback()
+            if not await run_in_threadpool(BingoUser.verify_password, normalized_password, password_hash):
                 raise ValueError("비밀번호가 일치하지 않습니다.")
+
+            user = await BingoUser.get_user_by_login_id(
+                self.async_session, normalized_login_id, for_update=True
+            )
+            if user is None or user.password_hash != password_hash:
+                raise ValueError("계정 정보가 변경되었습니다. 다시 로그인해 주세요.")
 
             identity_changed = False
             if provider_id and user.provider_id and user.provider_id != provider_id:
