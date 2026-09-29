@@ -121,23 +121,28 @@ class CreateBingoInteraction(BaseBingoInteraction):
                     message="보내는 계정과 받는 계정이 같습니다.",
                 )
 
-            event_id = await self._resolve_event_id(event_slug)
             # Serialize changes to this receiver until history and board commit together.
             # Only lock the receiver: locking both boards can deadlock reciprocal sends.
-            board = await BingoBoards.get_board_by_userid(
-                self.async_session, receive_user_id, event_id, for_update=True
-            )
+            normalized_slug = (event_slug or "").strip().lower()
+            if normalized_slug:
+                board, sender_board = await BingoBoards.get_exchange_boards_by_event_slug(
+                    self.async_session,
+                    send_user_id,
+                    receive_user_id,
+                    normalized_slug,
+                )
+            else:
+                board = await BingoBoards.get_board_by_userid(
+                    self.async_session,
+                    receive_user_id,
+                    for_update=True,
+                )
+                sender_board = await BingoBoards.get_board_by_userid(
+                    self.async_session,
+                    send_user_id,
+                    board.event_id,
+                )
             event_id = board.event_id
-
-            # 두 사용자의 기본 정보는 한 번에 조회한다.
-            users_result = await self.async_session.execute(
-                select(BingoUser).where(BingoUser.user_id.in_([send_user_id, receive_user_id]))
-            )
-            users = {u.user_id: u for u in users_result.scalars().all()}
-            send_user = users.get(send_user_id)
-            receive_user = users.get(receive_user_id)
-
-            sender_board = await BingoBoards.get_board_by_userid(self.async_session, send_user_id, event_id)
 
             selected_words = [
                 cell.get("value")
@@ -156,23 +161,42 @@ class CreateBingoInteraction(BaseBingoInteraction):
                     message="이미 동일한 참가자에게 키워드를 전달한 적이 있습니다.",
                 )
 
+            send_user_name = (sender_board.display_name or "").strip()
+            receive_user_name = (board.display_name or "").strip()
+            if not send_user_name or not receive_user_name:
+                missing_user_ids = [
+                    user_id
+                    for user_id, name in (
+                        (send_user_id, send_user_name),
+                        (receive_user_id, receive_user_name),
+                    )
+                    if not name
+                ]
+                users_result = await self.async_session.execute(
+                    select(BingoUser).where(BingoUser.user_id.in_(missing_user_ids))
+                )
+                users = {user.user_id: user.user_name for user in users_result.scalars().all()}
+                send_user_name = send_user_name or users.get(send_user_id)
+                receive_user_name = receive_user_name or users.get(receive_user_id)
+
+            updated_board_data = {
+                key: dict(cell_data)
+                for key, cell_data in board.board_data.items()
+            }
             updated_words: list[str] = []
-            for cell_data in board.board_data.values():
+            for cell_data in updated_board_data.values():
                 if cell_data.get("status") == 0 and cell_data.get("value") in selected_words:
                     cell_data["status"] = 1
                     cell_data["interaction_id"] = send_user_id
                     updated_words.append(cell_data["value"])
 
             if updated_words:
-                await BingoBoards.update_board_by_userid(
-                    self.async_session,
-                    receive_user_id,
-                    dict(board.board_data),
-                    event_id,
-                )
+                # Nested MutableDict changes are not tracked, so assign the
+                # copied top-level value while retaining the already locked row.
+                board.board_data = updated_board_data
 
             board.user_interaction_count += 1
-            board = await BingoBoards.update_bingo_count(self.async_session, receive_user_id, event_id)
+            board.bingo_count = BingoBoards.calculate_bingo_count(board.board_data)
             interaction = await BingoInteraction.create(
                 self.async_session,
                 word_id_list,
@@ -185,10 +209,8 @@ class CreateBingoInteraction(BaseBingoInteraction):
                 **interaction.__dict__,
                 updated_words=updated_words,
                 bingo_count=board.bingo_count,
-                send_user_name=((sender_board.display_name or "").strip() if sender_board else "")
-                or send_user.user_name,
-                receive_user_name=((board.display_name or "").strip() if board else "")
-                or receive_user.user_name,
+                send_user_name=send_user_name,
+                receive_user_name=receive_user_name,
                 ok=True,
                 message="빙고 키워드 전송에 성공하였습니다.",
             )

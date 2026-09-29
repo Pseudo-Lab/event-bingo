@@ -4,7 +4,7 @@ import asyncio
 import random
 
 from sqlalchemy.orm import mapped_column
-from sqlalchemy import Integer, String, DateTime, JSON, ForeignKey, PrimaryKeyConstraint, select, desc, func
+from sqlalchemy import Integer, String, DateTime, JSON, ForeignKey, PrimaryKeyConstraint, and_, select, desc, func
 from sqlalchemy.ext.mutable import MutableDict
 
 from core.db import AsyncSession
@@ -113,6 +113,162 @@ class BingoBoards(Base):
             raise ValueError(f"{user_id} 의 빙고판이 존재하지 않습니다.")
         return board
 
+    @classmethod
+    async def get_board_by_event_slug(
+        cls,
+        session: AsyncSession,
+        user_id: int,
+        event_slug: str,
+        *,
+        for_update: bool = False,
+    ):
+        from models.event import Event
+
+        if for_update:
+            query = (
+                select(cls)
+                .join(Event, Event.id == cls.event_id)
+                .where(cls.user_id == user_id, Event.slug == event_slug)
+                .with_for_update(of=cls)
+                .execution_options(populate_existing=True)
+            )
+            board = (await session.execute(query)).scalar_one_or_none()
+            if board:
+                return board
+
+            event_exists = await session.scalar(select(Event.id).where(Event.slug == event_slug))
+            if event_exists is None:
+                raise ValueError("이벤트를 찾을 수 없습니다.")
+            raise ValueError(f"{user_id} 의 빙고판이 존재하지 않습니다.")
+
+        query = (
+            select(Event.id, cls)
+            .outerjoin(cls, and_(cls.event_id == Event.id, cls.user_id == user_id))
+            .where(Event.slug == event_slug)
+        )
+        row = (await session.execute(query)).one_or_none()
+        if row is None:
+            raise ValueError("이벤트를 찾을 수 없습니다.")
+        if row[1] is None:
+            raise ValueError(f"{user_id} 의 빙고판이 존재하지 않습니다.")
+        return row[1]
+
+    @classmethod
+    async def get_exchange_boards_by_event_slug(
+        cls,
+        session: AsyncSession,
+        send_user_id: int,
+        receive_user_id: int,
+        event_slug: str,
+    ):
+        from sqlalchemy.orm import aliased
+
+        from models.event import Event
+
+        receiver_board = aliased(cls)
+        sender_board = aliased(cls)
+        query = (
+            select(receiver_board, sender_board)
+            .join(Event, Event.id == receiver_board.event_id)
+            .join(
+                sender_board,
+                and_(
+                    sender_board.event_id == receiver_board.event_id,
+                    sender_board.user_id == send_user_id,
+                ),
+            )
+            .where(
+                receiver_board.user_id == receive_user_id,
+                Event.slug == event_slug,
+            )
+            .with_for_update(of=receiver_board)
+            .execution_options(populate_existing=True)
+        )
+        row = (await session.execute(query)).one_or_none()
+        if row:
+            return row[0], row[1]
+
+        # Preserve the existing event/board error messages on the uncommon
+        # invalid-input path without adding queries to successful exchanges.
+        board = await cls.get_board_by_event_slug(
+            session,
+            receive_user_id,
+            event_slug,
+            for_update=True,
+        )
+        await cls.get_board(session, send_user_id, board.event_id)
+        raise ValueError("빙고판을 찾을 수 없습니다.")
+
+    @classmethod
+    async def get_state_by_event_slug(
+        cls,
+        session: AsyncSession,
+        user_id: int,
+        event_slug: str,
+    ):
+        from sqlalchemy.dialects.postgresql import aggregate_order_by
+        from sqlalchemy.orm import aliased
+
+        from models.bingo.bingo_interaction import BingoInteraction
+        from models.event import Event
+
+        sender_board = aliased(cls)
+        receiver_board = aliased(cls)
+        sender_user = aliased(BingoUser)
+        receiver_user = aliased(BingoUser)
+        interaction_json = func.jsonb_build_object(
+            "interaction_id", BingoInteraction.interaction_id,
+            "word_id_list", BingoInteraction.word_id_list,
+            "send_user_id", BingoInteraction.send_user_id,
+            "receive_user_id", BingoInteraction.receive_user_id,
+            "event_id", BingoInteraction.event_id,
+            "created_at", BingoInteraction.created_at,
+            "send_user_name", func.coalesce(
+                func.nullif(func.btrim(sender_board.display_name), ""),
+                sender_user.user_name,
+            ),
+            "receive_user_name", func.coalesce(
+                func.nullif(func.btrim(receiver_board.display_name), ""),
+                receiver_user.user_name,
+            ),
+        )
+        history = (
+            select(func.jsonb_agg(aggregate_order_by(
+                interaction_json,
+                BingoInteraction.created_at.desc(),
+                BingoInteraction.interaction_id.desc(),
+            )))
+            .select_from(BingoInteraction)
+            .outerjoin(sender_board, and_(
+                sender_board.user_id == BingoInteraction.send_user_id,
+                sender_board.event_id == BingoInteraction.event_id,
+            ))
+            .outerjoin(receiver_board, and_(
+                receiver_board.user_id == BingoInteraction.receive_user_id,
+                receiver_board.event_id == BingoInteraction.event_id,
+            ))
+            .outerjoin(sender_user, sender_user.user_id == BingoInteraction.send_user_id)
+            .outerjoin(receiver_user, receiver_user.user_id == BingoInteraction.receive_user_id)
+            .where(
+                BingoInteraction.event_id == cls.event_id,
+                (BingoInteraction.receive_user_id == user_id)
+                | (BingoInteraction.send_user_id == user_id),
+            )
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        query = (
+            select(cls, history)
+            .join(Event, Event.id == cls.event_id)
+            .where(cls.user_id == user_id, Event.slug == event_slug)
+        )
+        row = (await session.execute(query)).one_or_none()
+        if row:
+            return row[0], row[1] or []
+
+        await cls.get_board_by_event_slug(session, user_id, event_slug)
+        raise ValueError("빙고 상태를 찾을 수 없습니다.")
+
     # 하위 호환용 alias (Task 8 전까지 기존 서비스 코드에서 사용)
     @classmethod
     async def get_board_by_userid(
@@ -143,31 +299,22 @@ class BingoBoards(Base):
         session.add(board)
         await session.commit()
 
+    @staticmethod
+    def calculate_bingo_count(board_data: dict) -> int:
+        num_cells = len(board_data) + 1
+        size = int(num_cells ** 0.5)
+        bingo_board = [[board_data[str(i * size + j)]["status"] for j in range(size)] for i in range(size)]
+
+        bingo = sum(all(status == 1 for status in row) for row in bingo_board)
+        bingo += sum(all(status == 1 for status in column) for column in zip(*bingo_board))
+        bingo += int(all(bingo_board[index][index] == 1 for index in range(size)))
+        bingo += int(all(bingo_board[index][size - 1 - index] == 1 for index in range(size)))
+        return bingo
+
     @classmethod
     async def update_bingo_count(cls, session: AsyncSession, user_id: int, event_id: int = None):
         board = await cls.get_board_by_userid(session, user_id, event_id)
-
-        board_data = board.board_data
-        num_cells = len(board_data) + 1
-        size = int(num_cells ** 0.5)
-        bingo = 0
-        bingo_board = [[board_data[str(i * size + j)]["status"] for j in range(size)] for i in range(size)]
-
-        for row in bingo_board:  # 가로
-            if all(status == 1 for status in row):
-                bingo += 1
-
-        for col in zip(*bingo_board):  # 세로
-            if all(status == 1 for status in col):
-                bingo += 1
-
-        if all(bingo_board[i][i] == 1 for i in range(size)):  # 대각선 왼 -> 오
-            bingo += 1
-
-        if all(bingo_board[i][size - 1 - i] == 1 for i in range(size)):  # 대각선 오 -> 왼
-            bingo += 1
-
-        board.bingo_count = bingo
+        board.bingo_count = cls.calculate_bingo_count(board.board_data)
 
         return board
 

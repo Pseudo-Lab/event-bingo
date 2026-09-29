@@ -61,12 +61,6 @@ async def test_create_bingo_interaction_rejects_duplicate_direction(monkeypatch)
     monkeypatch.setattr(BingoInteraction, "has_directional_interaction", AsyncMock(return_value=True))
 
     session = AsyncMock()
-    session.execute.return_value = FakeExecuteResult(
-        [
-            SimpleNamespace(user_id=1, user_name="구글 보내는 사람"),
-            SimpleNamespace(user_id=2, user_name="구글 받는 사람"),
-        ]
-    )
     service = CreateBingoInteraction(session)
 
     response = await service.execute('["AI"]', 1, 2)
@@ -127,25 +121,6 @@ async def test_create_bingo_interaction_updates_board_and_creates_record(monkeyp
             return sender_board
         raise AssertionError(f"unexpected board lookup: user_id={user_id}, event_id={event_id}")
 
-    async def fake_update_board_by_userid(
-        cls,
-        session,
-        user_id: int,
-        board_data: dict,
-        event_id: int | None = None,
-    ):
-        assert user_id == 2
-        assert event_id == 7
-        assert board_data["0"]["status"] == 1
-        assert board_data["0"]["interaction_id"] == 1
-        return receiver_board
-
-    async def fake_update_bingo_count(cls, session, user_id: int, event_id: int | None = None):
-        assert user_id == 2
-        assert event_id == 7
-        receiver_board.bingo_count = 1
-        return receiver_board
-
     async def fake_create(
         cls,
         session,
@@ -166,25 +141,10 @@ async def test_create_bingo_interaction_updates_board_and_creates_record(monkeyp
         classmethod(fake_has_directional_interaction),
     )
     monkeypatch.setattr(BingoBoards, "get_board_by_userid", classmethod(fake_get_board_by_userid))
-    monkeypatch.setattr(
-        BingoBoards,
-        "update_board_by_userid",
-        classmethod(fake_update_board_by_userid),
-    )
-    monkeypatch.setattr(
-        BingoBoards,
-        "update_bingo_count",
-        classmethod(fake_update_bingo_count),
-    )
+    monkeypatch.setattr(BingoBoards, "calculate_bingo_count", staticmethod(lambda board_data: 1))
     monkeypatch.setattr(BingoInteraction, "create", classmethod(fake_create))
 
     session = AsyncMock()
-    session.execute.return_value = FakeExecuteResult(
-        [
-            SimpleNamespace(user_id=1, user_name="구글 보내는 사람"),
-            SimpleNamespace(user_id=2, user_name="구글 받는 사람"),
-        ]
-    )
     service = CreateBingoInteraction(session)
 
     response = await service.execute('["AI"]', 1, 2)
@@ -195,6 +155,7 @@ async def test_create_bingo_interaction_updates_board_and_creates_record(monkeyp
     assert response.send_user_name == "행사 보내는 사람"
     assert response.receive_user_name == "행사 받는 사람"
     assert receiver_board.user_interaction_count == 1
+    session.execute.assert_not_awaited()
 
 
 @pytest.mark.anyio

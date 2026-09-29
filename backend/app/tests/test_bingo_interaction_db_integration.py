@@ -7,6 +7,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from api.bingo.bingo_interaction.services import CreateBingoInteraction
+from api.bingo.bingo_boards.services import GetBingoStateByUserId
 from models.admin import Admin, AdminRole
 from models.bingo import BingoBoards, BingoInteraction
 from models.event import Event
@@ -220,3 +221,42 @@ async def test_exchange_keeps_history_when_no_receiver_cell_changes(integration_
     )
     assert repeated.ok is False
     assert "이미 동일한 참가자" in repeated.message
+
+
+@pytest.mark.anyio
+async def test_combined_state_returns_board_and_complete_named_history(integration_db_session):
+    event, sender, receiver = await _seed_exchange_event(integration_db_session)
+    await BingoBoards.create(
+        integration_db_session,
+        sender.user_id,
+        event.id,
+        _board_data(ai_status=1, selected_ai=1),
+        display_name="행사 보내는 사람",
+    )
+    await BingoBoards.create(
+        integration_db_session,
+        receiver.user_id,
+        event.id,
+        _board_data(),
+        display_name="행사 받는 사람",
+    )
+    exchange = await CreateBingoInteraction(integration_db_session).execute(
+        '["AI"]',
+        sender.user_id,
+        receiver.user_id,
+        event_slug=event.slug,
+    )
+    await integration_db_session.commit()
+
+    state = await GetBingoStateByUserId(integration_db_session).execute(
+        receiver.user_id,
+        event.slug,
+    )
+
+    assert exchange.ok is True
+    assert state.ok is True
+    assert state.board.board_data["0"]["status"] == 1
+    assert state.board.user_interaction_count == 1
+    assert [interaction.interaction_id for interaction in state.interactions] == [exchange.interaction_id]
+    assert state.interactions[0].send_user_name == "행사 보내는 사람"
+    assert state.interactions[0].receive_user_name == "행사 받는 사람"
