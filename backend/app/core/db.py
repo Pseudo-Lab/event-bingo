@@ -64,7 +64,7 @@ class Database:
             pool_size=_read_non_negative_int("DB_POOL_SIZE", 3),
             max_overflow=_read_non_negative_int("DB_MAX_OVERFLOW", 1),
             pool_timeout=_read_non_negative_int("DB_POOL_TIMEOUT_SECONDS", 5),
-            pool_pre_ping=True,
+            pool_pre_ping=False,
             pool_recycle=300,
             pool_use_lifo=True,
             connect_args={

@@ -61,6 +61,8 @@ def test_initialize_uses_bounded_environment_overridable_pool(monkeypatch):
     assert options["pool_size"] == 4
     assert options["max_overflow"] == 2
     assert options["pool_timeout"] == 7
+    assert options["pool_pre_ping"] is False
+    assert options["pool_recycle"] == 300
     assert options["pool_use_lifo"] is True
 
 
