@@ -3,8 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   createBingoBoard,
   createUserBingoInteraction,
-  getBingoBoard,
-  getUserAllInteraction,
+  getBingoState,
   searchBingoParticipants,
   updateBingoDisplayName,
 } from "../../api/bingo_api.ts";
@@ -523,17 +522,13 @@ const BingoGame = () => {
       isPollingRef.current = true;
 
       try {
-        const [boardResult, interactionResponse] = await Promise.all([
-          getBingoBoard(activeUserId, eventSlug ?? undefined),
-          // Sequence IDs are allocated before commit, so a lower ID may become
-          // visible after a higher ID. Full reconciliation plus ID-based merge
-          // prevents that late commit from being skipped forever.
-          getUserAllInteraction(activeUserId, eventSlug ?? undefined),
-        ]);
-        const latestBoard = boardResult.board;
+        // Full reconciliation remains required because a lower sequence ID can
+        // commit after a higher ID and must not be skipped forever.
+        const stateResult = await getBingoState(activeUserId, eventSlug ?? undefined);
+        const latestBoard = stateResult.board;
 
-        const interactionRecords = Array.isArray(interactionResponse.interactions)
-          ? (interactionResponse.interactions as InteractionRecord[])
+        const interactionRecords = Array.isArray(stateResult.interactions)
+          ? (stateResult.interactions as InteractionRecord[])
           : [];
         if (interactionRecords.length > 0) {
           appendInteractionHistory(interactionRecords);
@@ -549,10 +544,10 @@ const BingoGame = () => {
           return;
         }
 
-        if (boardResult.displayName) {
-          setDisplayName(boardResult.displayName);
-          setUsername(boardResult.displayName);
-          syncSessionDisplayName(boardResult.displayName);
+        if (stateResult.displayName) {
+          setDisplayName(stateResult.displayName);
+          setUsername(stateResult.displayName);
+          syncSessionDisplayName(stateResult.displayName);
         }
 
         const previousBoard = bingoBoardRef.current;
@@ -703,13 +698,10 @@ const BingoGame = () => {
       try {
         setIsBootstrapping(true);
 
-        const [boardResult, interactionData] = await Promise.all([
-          getBingoBoard(storedId, eventSlug ?? undefined),
-          getUserAllInteraction(storedId, eventSlug ?? undefined),
-        ]);
-        const boardData = boardResult.board;
-        const interactionRecords = Array.isArray(interactionData.interactions)
-          ? (interactionData.interactions as InteractionRecord[])
+        const stateResult = await getBingoState(storedId, eventSlug ?? undefined);
+        const boardData = stateResult.board;
+        const interactionRecords = Array.isArray(stateResult.interactions)
+          ? (stateResult.interactions as InteractionRecord[])
           : [];
 
         setInteractionHistory(interactionRecords);
@@ -720,7 +712,7 @@ const BingoGame = () => {
             window.sessionStorage.setItem(getBoardReadyStorageKey(eventSlug, storedId), "1");
             setHasKnownBoardForEvent(true);
           }
-          const resolvedDisplayName = (boardResult.displayName ?? "").trim();
+          const resolvedDisplayName = (stateResult.displayName ?? "").trim();
           if (resolvedDisplayName) {
             setDisplayName(resolvedDisplayName);
             setUsername(resolvedDisplayName);

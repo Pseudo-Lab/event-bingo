@@ -66,6 +66,11 @@ type BingoInteractionResponse = ApiResponseBase & {
   created_at?: string | null;
 };
 
+type BingoStateResponse = ApiResponseBase & {
+  board?: BingoBoardResponse | null;
+  interactions?: BingoInteractionResponse[] | null;
+};
+
 type BingoExchangeResult = {
   ok: true;
   message: string;
@@ -78,6 +83,13 @@ type BingoExchangeFailure = {
   ok: false;
   message: string;
 };
+
+class ApiRequestError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
 
 const API_URL = getApiBaseUrl();
 const hasApiUrl = API_URL.length > 0;
@@ -157,7 +169,7 @@ const requestJson = async <T>(
   const response = await fetch(createApiUrl(path, params), await withJsonHeaders(init));
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    throw new ApiRequestError(response.status, await readErrorMessage(response));
   }
 
   return response.json() as Promise<T>;
@@ -314,6 +326,49 @@ export const getBingoBoard = async (userId: string, eventSlug?: string) => {
   }
 
   return { board: toBoardItems(data.board_data), displayName: data.display_name ?? undefined };
+};
+
+export const getBingoState = async (userId: string, eventSlug?: string) => {
+  const getLegacyState = async () => {
+    const [boardResult, interactionResult] = await Promise.all([
+      getBingoBoard(userId, eventSlug),
+      getUserAllInteraction(userId, eventSlug),
+    ]);
+    return {
+      ...boardResult,
+      interactions: interactionResult.interactions,
+    };
+  };
+
+  if (shouldUseMockApi() || !eventSlug) {
+    return getLegacyState();
+  }
+
+  let data: BingoStateResponse;
+  try {
+    data = await requestJson<BingoStateResponse>(
+      `/api/bingo/boards/state/${userId}`,
+      { method: "GET" },
+      { event_slug: eventSlug }
+    );
+  } catch (error) {
+    // During a rolling deployment, a new frontend can briefly reach an old
+    // backend replica that does not provide the combined endpoint yet.
+    if (error instanceof ApiRequestError && error.status === 404) {
+      return getLegacyState();
+    }
+    throw error;
+  }
+
+  if (!data.ok || !data.board?.ok) {
+    return { board: [], displayName: undefined, interactions: [] };
+  }
+
+  return {
+    board: toBoardItems(data.board.board_data),
+    displayName: data.board.display_name ?? undefined,
+    interactions: toInteractionRecords(data.interactions ?? []),
+  };
 };
 
 export const createUserBingoInteraction = async (
