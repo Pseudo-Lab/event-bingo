@@ -175,10 +175,12 @@ async def main(args):
                     samples[f"{request_phase}:{kind}"].append((time.monotonic() - before) * 1000)
 
             async def state(user_id):
-                _, history = await asyncio.gather(
-                    request("board", "GET", f"/api/bingo/boards/{user_id}", participant=user_id, params={"event_slug": slug}),
-                    request("history", "GET", f"/api/bingo/interactions/{user_id}/all",
-                            participant=user_id, params={"event_slug": slug}),
+                return await request(
+                    "state",
+                    "GET",
+                    f"/api/bingo/boards/state/{user_id}",
+                    participant=user_id,
+                    params={"event_slug": slug},
                 )
 
             async def exchange(sender, receiver):
@@ -191,9 +193,6 @@ async def main(args):
                 })
                 if result.get("ok") and isinstance(result.get("interaction_id"), int):
                     created[result["interaction_id"]] = (sender, receiver)
-                    # Approximate the API reconciliation caused by two Realtime recipients.
-                    # This is NOT a WebSocket delivery latency measurement.
-                    await asyncio.gather(state(sender), state(receiver))
 
             phase = "login"
             async def login(user_id):
@@ -248,14 +247,13 @@ async def main(args):
                 expected_ids[sender].add(interaction_id)
                 expected_ids[receiver].add(interaction_id)
             async def verify(user_id):
-                board, history = await asyncio.gather(
-                    request("board", "GET", f"/api/bingo/boards/{user_id}", participant=user_id, params={"event_slug": slug}),
-                    request("history", "GET", f"/api/bingo/interactions/{user_id}/all", participant=user_id, params={"event_slug": slug}),
-                )
-                if not board.get("ok") or not history.get("ok"):
+                state_result = await state(user_id)
+                board = state_result.get("board") or {}
+                interactions = state_result.get("interactions") or []
+                if not state_result.get("ok") or not board.get("ok"):
                     errors["verify:incomplete"] += 1
                     return
-                actual_ids = [row["interaction_id"] for row in history.get("interactions", [])]
+                actual_ids = [row["interaction_id"] for row in interactions]
                 if set(actual_ids) != expected_ids[user_id] or len(actual_ids) != len(set(actual_ids)):
                     errors["verify:history_mismatch"] += 1
                 if board.get("user_interaction_count") != len(expected_received[user_id]):
@@ -283,7 +281,8 @@ async def main(args):
                 "requests": {key: {"count": len(values), "p50_ms": percentile(values, .5),
                                    "p95_ms": percentile(values, .95), "p99_ms": percentile(values, .99)}
                              for key, values in sorted(samples.items())},
-                "websocket_delivery_tested": False, "supabase_auth_tested": False,
+                "realtime_enabled": False, "websocket_delivery_tested": False,
+                "supabase_auth_tested": False,
                 "seconds_total": round(time.monotonic() - started, 2), "backend_log": str(run_dir / "backend.log"),
             }
             summary["latency_failures"] = [

@@ -43,11 +43,14 @@ database/container when finished. No Supabase credentials are required.
 
 The workload includes login at five users/second, simultaneous board/history reads
 and exchanges, 25 senders targeting one receiver, then 200 independent participants
-polling every 11 seconds and exchanging every 30 seconds for ten minutes. Successful
-exchanges also trigger sender/receiver API refreshes. Final checks compare history
-IDs, received counts, marked board words and total database rows.
+polling every 11 seconds and exchanging every 30 seconds for ten minutes. Realtime is
+off, so successful exchanges do not trigger immediate sender/receiver refreshes; state
+is reconciled by the staggered polling workload. Final checks compare history IDs,
+received counts, marked board words and total database rows.
 
-JSON output separates burst and sustained latency, counts HTTP/transport/application
+Polling reads board and complete interaction history through one state endpoint to
+avoid two HTTP requests and two pool checkouts per participant. JSON output separates
+burst and sustained latency, counts HTTP/transport/application
 errors, and records peak database connections. The conservative local gate requires
 zero errors or state mismatches and each measured endpoint/phase p95 at most 1,000 ms
 (excluding final verification). `--duration 30` is a diagnostic smoke run, not the

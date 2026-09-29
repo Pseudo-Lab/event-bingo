@@ -2,7 +2,7 @@
 
 ## Task Metadata
 - Task ID: 2026-08-16-concurrency-incident-fix
-- Local verification update: 2026-09-14 (KST). Current acceptance target is **200 concurrent participants**, superseding the earlier 50-user plan. Current work is local only; no new commit, push, merge, deployment or production access is authorized.
+- Local verification update: 2026-09-18 (KST). Current acceptance target is **200 concurrent participants**, superseding the earlier 50-user plan. Current work is local only; no new commit, push, merge, deployment or production access is authorized.
 
 ## Scope
 - In scope: bounded backend database pooling and lifecycle, Realtime-first interaction synchronization with polling recovery, participant-search request control, Supabase Auth bridge single-flight/rate-limit handling, secure JWT-to-participant mapping, automated regression coverage, rollout guidance.
@@ -25,7 +25,7 @@
 - Participant search could leave superseded requests running, while Google login/session restoration could initialize the same bridge concurrently and burst `PUT /auth/v1/user` calls.
 
 ## Changes Made
-- Backend database sessions now use `async_sessionmaker` directly with a bounded async engine pool. Defaults are `pool_size=3`, `max_overflow=1`, `pool_timeout=5`, `pool_recycle=300`, pre-ping, and LIFO; the first three values are environment-overridable.
+- Backend database sessions now use `async_sessionmaker` directly with a bounded async engine pool. Defaults are `pool_size=3`, `max_overflow=1`, `pool_timeout=5`, `pool_recycle=300`, no per-checkout pre-ping, and LIFO; the first three values are environment-overridable. SQLAlchemy disconnect invalidation and the five-minute recycle remain enabled.
 - Session failures now roll back and re-raise. Lifespan shutdown disposes the engine, including startup-failure cleanup.
 - Default maximum application pool clients are calculated as `replicas × workers × (pool_size + max_overflow)`. With the current two replicas and two workers, the ceiling is `2 × 2 × (3 + 1) = 16`.
 - Active game polling now uses a 10-second base interval plus stable per-client jitter from 0–2 seconds, pauses while the document is hidden, immediately refreshes after visibility returns, preserves the in-flight guard, and backs off up to 60 seconds after failures.
@@ -46,9 +46,9 @@
 - `backend/scripts/local_capacity_test.py` provides isolated real-HTTP/local-PostgreSQL load and final board/history/count verification, without Supabase Auth or WebSockets. See `backend/TESTING.md` for the command and limitations.
 
 ## Validation
-- Backend including guarded local DB integration: 169 passed, 1 pre-existing Pydantic deprecation warning. New deterministic competing-transaction tests cover two distinct senders and duplicate same-sender attempts; the distinct-sender case failed before the lock fix.
+- Backend including guarded local DB integration: 170 passed, 1 pre-existing Pydantic deprecation warning. New deterministic competing-transaction tests cover two distinct senders, duplicate same-sender attempts, and the combined polling state response; the distinct-sender case failed before the lock fix.
 - Historical baseline: GitHub Actions `Backend DB Integration` passed against the guarded PostgreSQL service. No GitHub workflow was triggered for these uncommitted local changes.
-- Frontend unit: `npm test -- --run` — 119 passed.
+- Frontend unit: `npm test` — 122 passed.
 - Frontend lint: `npm run lint` — passed.
 - Frontend build/type check: `npm run build` — passed; existing large-chunk warning remains.
 - Frontend E2E: `npm run e2e` — 19 passed.
@@ -78,7 +78,30 @@
 - Out-of-order commit reproduction: transaction A allocated interaction ID 1, transaction B allocated ID 2 and committed first, the first incremental poll observed only ID 2, then transaction A committed. A subsequent `interaction_id > 2` query returned no rows even though full history contained IDs 1 and 2. The unsafe cursor parameter was removed from the backend route/model and frontend API, and the game now performs full-history reconciliation with ID-based merge so the late lower ID is retained. Unit and E2E coverage verify the lower-ID merge and absence of the cursor during reconciliation.
 - After that fix, the full-history 200-user/10-minute run created 4,208 exchanges with zero request errors or final state mismatches. Peak DB connections remained 16. Sustained overall p95 was 67.98 ms; exchange p95/p99 was 79.50/115.40 ms and history p95/p99 was 64.68/107.28 ms. Compared with the prior cursor run, sustained overall p95 increased from 63.40 ms by 4.58 ms. Aggregate result: `/tmp/event-bingo-full-history-10m.json` (local only, not committed).
 - The corrected full-history run still failed only the artificial simultaneous-burst latency gate: 200 exchange p95/p99 was 2,808.91/2,986.31 ms. A short pool 5/1 comparison raised peak connections from 16 to 24 but changed burst exchange p95 only from 2,500.32 ms (pool 3/1 short run) to 2,493.32 ms. Do not increase the production pool on this evidence; connection count was not the primary cause of this local burst result.
-- Remaining local work: if sub-second response to 200 exchanges issued at the same instant is a release requirement, attribute the burst delay to worker CPU/scheduling, SQL round trips and reconciliation amplification before changing application or topology. The realistic staggered 200-active-user path passed, but the actual Supabase 200-client gate remains mandatory.
+- At that point, sub-second response to 200 exchanges issued at the same instant remained open. The follow-up below attributes and resolves the local HTTP gate; the actual Supabase 200-client gate remains mandatory.
+
+### HTTP polling performance follow-up (2026-09-18)
+
+- Test target: PR #252 head `ff486247727199b0bc10b8266239f0ac02ea7638` plus the uncommitted polling-performance changes described here. Realtime remained off. No production, Supabase, merge, commit, or push action was performed.
+- Reproduced baseline: 4,209 exchanges, zero errors or state mismatches, peak 16 DB connections, sustained p95 64.57 ms, burst exchange/state component p95 2,224.04/2,293.04–2,315.39 ms. Result: `docs/handoffs/results/2026-09-18-http-polling-200-users-baseline.json`.
+- Root cause: the old local harness issued four immediate sender/receiver board/history requests after every successful exchange even though the Realtime-OFF frontend does not do so. This amplified 200 simultaneous exchange requests into 800 competing reads. Separate board and history polling also caused two HTTP requests and two pool checkouts per user. `pool_pre_ping` added another database round trip to every checkout. PostgreSQL statement execution was generally sub-millisecond; request and checkout amplification dominated.
+- Changes: the polling client now uses one combined state endpoint. PostgreSQL returns the board and complete, named, newest-first interaction history in one round trip. The frontend falls back to the two legacy endpoints only while a rolling deployment can still route to an older backend. Exchange reads sender and locked receiver boards together, removes redundant locked-board reloads, and reuses the locked row for board/count updates. Receiver-only locking and history-based duplicate detection remain unchanged. Full-history reconciliation and interaction-ID deduplication remain unchanged. Pool size stays 3/1/5 and `pool_recycle=300` remains; per-checkout pre-ping is disabled.
+- Corrected Realtime-OFF harness behavior: login remains 5 users/second, polling remains every 11 seconds, exchange remains every 30 seconds, and the 200-exchange burst remains simultaneous. Polling and final verification use the combined state endpoint; final verification still checks every interaction ID, duplicate IDs, receiver count, marked board words, and DB row count.
+- Final environment: shared 4-CPU host, disposable PostgreSQL 16, four Uvicorn workers, 200 users, 600.01-second sustained phase, unchanged 1,000 ms per-phase p95 gate. No other builds or tests ran during the measured execution.
+- Final result: **PASS**. 4,217 exchanges; HTTP/transport/application errors 0; history, duplicate, received-count, board-word and DB-row mismatches 0; peak DB connections 16.
+- Burst p95/p99: state 882.80/898.06 ms, exchange 765.79/799.39 ms, health 226.34/229.06 ms. Twenty-five senders to one receiver exchange p95/p99: 269.29/276.52 ms.
+- Sustained p95/p99: all requests 54.94 ms p95; state 19.69/52.77 ms, exchange 59.54/65.49 ms, search 15.62/27.99 ms. Login p95/p99: 253.75/284.65 ms.
+- Result: `docs/handoffs/results/2026-09-18-http-polling-200-users-final.json`; backend log: `/tmp/event-bingo-capacity-lpt2yfqf/backend.log`. The JSON result is retained in the handoff; the local backend log is temporary and not committed.
+- Regression: backend 170 passed, frontend unit 122 passed, lint/build passed, Playwright 19 passed. Existing Pydantic deprecation, stale Browserslist data, and large frontend chunk warnings remain.
+- This local pass does not demonstrate Supabase Free/Supavisor, ingress, production Pod CPU limits, network, Auth rate limits, or production 200-user capacity. The production test remains separately gated and unauthorized.
+
+### Proposed Supabase Free HTTP-polling validation (not executed)
+
+- Target: the production-shaped application path through ingress and the existing Supabase Free project/Supavisor, with Realtime confirmed off and the deployed pool fixed at 3/1/5. Reconfirm the approved window, current image/revision, backup freshness, no active event, and baseline metrics before any change.
+- Synthetic data: one dedicated, uniquely tagged test event; 200 non-personal synthetic participants and boards; pre-created credentials approved for the production project. Record exact event, user, board and interaction identifiers so cleanup never uses a broad condition.
+- Load: gate at 1–3, 10, 50 and 100 users before 200. The final gate logs in at most five users/second, polls complete state every 11 seconds, exchanges every 30 seconds, and holds 200 users for 600 seconds. Preserve the 1,000 ms phase p95 threshold and exact history/board/received-count checks.
+- Immediate stop: any real event or meaningful real-user traffic, one `EMAXCONN`, one unauthorized or integrity mismatch, any Auth 429, HTTP 5xx at or above 1%, p95 above 1,000 ms for two consecutive minutes, sustained CPU throttling, or node CPU/memory at the agreed Ops ceiling.
+- Cleanup: stop the runner first; verify application recovery; delete only the recorded synthetic interaction, board, participant and event rows in dependency order; confirm no tagged rows remain and baseline metrics recover; retain redacted results and timestamps. Image or database rollback remains a separate approved Ops action.
 
 ### Proposed operational steps (not executed)
 
@@ -132,7 +155,7 @@ COMMIT;
 - Roll back both application images to `sha-1c9bc11` if error rate or state-sync regressions exceed the gate. Do not revert GitOps hotfix `60f93b6`; retain two replicas/two workers during rollback.
 
 ## Risks
-- Known risks: Realtime cannot work in production until publication membership, RLS policy, and identity backfill are applied; no staging Supabase environment exists; browser Realtime metrics are not centrally retained; application metrics do not expose SQLAlchemy pool use or dedicated Auth 429/`EMAXCONN` counters; the 60-second recovery poll still makes two requests; the production load-test gate remains open.
+- Known risks: Realtime cannot work in production until publication membership, RLS policy, and identity backfill are applied; no staging Supabase environment exists; browser Realtime metrics are not centrally retained; application metrics do not expose SQLAlchemy pool use or dedicated Auth 429/`EMAXCONN` counters; the production load-test gate remains open.
 - Follow-up needed: Ops-reviewed database migration and GitOps pool values, approved isolated synthetic-event 200-client load/authorization tests, Supabase project/key-role and quota verification, multi-worker Prometheus verification, Loki retention/alerts, and production-shaped search `EXPLAIN`. Pool 3/1/5 is a bounded starting point, not a demonstrated 200-user production capacity guarantee.
 
 ## Next Owner
