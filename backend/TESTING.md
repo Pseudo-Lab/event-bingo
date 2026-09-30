@@ -58,5 +58,10 @@ ten-minute acceptance test. Do not run builds or other tests alongside a benchma
 
 This is real backend HTTP against local PostgreSQL, **not** 200 browser sessions or
 Supabase Auth/Realtime/Supavisor verification. Four workers on one shared host do not
-reproduce two production Pods, their CPU limits, ingress or network. Production
-Realtime delivery p95, RLS, quotas and recovery require a separately approved test.
+reproduce two production Pods, their CPU limits, ingress or network. Supabase Free
+HTTP polling latency, Auth rate limits and disconnected-pool recovery require a
+separately approved operational test. This release has no Realtime subscription
+or runtime switch and does not add a Realtime migration. Its Alembic head is
+`f3a4b5c6d7e8`; verify the target database revision before deployment. A database
+already upgraded to the deferred `a8e6d4c2b190` revision needs a separately reviewed
+compatibility plan, not an automatic stamp or downgrade.

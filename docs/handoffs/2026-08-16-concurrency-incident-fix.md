@@ -1,5 +1,21 @@
 # Event BINGO concurrency incident fix handoff
 
+## Current release scope — 2026-09-30
+
+- This section supersedes the historical Realtime rollout instructions below.
+- Workspace: `/home/ubuntu/code/workspace-bingo-concurrency`, branch `fix/incident-20260816-concurrency`, preserved performance baseline `ef5c3bc`.
+- Supabase Free remains fixed. The game uses HTTP full-state polling every 10–12 seconds, visibility recovery and bounded error backoff. Receiver row locks, full-history reconciliation and issue #81 duplicate protection remain.
+- Removed from this release: browser Postgres Changes subscriptions, runtime flag/config fetch, Realtime-only frontend tests and load tools, Nginx runtime-config handling, and migration `a8e6d4c2b190` (backfill, audit table, provider index, helper, RLS policy and publication registration).
+- Authentication remains: verified JWT email/subject, normal login/registration subject mapping into existing columns, rejection of conflicting linked accounts, password recheck and thread-pool hashing. These protections are independent of Realtime and require no new schema. Bulk identity backfill is excluded.
+- Migration head returns to `f3a4b5c6d7e8`. Confirm the actual production revision before deployment. A copy already at `a8e6d4c2b190` is not a compatible deployment target without a separate migration plan. Do not stamp or downgrade it automatically.
+- The migration advisory lock remains as general multi-worker deployment protection. API contracts and visual layout are unchanged by this separation; no design-guide deviation is introduced.
+- Ops PR #11 is untouched. The proposed follow-up is to retain pool env 3/1/5 and remove its frontend runtime ConfigMap/mount references. No Ops merge, push, deployment or production load is authorized by this local change.
+- Validation of the separated release: backend 170 passed including all five local DB integration tests; frontend 113 passed (nine Realtime/runtime-config unit cases removed), lint/build passed, full Playwright suite 19 passed. Incoming-exchange E2E checks polling and absence of Realtime WebSockets/runtime-config requests. Existing Pydantic, Browserslist and bundle-size warnings remain.
+- Capacity: shared 4-CPU host, isolated PostgreSQL 16, four Uvicorn workers, pool 3/1/5, 200 users, 600.05 seconds, 11-second polling, 30-second exchange interval and five logins/second. No builds/tests ran alongside the benchmark. 4,217 exchanges, zero HTTP/application/transport errors or history/duplicate/board/received-count/DB-row mismatches, maximum 16 DB clients excluding the observer. All phase p95 values met the unchanged 1,000 ms gate.
+- Latency p95/p99 (ms): burst exchange 960.99/994.97, burst state 717.47/730.10, same receiver exchange 244.10/253.47, sustained exchange 58.39/63.09, sustained state 18.67/51.19. Sustained overall p95 54.20 ms. Burst exchange has only about 39 ms of p95 margin; local PASS is not production capacity proof.
+- Result: `docs/handoffs/results/2026-09-30-http-only-200-users.json`; log: `/tmp/event-bingo-capacity-76ebgq6m/backend.log`. The 2026-09-18 files remain historical baseline results. Temporary runner processes and the owned synthetic DB container are cleaned up after validation.
+- Overall operational status remains NO-GO. Actual Supabase Free/Supavisor/Auth, stale-connection behavior with pre-ping disabled, production traffic and backup freshness require separately approved validation. This work did not change Ops, push, merge or deploy.
+
 ## Task Metadata
 - Task ID: 2026-08-16-concurrency-incident-fix
 - Local verification update: 2026-09-18 (KST). Current acceptance target is **200 concurrent participants**, superseding the earlier 50-user plan. Current work is local only; no new commit, push, merge, deployment or production access is authorized.
