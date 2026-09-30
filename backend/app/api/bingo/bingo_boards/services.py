@@ -3,8 +3,10 @@ from core.log import logger
 from models.bingo import BingoBoards
 from models.event import Event
 from models.user import BingoUser
+from api.bingo.bingo_interaction.schema import BingoInteractionResponse
 from api.bingo.bingo_boards.schema import (
     BingoBoardResponse,
+    BingoStateResponse,
     GetUserBingoEventUser,
     UpdateBingoCountResponse,
     UpdateBingoStatusResponseByQRScan,
@@ -53,11 +55,58 @@ class CreateBingoBoard(BaseBingoBoard):
 class GetBingoBoardByUserId(BaseBingoBoard):
     async def execute(self, user_id: int, event_slug: str | None = None) -> BingoBoards:
         try:
-            event_id = await self.resolve_event_id(event_slug)
-            res = await BingoBoards.get_board_by_userid(self.async_session, user_id, event_id)
-            return BingoBoardResponse(**res.__dict__, ok=True, message="빙고판 조회에 성공하였습니다.")
+            normalized_slug = (event_slug or "").strip().lower()
+            if normalized_slug:
+                res = await BingoBoards.get_board_by_event_slug(
+                    self.async_session,
+                    user_id,
+                    normalized_slug,
+                )
+            else:
+                res = await BingoBoards.get_board_by_userid(self.async_session, user_id)
+            response = BingoBoardResponse(**res.__dict__, ok=True, message="빙고판 조회에 성공하였습니다.")
+            await self.async_session.commit()
+            return response
         except ValueError as e:
+            await self.async_session.rollback()
             return BingoBoardResponse(ok=False, message=str(e))
+
+
+class GetBingoStateByUserId(BaseBingoBoard):
+    async def execute(self, user_id: int, event_slug: str) -> BingoStateResponse:
+        try:
+            normalized_slug = event_slug.strip().lower()
+            if not normalized_slug:
+                raise ValueError("이벤트를 찾을 수 없습니다.")
+
+            board, interaction_records = await BingoBoards.get_state_by_event_slug(
+                self.async_session,
+                user_id,
+                normalized_slug,
+            )
+            interactions = [
+                BingoInteractionResponse(
+                    **interaction,
+                    ok=True,
+                    message="유저의 빙고 인터렉션 조회에 성공하였습니다.",
+                )
+                for interaction in interaction_records
+            ]
+            response = BingoStateResponse(
+                board=BingoBoardResponse(
+                    **board.__dict__,
+                    ok=True,
+                    message="빙고판 조회에 성공하였습니다.",
+                ),
+                interactions=interactions,
+                ok=True,
+                message="빙고 상태 조회에 성공하였습니다.",
+            )
+            await self.async_session.commit()
+            return response
+        except ValueError as error:
+            await self.async_session.rollback()
+            return BingoStateResponse(ok=False, message=str(error))
 
 
 class UpdateBingoBoardByUserId(BaseBingoBoard):

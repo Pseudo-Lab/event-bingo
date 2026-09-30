@@ -4,6 +4,7 @@ from models.event import Event
 from models.event_attendee import EventAttendee
 from models.user import BingoUser
 from api.auth.schema import BingoUser as BingoUserResponse
+from starlette.concurrency import run_in_threadpool
 
 
 class BaseBingoUser:
@@ -33,6 +34,7 @@ class RegisterBingoUser(BaseBingoUser):
         password: str,
         event_slug: str | None = None,
         user_email: str | None = None,
+        provider_id: str | None = None,
     ) -> BingoUser:
         try:
             normalized_username = (username or "").strip()
@@ -50,6 +52,7 @@ class RegisterBingoUser(BaseBingoUser):
                 user_name=normalized_username or None,
                 password=normalized_password,
                 user_email=normalized_user_email,
+                provider_id=provider_id,
             )
             await self.ensure_event_attendee(user.user_id, event_slug)
             logger.debug(f"Bingo user registered: {user}")
@@ -71,6 +74,7 @@ class LoginBingoUser(BaseBingoUser):
         password: str,
         event_slug: str | None = None,
         user_email: str | None = None,
+        provider_id: str | None = None,
     ) -> BingoUser:
         try:
             normalized_login_id = login_id.strip().upper()
@@ -90,14 +94,37 @@ class LoginBingoUser(BaseBingoUser):
             if user is None:
                 raise ValueError("존재하지 않는 로그인 코드입니다.")
 
-            if not BingoUser.verify_password(normalized_password, user.password_hash):
+            password_hash = user.password_hash
+            # Release the read transaction before CPU-bound bcrypt work. Neither
+            # a DB connection nor the event loop should wait for password hashing.
+            await self.async_session.rollback()
+            if not await run_in_threadpool(BingoUser.verify_password, normalized_password, password_hash):
                 raise ValueError("비밀번호가 일치하지 않습니다.")
+
+            user = await BingoUser.get_user_by_login_id(
+                self.async_session, normalized_login_id, for_update=True
+            )
+            if user is None or user.password_hash != password_hash:
+                raise ValueError("계정 정보가 변경되었습니다. 다시 로그인해 주세요.")
+
+            identity_changed = False
+            if provider_id and user.provider_id and user.provider_id != provider_id:
+                raise ValueError("이미 다른 인증 계정에 연결된 빙고 계정입니다.")
+
+            if provider_id and user.provider_id != provider_id:
+                user.provider_id = provider_id
+                user.auth_provider = "supabase"
+                identity_changed = True
 
             user = await BingoUser.sync_user_email(
                 self.async_session,
                 user.user_id,
                 user_email,
             )
+            if identity_changed:
+                await self.async_session.commit()
+                await self.async_session.refresh(user)
+
             await self.ensure_event_attendee(user.user_id, event_slug)
             return BingoUserResponse(
                 **user.__dict__,

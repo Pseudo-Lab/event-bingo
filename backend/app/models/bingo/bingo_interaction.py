@@ -73,7 +73,6 @@ class BingoInteraction(Base):
         cls,
         session: AsyncSession,
         user_id: int,
-        after_interaction_id: int | None = None,
         event_id: int | None = None,
     ):
         stmt = (
@@ -84,9 +83,6 @@ class BingoInteraction(Base):
 
         if event_id is not None:
             stmt = stmt.where(cls.event_id == event_id)
-
-        if after_interaction_id is not None:
-            stmt = stmt.where(cls.interaction_id > after_interaction_id)
 
         res = await session.execute(stmt)
         return res.scalars().all()

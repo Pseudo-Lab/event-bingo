@@ -38,6 +38,32 @@ def authenticate_user(credentials: Annotated[HTTPBasicCredentials, Depends(secur
 # User Dependencies (Supabase JWT → BingoUser 매칭/자동생성)
 # ---------------------
 bearer_scheme = HTTPBearer()
+optional_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def get_optional_supabase_identity(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(optional_bearer_scheme)],
+) -> dict[str, str] | None:
+    if credentials is None:
+        return None
+
+    payload = decode_supabase_token(credentials.credentials)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="토큰이 유효하지 않습니다",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    subject = payload.get("sub")
+    email = payload.get("email")
+    if not isinstance(subject, str) or not subject or not isinstance(email, str) or not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="토큰 페이로드가 올바르지 않습니다",
+        )
+
+    return {"provider_id": subject, "email": email}
 
 
 async def get_current_user(

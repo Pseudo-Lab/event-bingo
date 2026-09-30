@@ -160,4 +160,70 @@ describe("bingoGoogleBridge", () => {
       },
     });
   });
+
+  it("skips the auth metadata update when the bingo name is unchanged", async () => {
+    getUser.mockResolvedValue({
+      data: {
+        user: {
+          user_metadata: {
+            event_bingo_user_name: "행사 이름",
+          },
+        },
+      },
+    });
+
+    await syncBingoBridgeUserName("행사 이름");
+
+    expect(updateUser).not.toHaveBeenCalled();
+  });
+
+  it("initializes the bridge only once for concurrent calls from the same user", async () => {
+    registerBingoUser.mockResolvedValue({
+      ok: true,
+      message: "빙고 계정이 생성되었습니다.",
+      user_id: 11,
+      login_id: "ABCD12",
+      user_email: "tester@example.com",
+      user_name: null,
+    });
+    const user = createGoogleUser() as never;
+
+    const [first, second] = await Promise.all([
+      ensureBingoGoogleBridge(user, "sample-event"),
+      ensureBingoGoogleBridge(user, "sample-event"),
+    ]);
+
+    expect(registerBingoUser).toHaveBeenCalledTimes(1);
+    expect(updateUser).toHaveBeenCalledTimes(1);
+    expect(first).toEqual(second);
+  });
+
+  it("retries auth metadata updates with bounded backoff after 429", async () => {
+    vi.useFakeTimers();
+    registerBingoUser.mockResolvedValue({
+      ok: true,
+      message: "빙고 계정이 생성되었습니다.",
+      user_id: 11,
+      login_id: "ABCD12",
+      user_email: "tester@example.com",
+      user_name: null,
+    });
+    updateUser
+      .mockResolvedValueOnce({ error: { status: 429 } })
+      .mockResolvedValueOnce({ error: { status: 429 } })
+      .mockResolvedValueOnce({ error: null });
+
+    const initialization = ensureBingoGoogleBridge(
+      createGoogleUser() as never,
+      "rate-limited-event"
+    );
+    await vi.advanceTimersByTimeAsync(249);
+    expect(updateUser).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(updateUser).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(500);
+    await initialization;
+    expect(updateUser).toHaveBeenCalledTimes(3);
+    vi.useRealTimers();
+  });
 });

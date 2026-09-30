@@ -23,13 +23,16 @@ from prometheus_fastapi_instrumentator import Instrumentator
 async def lifespan(app: FastAPI):
     # 서버 시작 전 초기화 단계 작성
     db.initialize()
-    await db.create_database()
-    async with db.async_session_factory() as session:
-        await ensure_admin_console_seed_data(session)
-        if PRIVACY_REDACTION_RUN_ON_STARTUP:
-            await redact_expired_event_personal_data(session)
-    await warm_jwks_cache()  # JWKS 미리 로드 — 첫 요청 블로킹 방지
-    yield
+    try:
+        await db.create_database()
+        async with db.async_session_factory() as session:
+            await ensure_admin_console_seed_data(session)
+            if PRIVACY_REDACTION_RUN_ON_STARTUP:
+                await redact_expired_event_personal_data(session)
+        await warm_jwks_cache()  # JWKS 미리 로드 — 첫 요청 블로킹 방지
+        yield
+    finally:
+        await db.dispose()
 
 # docs_url, openapi_url을 None으로 비활성화
 app = FastAPI(

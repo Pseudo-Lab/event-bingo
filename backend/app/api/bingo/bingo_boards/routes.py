@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Path, Query
 from .schema import (
     BingoBoardRequest,
     BingoBoardResponse,
+    BingoStateResponse,
     UpdateBingoCountResponse,
     UpdateBingoStatusResponseByQRScan,
     GetUserBingoEventUser,
@@ -10,6 +11,7 @@ from .schema import (
 from .services import (
     CreateBingoBoard,
     GetBingoBoardByUserId,
+    GetBingoStateByUserId,
     UpdateBingoBoardByUserId,
     UpdateBingoCount,
     GetBingoEventUser,
@@ -33,6 +35,15 @@ async def get_board_by_user_id(
     user_id: int = Path(..., title="유저 ID", ge=1),
     event_slug: str | None = Query(None, title="이벤트 slug"),
     bingo_boards: GetBingoBoardByUserId = Depends(GetBingoBoardByUserId),
+):
+    return await bingo_boards.execute(user_id, event_slug)
+
+
+@bingo_boards_router.get("/state/{user_id}", response_model=BingoStateResponse)
+async def get_bingo_state_by_user_id(
+    user_id: int = Path(..., title="유저 ID", ge=1),
+    event_slug: str = Query(..., title="이벤트 slug", min_length=1),
+    bingo_boards: GetBingoStateByUserId = Depends(GetBingoStateByUserId),
 ):
     return await bingo_boards.execute(user_id, event_slug)
 
