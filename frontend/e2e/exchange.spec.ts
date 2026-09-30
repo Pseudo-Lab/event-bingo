@@ -144,6 +144,15 @@ test.describe("mobile touch", () => {
   test("scrolls to the board when an incoming exchange updates keywords", async ({ page }) => {
     let stateRequestCount = 0;
     const stateRequestUrls: string[] = [];
+    const realtimeRequests: string[] = [];
+    page.on("websocket", (socket) => {
+      if (socket.url().includes("/realtime/")) realtimeRequests.push(socket.url());
+    });
+    page.on("request", (request) => {
+      if (request.url().includes("/runtime/runtime-config.json")) {
+        realtimeRequests.push(request.url());
+      }
+    });
     const incomingKeyword = "키워드 4";
     const existingHigherId = buildInteractionRecord({
       interactionId: 202,
@@ -203,6 +212,7 @@ test.describe("mobile touch", () => {
       .poll(() => page.evaluate(() => window.scrollY), { timeout: 15_000 })
       .toBeGreaterThan(0);
     expect(stateRequestUrls).toHaveLength(2);
+    expect(realtimeRequests).toEqual([]);
     expect(new URL(stateRequestUrls[1]).searchParams.has("after_interaction_id")).toBe(false);
     const latestCell = page.locator(".bingo-board-cell.is-latest");
     await expect(latestCell).toContainText(incomingKeyword);
