@@ -5,7 +5,9 @@ import json
 import time
 from typing import Any
 
-from cryptography.hazmat.primitives import hashes
+import pytest
+
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa, utils
 
 from core import security
@@ -153,3 +155,66 @@ def test_decode_supabase_token_does_not_fallback_rs256_to_hs256_secret(monkeypat
     monkeypatch.setattr(security, "SUPABASE_JWT_SECRET", "legacy-secret")
 
     assert security.decode_supabase_token(token) is None
+
+
+@pytest.mark.parametrize("algorithm", ["RS256", "ES256"])
+@pytest.mark.parametrize("failure", ["expired", "tampered_payload", "tampered_signature", "algorithm_confusion"])
+def test_decode_supabase_token_rejects_invalid_asymmetric_tokens(monkeypatch, algorithm, failure):
+    if algorithm == "RS256":
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        jwk = _build_rsa_jwk(private_key.public_key(), "test-key")
+
+        def sign(value):
+            return private_key.sign(value, padding.PKCS1v15(), hashes.SHA256())
+    else:
+        private_key = ec.generate_private_key(ec.SECP256R1())
+        jwk = _build_ec_jwk(private_key.public_key(), "test-key")
+
+        def sign(value):
+            r_value, s_value = utils.decode_dss_signature(private_key.sign(value, ec.ECDSA(hashes.SHA256())))
+            return r_value.to_bytes(32, "big") + s_value.to_bytes(32, "big")
+
+    payload = _build_payload()
+    if failure == "expired":
+        payload["exp"] = time.time() - 10
+    token = _encode_token({"alg": algorithm, "kid": "test-key"}, payload, sign)
+    header, body, signature = token.split(".")
+    if failure == "tampered_payload":
+        body = _b64url_encode(json.dumps({**payload, "sub": "attacker"}).encode())
+    elif failure == "tampered_signature":
+        raw = base64.urlsafe_b64decode(signature + "=" * (-len(signature) % 4))
+        signature = _b64url_encode(bytes([raw[0] ^ 1]) + raw[1:])
+    elif failure == "algorithm_confusion":
+        header = _b64url_encode(json.dumps({"alg": "HS256", "kid": "test-key"}).encode())
+        public_key_bytes = private_key.public_key().public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        signature = _b64url_encode(hmac.new(public_key_bytes, f"{header}.{body}".encode(), hashlib.sha256).digest())
+
+    monkeypatch.setattr(security, "_jwks_cache", {"keys": [jwk]})
+    monkeypatch.setattr(security, "SUPABASE_JWT_SECRET", "legacy-secret")
+    assert security.decode_supabase_token(f"{header}.{body}.{signature}") is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("failure", [None, "http", "tls"])
+async def test_jwks_fetch_success_and_failures(monkeypatch, failure):
+    import httpx
+
+    def respond(request):
+        assert str(request.url) == "https://auth.example.test/auth/v1/.well-known/jwks.json"
+        assert request.headers["apikey"] == "test-key"
+        if failure == "tls":
+            raise httpx.ConnectError("certificate verify failed", request=request)
+        return httpx.Response(503 if failure == "http" else 200, json={"keys": [{"kid": "key-1"}]})
+
+    client_class = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda: client_class(transport=httpx.MockTransport(respond)))
+    monkeypatch.setattr(security, "SUPABASE_URL", "https://auth.example.test")
+    monkeypatch.setattr(security, "SUPABASE_KEY", "test-key")
+    monkeypatch.setattr(security, "_jwks_cache", None)
+
+    result = await security._fetch_jwks_async()
+    expected = None if failure else {"keys": [{"kid": "key-1"}]}
+    assert result == expected
+    assert security._jwks_cache == expected
