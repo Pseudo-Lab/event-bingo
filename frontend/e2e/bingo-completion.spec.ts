@@ -19,16 +19,15 @@ const firstThreeRows = Array.from({ length: 15 }, (_, index) => `키워드 ${ind
 test("updates the board from incoming exchanges and celebrates when the bingo goal is reached", async ({
   page,
 }) => {
-  let boardRequestCount = 0;
-  let interactionRequestCount = 0;
+  let stateRequestCount = 0;
 
   await seedBingoSession(page, session);
   await mockPublicEventProfile(page);
   await mockParticipantSearch(page, [{ user_id: 9, display_name: "상대방" }]);
 
-  await page.route(`**/api/bingo/boards/${session.userId}**`, async (route) => {
-    boardRequestCount += 1;
-    const hasReachedGoal = boardRequestCount > 1;
+  await page.route(`**/api/bingo/boards/state/${session.userId}**`, async (route) => {
+    stateRequestCount += 1;
+    const hasReachedGoal = stateRequestCount > 1;
 
     await route.fulfill({
       status: 200,
@@ -36,29 +35,19 @@ test("updates the board from incoming exchanges and celebrates when the bingo go
       body: JSON.stringify({
         ok: true,
         message: "ok",
-        user_id: session.userId,
-        display_name: session.userName,
-        board_data: buildBoardData({
-          selectedValues,
-          activeValues: hasReachedGoal ? firstThreeRows : [],
-        }),
-        bingo_count: hasReachedGoal ? 3 : 0,
-        user_interaction_count: hasReachedGoal ? 1 : 0,
-      }),
-    });
-  });
-
-  await page.route(`**/api/bingo/interactions/${session.userId}/all**`, async (route) => {
-    interactionRequestCount += 1;
-    const hasNewIncomingExchange = interactionRequestCount > 1;
-
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ok: true,
-        message: "ok",
-        interactions: hasNewIncomingExchange
+        board: {
+          ok: true,
+          message: "ok",
+          user_id: session.userId,
+          display_name: session.userName,
+          board_data: buildBoardData({
+            selectedValues,
+            activeValues: hasReachedGoal ? firstThreeRows : [],
+          }),
+          bingo_count: hasReachedGoal ? 3 : 0,
+          user_interaction_count: hasReachedGoal ? 1 : 0,
+        },
+        interactions: hasReachedGoal
           ? [
               buildInteractionRecord({
                 interactionId: 201,
@@ -71,7 +60,7 @@ test("updates the board from incoming exchanges and celebrates when the bingo go
                 createdAt: "2026-05-16T12:00:00+09:00",
               }),
             ]
-          : [],
+            : [],
       }),
     });
   });
@@ -82,7 +71,7 @@ test("updates the board from incoming exchanges and celebrates when the bingo go
   await expect(page.locator(".bingo-board-cell.is-complete")).toHaveCount(0);
 
   await expect(page.getByRole("heading", { name: "빙고를 완성했어요" })).toBeVisible({
-    timeout: 8000,
+    timeout: 15_000,
   });
   await expect(page.getByText("3줄 미션을 달성했습니다.")).toBeVisible();
   await expect(page.locator(".bingo-board-cell.is-complete")).toHaveCount(15);

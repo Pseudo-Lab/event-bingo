@@ -1,0 +1,76 @@
+{
+  "users": 200,
+  "workers": 4,
+  "duration_seconds": 600.05,
+  "poll_interval_seconds": 11.0,
+  "exchange_interval_per_user_seconds": 30.0,
+  "login_rate_per_second": 5.0,
+  "peak_database_connections": 16,
+  "created_interactions": 4217,
+  "errors": {},
+  "sustained_p95_ms": 54.2,
+  "requests": {
+    "burst:exchange": {
+      "count": 200,
+      "p50_ms": 716.45,
+      "p95_ms": 960.99,
+      "p99_ms": 994.97
+    },
+    "burst:health": {
+      "count": 200,
+      "p50_ms": 198.17,
+      "p95_ms": 219.76,
+      "p99_ms": 221.8
+    },
+    "burst:state": {
+      "count": 200,
+      "p50_ms": 597.15,
+      "p95_ms": 717.47,
+      "p99_ms": 730.1
+    },
+    "login:login": {
+      "count": 200,
+      "p50_ms": 243.86,
+      "p95_ms": 254.81,
+      "p99_ms": 273.5
+    },
+    "same_receiver:exchange": {
+      "count": 25,
+      "p50_ms": 166.68,
+      "p95_ms": 244.1,
+      "p99_ms": 253.47
+    },
+    "sustained:exchange": {
+      "count": 3992,
+      "p50_ms": 52.89,
+      "p95_ms": 58.39,
+      "p99_ms": 63.09
+    },
+    "sustained:search": {
+      "count": 3992,
+      "p50_ms": 9.95,
+      "p95_ms": 14.53,
+      "p99_ms": 21.58
+    },
+    "sustained:state": {
+      "count": 10894,
+      "p50_ms": 12.49,
+      "p95_ms": 18.67,
+      "p99_ms": 51.19
+    },
+    "verify:state": {
+      "count": 200,
+      "p50_ms": 112.65,
+      "p95_ms": 225.16,
+      "p99_ms": 246.38
+    }
+  },
+  "realtime_enabled": false,
+  "websocket_delivery_tested": false,
+  "supabase_auth_tested": false,
+  "seconds_total": 646.18,
+  "backend_log": "/tmp/event-bingo-capacity-76ebgq6m/backend.log",
+  "latency_failures": [],
+  "max_p95_ms": 1000.0,
+  "passed": true
+}

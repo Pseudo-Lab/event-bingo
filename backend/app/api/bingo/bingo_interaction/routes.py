@@ -28,12 +28,10 @@ async def get_user_latest_interaction(
 @bingo_interaction_router.get("/{user_id}/all", response_model=BingoInteractionListResponse)
 async def get_user_all_interactions(
     user_id: int = Path(..., title="유저 아이디"),
-    after_interaction_id: int | None = Query(None, title="마지막으로 확인한 인터랙션 ID", ge=0),
     event_slug: str | None = Query(None, title="이벤트 slug"),
     bingo_interaction: GetUserAllInteractions = Depends(GetUserAllInteractions),
 ):
     return await bingo_interaction.execute(
         user_id=user_id,
         event_slug=event_slug,
-        after_interaction_id=after_interaction_id,
     )

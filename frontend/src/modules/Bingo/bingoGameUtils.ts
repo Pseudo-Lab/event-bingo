@@ -488,9 +488,3 @@ export const mergeInteractionRecords = (
     return (right.interaction_id ?? 0) - (left.interaction_id ?? 0);
   });
 };
-
-export const getLatestInteractionId = (records: InteractionRecord[]) => {
-  return records.reduce((maxId, record) => {
-    return Math.max(maxId, record.interaction_id ?? 0);
-  }, 0);
-};

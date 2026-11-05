@@ -142,17 +142,42 @@ test.describe("mobile touch", () => {
   });
 
   test("scrolls to the board when an incoming exchange updates keywords", async ({ page }) => {
-    let boardRequestCount = 0;
-    let interactionRequestCount = 0;
+    let stateRequestCount = 0;
+    const stateRequestUrls: string[] = [];
+    const realtimeRequests: string[] = [];
+    page.on("websocket", (socket) => {
+      if (socket.url().includes("/realtime/")) realtimeRequests.push(socket.url());
+    });
+    page.on("request", (request) => {
+      if (request.url().includes("/runtime/runtime-config.json")) {
+        realtimeRequests.push(request.url());
+      }
+    });
     const incomingKeyword = "키워드 4";
+    const existingHigherId = buildInteractionRecord({
+      interactionId: 202,
+      sendUserId: session.userId,
+      receiveUserId: 10,
+      createdAt: "2026-03-19T12:00:01+09:00",
+    });
+    const lateLowerId = buildInteractionRecord({
+      interactionId: 201,
+      sendUserId: 9,
+      receiveUserId: session.userId,
+      sendUserName: "상대방",
+      receiveUserName: session.userName,
+      updatedWords: [incomingKeyword],
+      createdAt: "2026-03-19T12:00:00+09:00",
+    });
 
     await seedBingoSession(page, session);
     await mockPublicEventProfile(page);
     await mockParticipantSearch(page, [{ user_id: 9, display_name: "상대방" }]);
 
-    await page.route(`**/api/bingo/boards/${session.userId}**`, async (route) => {
-      boardRequestCount += 1;
-      const hasIncomingKeyword = boardRequestCount > 1;
+    await page.route(`**/api/bingo/boards/state/${session.userId}**`, async (route) => {
+      stateRequestCount += 1;
+      stateRequestUrls.push(route.request().url());
+      const hasIncomingKeyword = stateRequestCount > 1;
 
       await route.fulfill({
         status: 200,
@@ -160,40 +185,21 @@ test.describe("mobile touch", () => {
         body: JSON.stringify({
           ok: true,
           message: "ok",
-          user_id: session.userId,
-          display_name: session.userName,
-          board_data: buildBoardData({
-            selectedValues,
-            activeValues: hasIncomingKeyword ? [incomingKeyword] : [],
-          }),
-          bingo_count: 0,
-          user_interaction_count: hasIncomingKeyword ? 1 : 0,
-        }),
-      });
-    });
-
-    await page.route(`**/api/bingo/interactions/${session.userId}/all**`, async (route) => {
-      interactionRequestCount += 1;
-      const hasIncomingKeyword = interactionRequestCount > 1;
-
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          ok: true,
-          message: "ok",
+          board: {
+            ok: true,
+            message: "ok",
+            user_id: session.userId,
+            display_name: session.userName,
+            board_data: buildBoardData({
+              selectedValues,
+              activeValues: hasIncomingKeyword ? [incomingKeyword] : [],
+            }),
+            bingo_count: 0,
+            user_interaction_count: hasIncomingKeyword ? 1 : 0,
+          },
           interactions: hasIncomingKeyword
-            ? [
-                buildInteractionRecord({
-                  interactionId: 202,
-                  sendUserId: 9,
-                  receiveUserId: session.userId,
-                  sendUserName: "상대방",
-                  receiveUserName: session.userName,
-                  updatedWords: [incomingKeyword],
-                }),
-              ]
-            : [],
+            ? [existingHigherId, lateLowerId]
+            : [existingHigherId],
         }),
       });
     });
@@ -203,8 +209,11 @@ test.describe("mobile touch", () => {
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
 
     await expect
-      .poll(() => page.evaluate(() => window.scrollY), { timeout: 7000 })
+      .poll(() => page.evaluate(() => window.scrollY), { timeout: 15_000 })
       .toBeGreaterThan(0);
+    expect(stateRequestUrls).toHaveLength(2);
+    expect(realtimeRequests).toEqual([]);
+    expect(new URL(stateRequestUrls[1]).searchParams.has("after_interaction_id")).toBe(false);
     const latestCell = page.locator(".bingo-board-cell.is-latest");
     await expect(latestCell).toContainText(incomingKeyword);
     await expect
@@ -217,42 +226,34 @@ test.describe("mobile touch", () => {
   test("emphasizes the existing card when a duplicate incoming keyword arrives", async ({
     page,
   }) => {
-    let interactionRequestCount = 0;
+    let stateRequestCount = 0;
     const duplicateKeyword = "키워드 1";
 
     await seedBingoSession(page, session);
     await mockPublicEventProfile(page);
     await mockParticipantSearch(page, [{ user_id: 9, display_name: "상대방" }]);
 
-    await page.route(`**/api/bingo/boards/${session.userId}**`, async (route) => {
+    await page.route(`**/api/bingo/boards/state/${session.userId}**`, async (route) => {
+      stateRequestCount += 1;
+      const hasDuplicateIncoming = stateRequestCount > 1;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           ok: true,
           message: "ok",
-          user_id: session.userId,
-          display_name: session.userName,
-          board_data: buildBoardData({
-            selectedValues,
-            activeValues: [duplicateKeyword],
-          }),
-          bingo_count: 0,
-          user_interaction_count: interactionRequestCount > 0 ? 1 : 0,
-        }),
-      });
-    });
-
-    await page.route(`**/api/bingo/interactions/${session.userId}/all**`, async (route) => {
-      interactionRequestCount += 1;
-      const hasDuplicateIncoming = interactionRequestCount > 1;
-
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          ok: true,
-          message: "ok",
+          board: {
+            ok: true,
+            message: "ok",
+            user_id: session.userId,
+            display_name: session.userName,
+            board_data: buildBoardData({
+              selectedValues,
+              activeValues: [duplicateKeyword],
+            }),
+            bingo_count: 0,
+            user_interaction_count: hasDuplicateIncoming ? 1 : 0,
+          },
           interactions: hasDuplicateIncoming
             ? [
                 buildInteractionRecord({
@@ -273,7 +274,7 @@ test.describe("mobile touch", () => {
     await expect(page.getByLabel("상대방 이름 검색")).toBeVisible();
 
     const latestCell = page.locator(".bingo-board-cell.is-latest");
-    await expect(latestCell).toContainText(duplicateKeyword, { timeout: 7000 });
+    await expect(latestCell).toContainText(duplicateKeyword, { timeout: 15_000 });
     await expect
       .poll(() =>
         latestCell.evaluate((element) => getComputedStyle(element).animationName)
