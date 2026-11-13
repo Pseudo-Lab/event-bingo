@@ -3,6 +3,9 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 
 import os
+import asyncio
+from sqlalchemy import text
+from starlette.responses import JSONResponse
 from contextlib import asynccontextmanager
 from core.db import db
 from core.security import warm_jwks_cache
@@ -68,6 +71,21 @@ def hc():
 @app.get("/health", include_in_schema=False)
 def health():
     return {"status": "ok"}
+
+
+@app.get("/health/db", include_in_schema=False)
+async def database_health():
+    try:
+        async with db.async_session_factory() as session:
+            async with asyncio.timeout(10):
+                await session.execute(text("SET TRANSACTION READ ONLY"))
+                await session.execute(text("SET LOCAL statement_timeout = '5s'"))
+                result = await session.scalar(text("SELECT 1"))
+                if result != 1:
+                    raise RuntimeError("Unexpected database health result")
+        return {"status": "ok", "dependency": "database"}
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "unavailable", "dependency": "database"})
 
 
 Instrumentator().instrument(app).expose(app, include_in_schema=False)
