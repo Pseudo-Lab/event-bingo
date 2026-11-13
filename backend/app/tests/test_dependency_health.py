@@ -17,6 +17,7 @@ async def test_database_health_is_read_only(monkeypatch):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/health/db")
     assert response.status_code == 200
+    assert response.json() == {"status": "ok", "dependency": "database"}
     assert [str(call.args[0]) for call in session.execute.await_args_list] == [
         "SET TRANSACTION READ ONLY", "SET LOCAL statement_timeout = '5s'",
     ]
