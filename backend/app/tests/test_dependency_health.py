@@ -1,4 +1,5 @@
 from unittest.mock import AsyncMock
+import asyncio
 
 import httpx
 import pytest
@@ -63,6 +64,7 @@ async def test_auth_health_checks_google_settings(monkeypatch, code, payload, ex
     (httpx.ConnectError("private-host"), "connection_failed"),
     (httpx.ReadTimeout("private-host"), "timeout"),
     (ValueError("secret"), "invalid_response"),
+    (httpx.RemoteProtocolError("private-host"), "connection_failed"),
 ])
 async def test_auth_health_handles_transport_failures(monkeypatch, error, reason):
     context = AsyncMock()
@@ -74,3 +76,44 @@ async def test_auth_health_handles_transport_failures(monkeypatch, error, reason
         response = await client.get("/health/auth")
     assert response.status_code == 503
     assert response.json()["reason"] == reason
+
+
+@pytest.mark.anyio
+async def test_database_timeout_closes_session(monkeypatch):
+    original_timeout = asyncio.timeout
+    monkeypatch.setattr(main.asyncio, "timeout", lambda seconds: original_timeout(0.001))
+    async def stalled_query(*args):
+        await asyncio.Event().wait()
+    session = AsyncMock()
+    session.scalar.side_effect = stalled_query
+    context = AsyncMock()
+    context.__aenter__.return_value = session
+    monkeypatch.setattr(main.db, "async_session_factory", lambda: context)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/health/db")
+    assert response.status_code == 503
+    context.__aexit__.assert_awaited_once()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("body", ["not json", "null", "[]", '{"external": null}'])
+async def test_auth_health_rejects_malformed_settings(monkeypatch, body):
+    context = AsyncMock()
+    context.__aenter__.return_value.get.return_value = httpx.Response(200, text=body)
+    monkeypatch.setattr(main, "SUPABASE_URL", "https://project.invalid")
+    monkeypatch.setattr(main, "SUPABASE_KEY", "test-key")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        monkeypatch.setattr(main.httpx, "AsyncClient", lambda **kwargs: context)
+        response = await client.get("/health/auth")
+    assert response.status_code == 503
+    assert response.json()["reason"] == "invalid_response"
+
+
+@pytest.mark.anyio
+async def test_auth_health_missing_configuration(monkeypatch):
+    monkeypatch.setattr(main, "SUPABASE_URL", "")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/health/auth")
+    assert response.status_code == 503
+    assert response.json()["reason"] == "not_configured"

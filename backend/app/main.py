@@ -77,8 +77,8 @@ def health():
 @app.get("/health/db", include_in_schema=False)
 async def database_health():
     try:
-        async with asyncio.timeout(10):
-            async with db.async_session_factory() as session:
+        async with db.async_session_factory() as session:
+            async with asyncio.timeout(10):
                 await session.execute(text("SET TRANSACTION READ ONLY"))
                 await session.execute(text("SET LOCAL statement_timeout = '5s'"))
                 result = await session.scalar(text("SELECT 1"))
@@ -95,19 +95,20 @@ async def auth_health():
     if SUPABASE_URL and SUPABASE_KEY:
         try:
             async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.get(
-                    f"{SUPABASE_URL.rstrip('/')}/auth/v1/settings",
-                    headers={"apikey": SUPABASE_KEY},
-                )
+                async with asyncio.timeout(10):
+                    response = await client.get(
+                        f"{SUPABASE_URL.rstrip('/')}/auth/v1/settings",
+                        headers={"apikey": SUPABASE_KEY},
+                    )
             if response.status_code == 200:
                 if response.json().get("external", {}).get("google") is True:
                     return {"status": "ok", "dependency": "supabase_auth"}
                 reason = "google_disabled"
             else:
                 reason = f"http_{response.status_code}"
-        except httpx.TimeoutException:
+        except (httpx.TimeoutException, TimeoutError):
             reason = "timeout"
-        except httpx.ConnectError:
+        except httpx.RequestError:
             reason = "connection_failed"
         except Exception:
             reason = "invalid_response"
