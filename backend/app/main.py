@@ -4,12 +4,11 @@ from fastapi.openapi.utils import get_openapi
 
 import os
 import asyncio
-import httpx
 from sqlalchemy import text
 from starlette.responses import JSONResponse
 from contextlib import asynccontextmanager
 from core.db import db
-from core.security import warm_jwks_cache, SUPABASE_URL, SUPABASE_KEY
+from core.security import warm_jwks_cache
 from api.admin.console_services import (
     PRIVACY_REDACTION_RUN_ON_STARTUP,
     ensure_admin_console_seed_data,
@@ -87,34 +86,6 @@ async def database_health():
         return {"status": "ok", "dependency": "database"}
     except Exception:
         return JSONResponse(status_code=503, content={"status": "unavailable", "dependency": "database"})
-
-
-@app.get("/health/auth", include_in_schema=False)
-async def auth_health():
-    reason = "not_configured"
-    if SUPABASE_URL and SUPABASE_KEY:
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                async with asyncio.timeout(10):
-                    response = await client.get(
-                        f"{SUPABASE_URL.rstrip('/')}/auth/v1/settings",
-                        headers={"apikey": SUPABASE_KEY},
-                    )
-            if response.status_code == 200:
-                if response.json().get("external", {}).get("google") is True:
-                    return {"status": "ok", "dependency": "supabase_auth"}
-                reason = "google_disabled"
-            else:
-                reason = f"http_{response.status_code}"
-        except (httpx.TimeoutException, TimeoutError):
-            reason = "timeout"
-        except httpx.RequestError:
-            reason = "connection_failed"
-        except Exception:
-            reason = "invalid_response"
-    return JSONResponse(status_code=503, content={
-        "status": "unavailable", "dependency": "supabase_auth", "reason": reason,
-    })
 
 
 Instrumentator().instrument(app).expose(app, include_in_schema=False)
