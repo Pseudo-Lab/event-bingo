@@ -701,11 +701,7 @@ export const mockCreateUserBingoInteraction = async (
   };
 };
 
-export const mockGetUserAllInteraction = async (
-  userId: string,
-  _eventSlug?: string,
-  afterInteractionId?: number
-): Promise<MockInteractionListResponse> => {
+export const mockGetUserAllInteraction = async (userId: string): Promise<MockInteractionListResponse> => {
   const numericUserId = Number(userId);
   const state = readState();
   const interactions = state.interactions
@@ -715,10 +711,6 @@ export const mockGetUserAllInteraction = async (
         interaction.receive_user_id !== numericUserId
       ) {
         return false;
-      }
-
-      if (typeof afterInteractionId === "number") {
-        return interaction.interaction_id > afterInteractionId;
       }
 
       return true;

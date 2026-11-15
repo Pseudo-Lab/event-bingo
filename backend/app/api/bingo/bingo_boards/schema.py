@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from core.base_schema import BaseSchema
+from api.bingo.bingo_interaction.schema import BingoInteractionResponse
 from models.bingo.schema import BingoEventUserInfo
 
 
@@ -55,6 +56,14 @@ class BingoBoardResponse(BaseSchema):
     user_interaction_count: Optional[int] = Field(title="유저 상호작용 갯수", default=None)
     created_at: Optional[datetime] = Field(title="생성일", default=None)
     updated_at: Optional[datetime] = Field(title="수정일", default=None)
+
+
+class BingoStateResponse(BaseSchema):
+    board: Optional[BingoBoardResponse] = Field(title="빙고판", default=None)
+    interactions: list[BingoInteractionResponse] = Field(
+        title="전체 빙고 인터렉션",
+        default_factory=list,
+    )
 
 
 class UpdateBingoCountResponse(BaseSchema):

@@ -230,6 +230,28 @@ describe("mergeInteractionRecords", () => {
     expect(result.map((record) => record.interaction_id)).toEqual([12, 11, 10]);
   });
 
+  it("keeps a lower interaction id that becomes visible after a higher id", () => {
+    const higherId = {
+      interaction_id: 202,
+      send_user_id: 1,
+      receive_user_id: 3,
+      created_at: "2026-03-19T10:01:00.000Z",
+      word_id_list: '["ML"]',
+    };
+    const lateLowerId = {
+      interaction_id: 201,
+      send_user_id: 2,
+      receive_user_id: 1,
+      created_at: "2026-03-19T10:00:00.000Z",
+      word_id_list: '["AI"]',
+    };
+
+    expect(mergeInteractionRecords([higherId], [higherId, lateLowerId])).toEqual([
+      higherId,
+      lateLowerId,
+    ]);
+  });
+
   it("deduplicates records without ids by sender, receiver, timestamp, and keywords", () => {
     const record: InteractionRecord = {
       send_user_id: 5,
