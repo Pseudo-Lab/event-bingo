@@ -1,5 +1,13 @@
 # Event BINGO concurrency incident fix handoff
 
+## Latest release decision — 2026-11-16 02:17 KST
+
+- The user confirmed no current production event and approved proceeding with final PR publication/CI, then Ops-reviewed production rollout and post-deployment QA. This decision supersedes earlier requirements to build a separate external candidate environment before release. Backup automation and a dedicated external test environment are not prerequisites for this change.
+- Pre-release gates: review the full pooling/polling/exchange/auth/startup-lock diff, preserve the current regression/capacity evidence, and pass every required remote CI check on the final published SHA. Previous main or PR checks do not substitute for those checks.
+- Ownership: Bingo prepares and publishes the existing PR #252 head and follows CI; Ops independently reviews the exact diff/CI and owns merge, existing automatic deployment verification, rollback and post-release QA. No manual sync or duplicate image update is added. Ops #11 and the renewal branch are outside this publication scope.
+- Post-release QA: public-route smoke and observations can run read-only. Real Google login, two-participant exchange, polling/reload/history and account-switch regression require designated synthetic identities/event or user-operated checks; no personal/live-user fixtures are assumed authorized. Account creation, invitation/email/notification side effects, writes and scoped cleanup must remain explicit. The recent public smoke is current-main evidence only, not candidate E2E.
+- Remaining risks to observe: Supavisor round-trip/idle behavior, production Pod resource limits, auth mapping writes, rolling-version fallback and migration init lock contention. The local 200-user run supports the change but is not an operating-capacity guarantee. Both current production images are `sha-970df3d`; verify immutable rollback digests and the deployed new revision during rollout.
+
 ## External-service verification update — 2026-11-16
 
 - Latest scope: local performance is supporting evidence, not sufficient for service-level GO. The candidate is not deployed. The following external observations apply only to the current frontend/backend `sha-970df3d`; application code tested locally remains `0144802` and later commits are documentation only. Backup remains separate from this no-schema-migration release.
