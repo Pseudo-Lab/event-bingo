@@ -1,5 +1,11 @@
 # Event BINGO concurrency incident fix handoff
 
+## Final CI runner correction — 2026-11-16
+
+- Published candidate `3f13a16`: Backend, Backend DB Integration, Frontend and both AMD64 Docker builds passed remotely. Frontend E2E failed before tests at browser installation: pinned Playwright 1.58.2 does not support `ubuntu26.04-x64`, now supplied by `ubuntu-latest`.
+- Local full Playwright rerun after the runner correction: 19 passed in 42.0s.
+- Minimal correction: pin only the Frontend E2E job to `ubuntu-24.04`, supported by installed Playwright's browser registry and versioned upstream documentation. No application, test assertions or package versions changed. The next published head must pass all checks; the five earlier successes are not reused as final-head CI results.
+
 ## Latest release decision — 2026-11-16 02:17 KST
 
 - The user confirmed no current production event and approved proceeding with final PR publication/CI, then Ops-reviewed production rollout and post-deployment QA. This decision supersedes earlier requirements to build a separate external candidate environment before release. Backup automation and a dedicated external test environment are not prerequisites for this change.
