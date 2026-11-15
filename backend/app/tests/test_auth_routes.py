@@ -1,6 +1,11 @@
 import pytest
 
-from api.auth.routes import auth_router, bingo_search_participants, resolve_participant_search_name
+from api.auth.routes import (
+    auth_router,
+    bingo_register,
+    bingo_search_participants,
+    resolve_participant_search_name,
+)
 from api.auth.schema import BingoLoginRequest, BingoRegisterRequest
 
 
@@ -49,6 +54,34 @@ def test_bingo_login_request_accepts_optional_google_email():
     )
 
     assert payload.user_email == "tester@example.com"
+
+
+@pytest.mark.anyio
+async def test_bingo_register_uses_verified_identity_instead_of_request_email():
+    captured: dict[str, object] = {}
+
+    class RegisterStub:
+        async def execute(self, *args):
+            captured["args"] = args
+            return {"ok": True}
+
+    await bingo_register(
+        BingoRegisterRequest(
+            password="bridge-key",
+            event_slug="sample-event",
+            user_email="untrusted@example.com",
+        ),
+        RegisterStub(),
+        {"provider_id": "supabase-user-id", "email": "verified@example.com"},
+    )
+
+    assert captured["args"] == (
+        None,
+        "bridge-key",
+        "sample-event",
+        "verified@example.com",
+        "supabase-user-id",
+    )
 
 
 def test_resolve_participant_search_name_prefers_event_board_name():

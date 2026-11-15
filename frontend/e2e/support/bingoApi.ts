@@ -229,6 +229,20 @@ export const buildBoardData = ({
 };
 
 export const mockEmptyBoardBootstrap = async (page: Page, userId: number) => {
+  await page.route(`**/api/bingo/boards/state/${userId}**`, async (route) => {
+    await fulfillJson(route, {
+      ok: true,
+      message: "ok",
+      board: {
+        ok: true,
+        message: "ok",
+        user_id: userId,
+        board_data: null,
+      },
+      interactions: [],
+    });
+  });
+
   await page.route(`**/api/bingo/boards/${userId}**`, async (route) => {
     await fulfillJson(route, {
       ok: true,
@@ -262,19 +276,30 @@ export const mockBoardBootstrap = async ({
   activeValues?: string[];
   interactions?: JsonBody[];
 }) => {
-  await page.route(`**/api/bingo/boards/${userId}**`, async (route) => {
+  const board = {
+    ok: true,
+    message: "ok",
+    user_id: userId,
+    display_name: displayName,
+    board_data: buildBoardData({
+      selectedValues,
+      activeValues,
+    }),
+    bingo_count: 0,
+    user_interaction_count: interactions.length,
+  };
+
+  await page.route(`**/api/bingo/boards/state/${userId}**`, async (route) => {
     await fulfillJson(route, {
       ok: true,
       message: "ok",
-      user_id: userId,
-      display_name: displayName,
-      board_data: buildBoardData({
-        selectedValues,
-        activeValues,
-      }),
-      bingo_count: 0,
-      user_interaction_count: interactions.length,
+      board,
+      interactions,
     });
+  });
+
+  await page.route(`**/api/bingo/boards/${userId}**`, async (route) => {
+    await fulfillJson(route, board);
   });
 
   await page.route(`**/api/bingo/interactions/${userId}/all**`, async (route) => {

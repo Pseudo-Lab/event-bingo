@@ -67,4 +67,4 @@ jobs:
           ENV: test
           PYTHONPATH: app
           TEST_DB_URL: postgresql+asyncpg://event_bingo_test:event_bingo_test@127.0.0.1:55432/event_bingo_test
-        run: pytest --run-db-integration app/tests/test_bingo_interaction_db_integration.py
+        run: pytest --run-db-integration app/tests/test_bingo_interaction_db_integration.py app/tests/test_db_lifecycle.py

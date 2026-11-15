@@ -54,7 +54,7 @@ async def test_login_json_success_and_validation_errors(client):
     response = await client.post("/api/auth/bingo/login", json={"login_id": "ABC123", "password": "test-pass"})
     assert response.status_code == 200
     assert response.json()["user_id"] == 7
-    login.execute.assert_awaited_once_with("ABC123", "test-pass", None, None)
+    login.execute.assert_awaited_once_with("ABC123", "test-pass", None, None, None)
     for body in ({}, {"login_id": "ABC123", "password": "x"}):
         response = await client.post("/api/auth/bingo/login", json=body)
         assert response.status_code == 422

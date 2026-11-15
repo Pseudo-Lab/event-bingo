@@ -66,6 +66,11 @@ type BingoInteractionResponse = ApiResponseBase & {
   created_at?: string | null;
 };
 
+type BingoStateResponse = ApiResponseBase & {
+  board?: BingoBoardResponse | null;
+  interactions?: BingoInteractionResponse[] | null;
+};
+
 type BingoExchangeResult = {
   ok: true;
   message: string;
@@ -78,6 +83,13 @@ type BingoExchangeFailure = {
   ok: false;
   message: string;
 };
+
+class ApiRequestError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
 
 const API_URL = getApiBaseUrl();
 const hasApiUrl = API_URL.length > 0;
@@ -157,7 +169,7 @@ const requestJson = async <T>(
   const response = await fetch(createApiUrl(path, params), await withJsonHeaders(init));
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    throw new ApiRequestError(response.status, await readErrorMessage(response));
   }
 
   return response.json() as Promise<T>;
@@ -316,6 +328,49 @@ export const getBingoBoard = async (userId: string, eventSlug?: string) => {
   return { board: toBoardItems(data.board_data), displayName: data.display_name ?? undefined };
 };
 
+export const getBingoState = async (userId: string, eventSlug?: string) => {
+  const getLegacyState = async () => {
+    const [boardResult, interactionResult] = await Promise.all([
+      getBingoBoard(userId, eventSlug),
+      getUserAllInteraction(userId, eventSlug),
+    ]);
+    return {
+      ...boardResult,
+      interactions: interactionResult.interactions,
+    };
+  };
+
+  if (shouldUseMockApi() || !eventSlug) {
+    return getLegacyState();
+  }
+
+  let data: BingoStateResponse;
+  try {
+    data = await requestJson<BingoStateResponse>(
+      `/api/bingo/boards/state/${userId}`,
+      { method: "GET" },
+      { event_slug: eventSlug }
+    );
+  } catch (error) {
+    // During a rolling deployment, a new frontend can briefly reach an old
+    // backend replica that does not provide the combined endpoint yet.
+    if (error instanceof ApiRequestError && error.status === 404) {
+      return getLegacyState();
+    }
+    throw error;
+  }
+
+  if (!data.ok || !data.board?.ok) {
+    return { board: [], displayName: undefined, interactions: [] };
+  }
+
+  return {
+    board: toBoardItems(data.board.board_data),
+    displayName: data.board.display_name ?? undefined,
+    interactions: toInteractionRecords(data.interactions ?? []),
+  };
+};
+
 export const createUserBingoInteraction = async (
   word_id_list: string,
   send_user_id: number,
@@ -375,20 +430,16 @@ export const getUserLatestInteraction = async (
 
 export const getUserAllInteraction = async (
   userId: string,
-  eventSlug?: string,
-  afterInteractionId?: number
+  eventSlug?: string
 ) => {
   const data = shouldUseMockApi()
-    ? await mockGetUserAllInteraction(userId, eventSlug, afterInteractionId)
+    ? await mockGetUserAllInteraction(userId)
     : await requestJson<
         ApiResponseBase & { interactions?: BingoInteractionResponse[] | null }
       >(
         `/api/bingo/interactions/${userId}/all`,
         { method: "GET" },
         {
-          ...(typeof afterInteractionId === "number"
-            ? { after_interaction_id: afterInteractionId }
-            : {}),
           ...(eventSlug ? { event_slug: eventSlug } : {}),
         }
       );
@@ -411,28 +462,51 @@ export type BingoParticipantItem = {
   display_name: string;
 };
 
+const PARTICIPANT_SEARCH_CACHE_MS = 15_000;
+const participantSearchCache = new Map<
+  string,
+  { expiresAt: number; participants: BingoParticipantItem[] }
+>();
+
 export const searchBingoParticipants = async (
   query: string,
   eventSlug: string,
-  excludeUserId?: string
+  excludeUserId?: string,
+  signal?: AbortSignal
 ) => {
+  const normalizedQuery = query.trim();
+  if (normalizedQuery.length < 2) {
+    return [];
+  }
+
   if (shouldUseMockApi()) {
-    return mockSearchBingoParticipants(query, excludeUserId);
+    return mockSearchBingoParticipants(normalizedQuery, excludeUserId);
+  }
+
+  const cacheKey = `${eventSlug}:${excludeUserId ?? ""}:${normalizedQuery}`;
+  const cached = participantSearchCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.participants;
   }
 
   const data = await requestJson<
     ApiResponseBase & { participants?: BingoParticipantItem[] }
   >(
     "/api/auth/bingo/search",
-    { method: "GET" },
+    { method: "GET", signal },
     {
-      q: query,
+      q: normalizedQuery,
       event_slug: eventSlug,
       ...(excludeUserId ? { exclude_user_id: excludeUserId } : {}),
     }
   );
 
-  return data.participants ?? [];
+  const participants = data.participants ?? [];
+  participantSearchCache.set(cacheKey, {
+    expiresAt: Date.now() + PARTICIPANT_SEARCH_CACHE_MS,
+    participants,
+  });
+  return participants;
 };
 
 export const updateBingoDisplayName = async (userId: string, eventSlug: string, displayName: string) => {
